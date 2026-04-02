@@ -94,7 +94,12 @@ GitHub：<https://github.com/mutuyihao/yilan>
 ├─ docs/                      # 精简后的核心文档
 ├─ icon/                      # 扩展图标
 ├─ libs/                      # 第三方库
-│  └─ readability.js          # vendored 的 Readability 外部库
+│  ├─ readability.js          # vendored 的 Readability，用于正文抽取
+│  ├─ purify.min.js           # DOMPurify，用于净化 Markdown 渲染后的 HTML
+│  ├─ marked.min.js           # Marked，用于 Markdown -> HTML 渲染
+│  ├─ highlight.min.js        # highlight.js，用于代码块高亮
+│  ├─ github-dark.min.css     # Markdown / 代码块高亮样式
+│  └─ html2canvas.min.js      # 用于生成长截图分享卡
 ├─ shared/                    # 领域工具、页面策略、可信策略、主题、厂商 preset
 ├─ tests/                     # 最小测试集
 ├─ background.js              # 后台编排、入口状态、运行控制、reader 会话
