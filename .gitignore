@@ -1,0 +1,24 @@
+# Local tooling
+.claude/
+.publish-private/
+
+# Dependencies / package managers
+node_modules/
+
+# Build / packaged extension artifacts
+dist/
+build/
+release/
+*.zip
+*.crx
+
+# Logs / temp files
+*.log
+*.tmp
+*.temp
+
+# OS / editor files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

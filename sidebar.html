@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>一览</title>
+  <script src="shared/theme.js"></script>
+  <link rel="stylesheet" href="libs/github-dark.min.css">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="shell">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-mark">览</div>
+        <div>
+          <div class="brand-title">一览</div>
+          <div class="brand-subtitle">稳定的文章总结工作台</div>
+        </div>
+      </div>
+      <div class="topbar-actions">
+        <button id="readerBtn" class="topbar-chip-btn" title="在新标签页打开专注阅读" aria-label="在新标签页打开专注阅读">阅读</button>
+        <button id="historyBtn" class="topbar-chip-btn" title="打开历史与收藏" aria-label="打开历史与收藏">历史/收藏</button>
+        <button id="themeBtn" class="theme-toggle-btn" title="切换配色模式" aria-label="切换配色模式">配色：跟随系统</button>
+        <button id="closeBtn" class="icon-btn" title="关闭" aria-label="关闭">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+      </div>
+    </header>
+
+    <main class="workspace">
+      <div class="context-grid">
+        <section class="source-card">
+          <div class="source-eyebrow">来源信息</div>
+          <h1 id="articleTitle" class="article-title">等待页面内容</h1>
+          <a id="sourceLink" class="source-link" href="#" target="_blank" rel="noreferrer noopener">当前还没有载入页面链接</a>
+          <div class="badge-row">
+            <span id="hostBadge" class="badge">未识别站点</span>
+            <span id="siteTypeBadge" class="badge badge-accent">通用网页</span>
+            <span id="strategyBadge" class="badge badge-soft">通用精读</span>
+            <span id="modeBadge" class="badge badge-soft">标准总结</span>
+          </div>
+          <div class="meta-grid">
+            <div class="meta-item">
+              <span class="meta-label">作者</span>
+              <strong id="authorValue" class="meta-value">-</strong>
+            </div>
+            <div class="meta-item">
+              <span class="meta-label">发布时间</span>
+              <strong id="publishedValue" class="meta-value">-</strong>
+            </div>
+            <div class="meta-item">
+              <span class="meta-label">正文长度</span>
+              <strong id="lengthValue" class="meta-value">-</strong>
+            </div>
+            <div class="meta-item">
+              <span class="meta-label">分段策略</span>
+              <strong id="chunkValue" class="meta-value">-</strong>
+            </div>
+          </div>
+          <div id="warningList" class="warning-list"></div>
+        </section>
+
+        <section class="trust-card">
+          <div class="source-eyebrow">可信与控制</div>
+          <div class="trust-header">
+            <div>
+              <div id="trustTitle" class="trust-title">当前策略</div>
+              <div id="trustSummary" class="trust-summary">页面内容载入后，会按照当前策略决定是否写入历史和允许分享。</div>
+            </div>
+            <button id="privacyToggleBtn" class="action-btn trust-toggle-btn" type="button">开启无痕</button>
+          </div>
+          <div class="badge-row trust-badges">
+            <span id="trustModeBadge" class="badge">标准模式</span>
+            <span id="trustHistoryBadge" class="badge">写入历史</span>
+            <span id="trustShareBadge" class="badge">允许分享</span>
+          </div>
+          <div class="trust-grid">
+            <div class="trust-item">
+              <span class="trust-label">发送到模型</span>
+              <strong id="trustSendValue" class="trust-value">等待页面内容</strong>
+              <div id="trustSendNote" class="trust-note">等当前页面内容载入后，才会发送标题、来源和正文到模型接口。</div>
+            </div>
+            <div class="trust-item">
+              <span class="trust-label">历史写入</span>
+              <strong id="trustHistoryValue" class="trust-value">待决定</strong>
+              <div id="trustHistoryNote" class="trust-note">页面载入后，生成结果会写入本地历史记录。</div>
+            </div>
+            <div class="trust-item">
+              <span class="trust-label">分享卡</span>
+              <strong id="trustShareValue" class="trust-value">待决定</strong>
+              <div id="trustShareNote" class="trust-note">页面载入后，可以生成带来源链接的分享卡。</div>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <section class="controls-card">
+        <div class="controls-row">
+          <span id="summaryModeFieldLabel" class="field-label">摘要模式</span>
+          <div class="mode-select-shell">
+            <button
+              id="summaryModeTrigger"
+              class="mode-trigger"
+              type="button"
+              aria-haspopup="listbox"
+              aria-expanded="false"
+              aria-labelledby="summaryModeFieldLabel summaryModeCurrentLabel"
+            >
+              <span id="summaryModeCurrentLabel" class="mode-trigger-label">标准总结</span>
+              <svg class="mode-trigger-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M3.5 6 8 10.5 12.5 6"></path>
+              </svg>
+            </button>
+            <div id="summaryModeMenu" class="mode-menu hidden" role="listbox" aria-label="摘要模式"></div>
+            <select id="summaryModeSelect" class="mode-select-native" tabindex="-1" aria-hidden="true"></select>
+          </div>
+        </div>
+        <div class="action-row">
+          <button id="regenerateBtn" class="action-btn action-btn-primary">重新生成</button>
+          <button id="cancelBtn" class="action-btn">取消</button>
+          <button id="favoriteBtn" class="action-btn">加入收藏</button>
+          <button id="copyBtn" class="action-btn">复制</button>
+          <button id="shareBtn" class="action-btn">长截图</button>
+          <button id="exportBtn" class="action-btn">导出</button>
+        </div>
+        <div class="secondary-inline">
+          <div>
+            <div class="secondary-inline-label">继续生成</div>
+            <div class="secondary-title">基于当前摘要继续处理</div>
+          </div>
+          <div class="secondary-actions">
+            <button class="secondary-btn" data-mode="action_items">行动项</button>
+            <button class="secondary-btn" data-mode="glossary">术语表</button>
+            <button class="secondary-btn" data-mode="qa">问答卡片</button>
+          </div>
+        </div>
+      </section>
+
+      <section id="content" class="content-panel">
+        <div id="summaryRoot" class="summary-root summary-placeholder">
+          <div class="placeholder-icon">览</div>
+          <h2>准备开始总结</h2>
+          <p>右键当前页面选择“用一览总结此页”，或者使用快捷键 <kbd>Alt + S</kbd>。</p>
+        </div>
+      </section>
+    </main>
+
+    <aside id="historyPanel" class="history-panel hidden">
+      <div class="history-header">
+        <div>
+          <div class="source-eyebrow">总结记录</div>
+          <div class="history-title">历史与收藏</div>
+        </div>
+        <button id="historyCloseBtn" class="icon-btn" aria-label="关闭历史面板">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+      </div>
+      <div class="history-tools">
+        <input id="historySearch" class="history-search" type="search" placeholder="搜索标题、站点、模式、模型">
+        <label class="history-filter">
+          <input id="favoritesOnly" type="checkbox">
+          <span>只看收藏</span>
+        </label>
+      </div>
+      <div id="historySiteFilters" class="history-site-filters"></div>
+      <div id="historyList" class="history-list"></div>
+    </aside>
+
+    <footer class="footer">
+      <span id="statusText" class="status-text">就绪</span>
+      <div class="footer-meta">
+        <span id="statsText" class="stats-text"></span>
+        <details id="diagnosticsBlock" class="diagnostics-card">
+          <summary id="diagnosticsToggle">运行诊断</summary>
+          <pre id="diagnosticsPre" class="diagnostics-pre">等待本次运行的诊断信息...</pre>
+        </details>
+      </div>
+    </footer>
+  </div>
+
+  <script src="shared/domain.js"></script>
+  <script src="shared/strings.js"></script>
+  <script src="shared/page-strategy.js"></script>
+  <script src="shared/abort-utils.js"></script>
+  <script src="shared/errors.js"></script>
+  <script src="shared/article-utils.js"></script>
+  <script src="shared/trust-policy.js"></script>
+  <script src="shared/run-utils.js"></script>
+  <script src="libs/purify.min.js"></script>
+  <script src="libs/marked.min.js"></script>
+  <script src="libs/highlight.min.js"></script>
+  <script src="libs/html2canvas.min.js"></script>
+  <script src="db.js"></script>
+  <script src="sidebar.js"></script>
+</body>
+</html>

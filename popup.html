@@ -1,0 +1,666 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>一览设置</title>
+  <script src="shared/theme.js"></script>
+  <style>
+    :root {
+      --bg: #07131f;
+      --panel: rgba(10, 23, 37, 0.92);
+      --field: #13273e;
+      --line: rgba(154, 186, 211, 0.18);
+      --text: #eef7ff;
+      --text-soft: #9db3c6;
+      --accent: #3ec0a0;
+      --accent-strong: #5ddbbd;
+      --danger: #ff7a88;
+      --success: #6fd59a;
+      --warning: #f3c86b;
+      --radius: 16px;
+      --body-bg:
+        radial-gradient(circle at top left, rgba(62, 192, 160, 0.18), transparent 32%),
+        linear-gradient(180deg, #07131f 0%, #0b1724 100%);
+      --brand-gradient: linear-gradient(135deg, #3ec0a0, #5796f5);
+      --brand-ink: #06131f;
+      --primary-ink: #04111d;
+      --card-shadow: 0 20px 48px rgba(0, 0, 0, 0.24);
+      --surface-soft: rgba(255, 255, 255, 0.03);
+      --surface-strong: rgba(255, 255, 255, 0.04);
+      --surface-outline: rgba(154, 186, 211, 0.08);
+      --focus-border: rgba(93, 219, 189, 0.6);
+      --focus-ring: rgba(93, 219, 189, 0.12);
+      --status-bg: rgba(255, 255, 255, 0.04);
+    }
+
+    :root[data-theme='light'] {
+      --bg: #f7efe2;
+      --panel: rgba(255, 251, 245, 0.94);
+      --field: rgba(255, 255, 255, 0.88);
+      --line: rgba(103, 126, 147, 0.18);
+      --text: #173043;
+      --text-soft: #61778a;
+      --accent: #128a74;
+      --accent-strong: #0f6f5e;
+      --danger: #c34f61;
+      --success: #2f8764;
+      --warning: #b57a1c;
+      --body-bg:
+        radial-gradient(circle at top left, rgba(242, 169, 92, 0.2), transparent 34%),
+        radial-gradient(circle at bottom right, rgba(93, 166, 223, 0.16), transparent 32%),
+        linear-gradient(180deg, #f7efe2 0%, #eef4fb 100%);
+      --brand-gradient: linear-gradient(135deg, #1fa08a, #5a95e8);
+      --brand-ink: #fffaf3;
+      --primary-ink: #fffaf3;
+      --card-shadow: 0 20px 48px rgba(127, 99, 58, 0.14);
+      --surface-soft: rgba(21, 47, 69, 0.04);
+      --surface-strong: rgba(255, 255, 255, 0.62);
+      --surface-outline: rgba(103, 126, 147, 0.12);
+      --focus-border: rgba(18, 138, 116, 0.45);
+      --focus-ring: rgba(18, 138, 116, 0.12);
+      --status-bg: rgba(21, 47, 69, 0.05);
+    }
+
+    :root[data-theme='light'] html,
+    :root[data-theme='light'] body,
+    :root[data-theme='light'] textarea {
+      scrollbar-color: rgba(18, 138, 116, 0.35) rgba(21, 47, 69, 0.06);
+    }
+
+    :root[data-theme='light'] html::-webkit-scrollbar-track,
+    :root[data-theme='light'] body::-webkit-scrollbar-track,
+    :root[data-theme='light'] textarea::-webkit-scrollbar-track {
+      background: rgba(21, 47, 69, 0.05);
+    }
+
+    :root[data-theme='light'] html::-webkit-scrollbar-thumb,
+    :root[data-theme='light'] body::-webkit-scrollbar-thumb,
+    :root[data-theme='light'] textarea::-webkit-scrollbar-thumb {
+      background:
+        linear-gradient(180deg, rgba(90, 149, 232, 0.72), rgba(18, 138, 116, 0.72)) padding-box,
+        linear-gradient(180deg, transparent, transparent) border-box;
+    }
+
+    :root[data-theme='light'] html::-webkit-scrollbar-thumb:hover,
+    :root[data-theme='light'] body::-webkit-scrollbar-thumb:hover,
+    :root[data-theme='light'] textarea::-webkit-scrollbar-thumb:hover {
+      background:
+        linear-gradient(180deg, rgba(90, 149, 232, 0.86), rgba(18, 138, 116, 0.86)) padding-box,
+        linear-gradient(180deg, transparent, transparent) border-box;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      width: 388px;
+      margin: 0;
+      padding: 18px;
+      background: var(--body-bg);
+      color: var(--text);
+      font: 13px/1.6 'IBM Plex Sans', 'Noto Sans SC', 'Segoe UI', sans-serif;
+      transition: background 0.22s ease, color 0.22s ease;
+    }
+
+    html,
+    body,
+    textarea {
+      scrollbar-width: thin;
+      scrollbar-color: rgba(101, 225, 195, 0.42) rgba(255, 255, 255, 0.04);
+    }
+
+    html::-webkit-scrollbar,
+    body::-webkit-scrollbar,
+    textarea::-webkit-scrollbar {
+      width: 10px;
+      height: 10px;
+    }
+
+    html::-webkit-scrollbar-track,
+    body::-webkit-scrollbar-track,
+    textarea::-webkit-scrollbar-track {
+      background: rgba(255, 255, 255, 0.03);
+      border-radius: 999px;
+    }
+
+    html::-webkit-scrollbar-thumb,
+    body::-webkit-scrollbar-thumb,
+    textarea::-webkit-scrollbar-thumb {
+      border-radius: 999px;
+      border: 2px solid transparent;
+      background:
+        linear-gradient(180deg, rgba(95, 160, 220, 0.75), rgba(62, 192, 160, 0.78)) padding-box,
+        linear-gradient(180deg, transparent, transparent) border-box;
+    }
+
+    html::-webkit-scrollbar-thumb:hover,
+    body::-webkit-scrollbar-thumb:hover,
+    textarea::-webkit-scrollbar-thumb:hover {
+      background:
+        linear-gradient(180deg, rgba(125, 190, 242, 0.88), rgba(85, 225, 188, 0.9)) padding-box,
+        linear-gradient(180deg, transparent, transparent) border-box;
+    }
+
+    .hero, .card {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--card-shadow);
+      transition: background 0.22s ease, border-color 0.22s ease, box-shadow 0.22s ease;
+    }
+
+    .hero {
+      padding: 16px;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .mark {
+      width: 42px;
+      height: 42px;
+      border-radius: 14px;
+      background: var(--brand-gradient);
+      color: var(--brand-ink);
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 17px;
+    }
+
+    .sub {
+      color: var(--text-soft);
+      font-size: 12px;
+    }
+
+    .tabs {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+
+    .tab {
+      border-radius: 999px;
+      font-weight: 700;
+      background: color-mix(in srgb, var(--surface-strong) 78%, transparent);
+    }
+
+    .tab.active {
+      border-color: transparent;
+      background: var(--brand-gradient);
+      color: var(--primary-ink);
+      box-shadow: 0 12px 24px color-mix(in srgb, var(--accent) 28%, transparent);
+    }
+
+    .autosave-note {
+      margin-bottom: 12px;
+      padding: 10px 12px;
+      border-radius: 12px;
+      border: 1px solid var(--surface-outline);
+      background: var(--surface-soft);
+      color: var(--text-soft);
+      font-size: 12px;
+    }
+
+    .tab-panel {
+      display: none;
+      animation: panel-in 0.18s ease;
+    }
+
+    .tab-panel.active {
+      display: block;
+    }
+
+    @keyframes panel-in {
+      from {
+        opacity: 0.72;
+        transform: translateY(3px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .card {
+      padding: 14px;
+      margin-bottom: 12px;
+    }
+
+    .tab-panel .card:last-child {
+      margin-bottom: 0;
+    }
+
+    .card-title {
+      margin-bottom: 10px;
+      font-size: 11px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--text-soft);
+    }
+
+    .field {
+      margin-bottom: 10px;
+    }
+
+    .field:last-child {
+      margin-bottom: 0;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 4px;
+      color: var(--text-soft);
+    }
+
+    input, select, textarea, button {
+      width: 100%;
+      font: inherit;
+    }
+
+    input, select, textarea {
+      padding: 10px 12px;
+      border-radius: 12px;
+      border: 1px solid var(--line);
+      background: var(--field);
+      color: var(--text);
+      outline: none;
+      transition: background 0.22s ease, border-color 0.22s ease, box-shadow 0.22s ease, color 0.22s ease;
+    }
+
+    input:focus, select:focus, textarea:focus {
+      border-color: var(--focus-border);
+      box-shadow: 0 0 0 3px var(--focus-ring);
+    }
+
+    textarea {
+      min-height: 90px;
+      resize: vertical;
+    }
+
+    .hint {
+      margin-top: 4px;
+      color: var(--text-soft);
+      font-size: 12px;
+    }
+
+    .status-grid {
+      display: grid;
+      gap: 10px;
+    }
+
+    .status-row {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 10px 12px;
+      border-radius: 12px;
+      background: var(--surface-soft);
+      border: 1px solid var(--surface-outline);
+    }
+
+    .status-row-main {
+      min-width: 0;
+      flex: 1;
+    }
+
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 78px;
+      padding: 6px 10px;
+      border-radius: 999px;
+      background: var(--surface-strong);
+      color: var(--text);
+      font-size: 12px;
+      white-space: nowrap;
+    }
+
+    .status-badge.success {
+      background: color-mix(in srgb, var(--success) 14%, transparent);
+      color: var(--success);
+    }
+
+    .status-badge.warning {
+      background: color-mix(in srgb, var(--warning) 14%, transparent);
+      color: var(--warning);
+    }
+
+    .status-badge.error {
+      background: color-mix(in srgb, var(--danger) 14%, transparent);
+      color: var(--danger);
+    }
+
+    .status-meta {
+      margin-top: 10px;
+      color: var(--text-soft);
+      font-size: 12px;
+      line-height: 1.5;
+    }
+
+    .toggle-row {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 10px 12px;
+      border-radius: 12px;
+      background: var(--surface-soft);
+      border: 1px solid var(--surface-outline);
+      margin-bottom: 10px;
+    }
+
+    .toggle-row:last-child {
+      margin-bottom: 0;
+    }
+
+    .toggle-row input {
+      width: auto;
+      margin-top: 2px;
+      accent-color: var(--accent-strong);
+    }
+
+    .toggle-title {
+      display: block;
+      color: var(--text);
+    }
+
+    .toggle-desc {
+      display: block;
+      color: var(--text-soft);
+      font-size: 12px;
+    }
+
+    .btn-row {
+      display: grid;
+      gap: 10px;
+      margin-top: 14px;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .btn-row.single {
+      grid-template-columns: 1fr;
+    }
+
+    button {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 10px 12px;
+      background: var(--surface-strong);
+      color: var(--text);
+      cursor: pointer;
+      transition: transform 0.18s ease, border-color 0.18s ease, background 0.18s ease, color 0.18s ease;
+    }
+
+    button:hover {
+      transform: translateY(-1px);
+      border-color: color-mix(in srgb, var(--text-soft) 32%, transparent);
+    }
+
+    .primary {
+      border-color: transparent;
+      background: var(--brand-gradient);
+      color: var(--primary-ink);
+      font-weight: 700;
+    }
+
+    .status {
+      margin-top: 12px;
+      padding: 10px 12px;
+      border-radius: 12px;
+      background: var(--status-bg);
+      color: var(--text-soft);
+      min-height: 20px;
+    }
+
+    .status.success { color: var(--success); }
+    .status.warning { color: var(--warning); }
+    .status.error { color: var(--danger); }
+  </style>
+</head>
+<body>
+  <div class="hero">
+    <div class="mark">览</div>
+    <div>
+      <h1>一览</h1>
+      <div class="sub">支持厂商预设、显式 endpoint mode，以及 OpenAI / Anthropic 兼容接口</div>
+    </div>
+  </div>
+
+  <form id="settingsForm" novalidate>
+    <div class="tabs" role="tablist" aria-label="设置分组">
+      <button
+        type="button"
+        class="tab active"
+        id="tab-connection"
+        data-tab="connection"
+        role="tab"
+        aria-selected="true"
+        aria-controls="panel-connection"
+      >连接</button>
+      <button
+        type="button"
+        class="tab"
+        id="tab-preferences"
+        data-tab="preferences"
+        role="tab"
+        aria-selected="false"
+        aria-controls="panel-preferences"
+      >偏好</button>
+      <button
+        type="button"
+        class="tab"
+        id="tab-entrypoints"
+        data-tab="entrypoints"
+        role="tab"
+        aria-selected="false"
+        aria-controls="panel-entrypoints"
+      >入口</button>
+    </div>
+
+    <div class="autosave-note">设置变更后会自动保存。文本输入会在停顿后保存，离开输入框时也会立即保存。</div>
+
+    <section
+      class="tab-panel active"
+      id="panel-connection"
+      data-tab-panel="connection"
+      role="tabpanel"
+      aria-labelledby="tab-connection"
+    >
+      <div class="card">
+        <div class="card-title">模型连接</div>
+        <div class="field">
+          <label for="providerPreset">厂商预设</label>
+          <select id="providerPreset">
+          </select>
+          <div id="presetHint" class="hint"></div>
+        </div>
+        <div class="field">
+          <label for="aiProvider">Provider</label>
+          <select id="aiProvider">
+            <option value="openai">OpenAI / OpenAI 兼容接口</option>
+            <option value="anthropic">Anthropic / Claude 兼容接口</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="endpointMode">Endpoint Mode</label>
+          <select id="endpointMode"></select>
+          <div id="endpointModeHint" class="hint"></div>
+        </div>
+        <div class="field">
+          <label for="apiKey">API Key</label>
+          <input id="apiKey" type="password" placeholder="sk-..." autocomplete="off" data-autosave="debounced">
+          <div class="hint" style="color: var(--warning)">注意：API Key 会通过 Chrome 同步存储，可能同步到你的 Google 账号。如有顾虑，请在 Chrome 设置中关闭同步，或仅在不开启同步的浏览器配置中使用。</div>
+        </div>
+        <div class="field">
+          <label for="baseURL">Base URL</label>
+          <input id="baseURL" type="text" placeholder="留空使用默认地址" data-autosave="debounced">
+          <div id="baseURLHint" class="hint"></div>
+        </div>
+        <div class="field">
+          <label for="modelName">模型名称</label>
+          <input id="modelName" type="text" placeholder="gpt-4o-mini" data-autosave="debounced">
+          <div id="modelHint" class="hint"></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">连接检查</div>
+        <div class="hint">自动保存完成后，就可以直接用当前配置发起连接测试。</div>
+        <div class="btn-row single">
+          <button type="button" id="testBtn" class="primary">测试连接</button>
+        </div>
+      </div>
+    </section>
+
+    <section
+      class="tab-panel"
+      id="panel-preferences"
+      data-tab-panel="preferences"
+      role="tabpanel"
+      aria-labelledby="tab-preferences"
+      hidden
+    >
+      <div class="card">
+        <div class="card-title">产品行为</div>
+        <div class="field">
+          <label for="systemPrompt">额外系统要求</label>
+          <textarea
+            id="systemPrompt"
+            placeholder="可选，这里的内容会追加到摘要提示词之前。"
+            data-autosave="debounced"
+          ></textarea>
+        </div>
+        <div class="toggle-row">
+          <div>
+            <span class="toggle-title">自动翻译输出</span>
+            <span class="toggle-desc">根据默认语言自动切换摘要输出语言。</span>
+          </div>
+          <input id="autoTranslate" type="checkbox" data-autosave="immediate">
+        </div>
+        <div class="field">
+          <label for="defaultLanguage">默认输出语言</label>
+          <select id="defaultLanguage" data-autosave="immediate">
+            <option value="zh">中文</option>
+            <option value="en">English</option>
+            <option value="ja">日本语</option>
+            <option value="ko">한국어</option>
+            <option value="fr">Français</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">界面外观</div>
+        <div class="field">
+          <label for="themePreference">配色模式</label>
+          <select id="themePreference">
+            <option value="system">自动跟随系统</option>
+            <option value="light">固定浅色</option>
+            <option value="dark">固定深色</option>
+          </select>
+          <div id="themeHint" class="hint">会根据当前配色自动切换 popup 和侧栏主题。</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">隐私与控制</div>
+        <div class="toggle-row">
+          <div>
+            <span class="toggle-title">无痕模式</span>
+            <span class="toggle-desc">仍会把当前页面内容发送给模型，但不会写入本地历史记录。</span>
+          </div>
+          <input id="privacyMode" type="checkbox" data-autosave="immediate">
+        </div>
+        <div class="toggle-row">
+          <div>
+            <span class="toggle-title">默认写入历史</span>
+            <span class="toggle-desc">关闭后，新的总结结果只保留在当前侧栏，不进入历史记录。</span>
+          </div>
+          <input id="defaultAllowHistory" type="checkbox" data-autosave="immediate">
+        </div>
+        <div class="toggle-row">
+          <div>
+            <span class="toggle-title">允许分享卡</span>
+            <span class="toggle-desc">控制长截图分享功能，分享卡会附带来源链接。</span>
+          </div>
+          <input id="defaultAllowShare" type="checkbox" data-autosave="immediate">
+        </div>
+      </div>
+    </section>
+
+    <section
+      class="tab-panel"
+      id="panel-entrypoints"
+      data-tab-panel="entrypoints"
+      role="tabpanel"
+      aria-labelledby="tab-entrypoints"
+      hidden
+    >
+      <div class="card">
+        <div class="card-title">快捷操作</div>
+        <div class="hint">右键菜单“用一览总结此页”或快捷键 <code>Alt + S</code> 可直接打开侧栏。</div>
+        <div class="toggle-row">
+          <div>
+            <span class="toggle-title">入口自动生成摘要</span>
+            <span class="toggle-desc">开启后，右键菜单或 Alt + S 会直接开始生成；关闭后只打开侧栏。</span>
+          </div>
+          <input id="entrypointAutoStart" type="checkbox" data-autosave="immediate">
+        </div>
+        <div class="toggle-row">
+          <div>
+            <span class="toggle-title">入口默认简短总结</span>
+            <span class="toggle-desc">入口触发时默认使用更省 token 的简短模式。</span>
+          </div>
+          <input id="entrypointSimpleMode" type="checkbox" data-autosave="immediate">
+        </div>
+        <div class="btn-row single">
+          <button type="button" id="historyBtn">打开历史记录</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">入口与快捷键</div>
+        <div class="status-grid">
+          <div class="status-row">
+            <div class="status-row-main">
+              <span class="toggle-title">右键菜单</span>
+              <span id="contextMenuDesc" class="toggle-desc">正在检查菜单注册状态...</span>
+            </div>
+            <span id="contextMenuBadge" class="status-badge">检查中</span>
+          </div>
+          <div class="status-row">
+            <div class="status-row-main">
+              <span class="toggle-title">快捷键</span>
+              <span id="shortcutDesc" class="toggle-desc">正在检查快捷键绑定状态...</span>
+            </div>
+            <span id="shortcutBadge" class="status-badge">检查中</span>
+          </div>
+        </div>
+        <div id="entrypointMeta" class="status-meta">正在加载最近触发与修复信息...</div>
+        <div class="hint">如果按下 <code>Alt + S</code> 没有反应，可以重新检查入口并打开浏览器快捷键设置页确认绑定。</div>
+        <div class="btn-row">
+          <button type="button" id="refreshEntrypointsBtn">检查入口</button>
+          <button type="button" id="shortcutSettingsBtn">快捷键设置</button>
+        </div>
+      </div>
+    </section>
+
+    <div id="status" class="status">设置修改后会自动保存。</div>
+  </form>
+
+  <script src="shared/errors.js"></script>
+  <script src="shared/trust-policy.js"></script>
+  <script src="shared/provider-presets.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>

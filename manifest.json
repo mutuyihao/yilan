@@ -1,0 +1,59 @@
+{
+  "manifest_version": 3,
+  "name": "一览",
+  "description": "一览：稳定的网页 AI 摘要扩展，支持长文分段总结、历史记录、分享卡与多接口适配。",
+  "version": "3.0.0",
+  "permissions": [
+    "contextMenus",
+    "storage",
+    "activeTab",
+    "scripting",
+    "clipboardWrite"
+  ],
+  "host_permissions": ["<all_urls>"],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icon/icon16.png",
+      "48": "icon/icon48.png",
+      "64": "icon/icon64.png",
+      "128": "icon/icon128.png"
+    }
+  },
+  "commands": {
+    "trigger-summary": {
+      "suggested_key": {
+        "default": "Alt+S"
+      },
+      "description": "用一览总结当前网页"
+    }
+  },
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "sidebar.html",
+        "style.css",
+        "db.js",
+        "sidebar.js",
+        "shared/theme.js",
+        "shared/abort-utils.js",
+        "shared/domain.js",
+        "shared/strings.js",
+        "shared/page-strategy.js",
+        "shared/errors.js",
+        "shared/article-utils.js",
+        "shared/trust-policy.js",
+        "shared/run-utils.js",
+        "libs/purify.min.js",
+        "libs/marked.min.js",
+        "libs/highlight.min.js",
+        "libs/github-dark.min.css",
+        "libs/html2canvas.min.js"
+      ],
+      "matches": ["<all_urls>"]
+    }
+  ]
+}
