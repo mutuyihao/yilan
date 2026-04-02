@@ -143,3 +143,9 @@ node tests/run-tests.js
 - [技术架构](docs/TECHNICAL_ARCHITECTURE.md)
 - [开发者指南](docs/DEVELOPER_GUIDE.md)
 - [协作与贡献](CONTRIBUTING.md)
+
+## License
+
+- 本项目原创代码与文档采用 `Apache-2.0`，详见 `LICENSE`。
+- `libs/` 下随仓库分发的第三方库继续沿用各自上游许可证，详见 `THIRD_PARTY_NOTICES.md`。
+- 如果第三方文件头部声明与本说明存在差异，以该第三方文件内保留的声明和其上游许可证文本为准。
