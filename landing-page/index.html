@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>一览 Yilan | 把网页变成可回看的工作台</title>
+  <meta
+    name="description"
+    content="一览是一个面向 Chromium 浏览器的 AI 阅读与摘要扩展，支持网页抽取、结构化总结、二次生成、历史沉淀与专注阅读。"
+  >
+  <meta name="theme-color" content="#07131f">
+  <link rel="icon" type="image/svg+xml" href="./assets/brand/favicon.svg">
+  <link rel="shortcut icon" href="./assets/brand/favicon.svg">
+  <meta property="og:title" content="一览 Yilan | 把网页变成可回看的工作台">
+  <meta
+    property="og:description"
+    content="网页抽取、结构化总结、行动项、术语表、问答卡片、历史沉淀与专注阅读，一页看懂一览能做什么。"
+  >
+  <meta property="og:type" content="website">
+  <meta
+    property="og:image"
+    content="./assets/screens/hero-main-dark.png"
+    data-light-src="./assets/screens/hero-main-light.png"
+    data-dark-src="./assets/screens/hero-main-dark.png"
+  >
+  <script>
+    (function () {
+      var root = document.documentElement;
+      var metaTheme = document.querySelector('meta[name="theme-color"]');
+      var storageKey = 'yilan-landing-theme-mode';
+      var mode = 'system';
+
+      try {
+        var stored = window.localStorage.getItem(storageKey);
+        if (stored === 'system' || stored === 'light' || stored === 'dark') {
+          mode = stored;
+        }
+      } catch (error) {
+        mode = 'system';
+      }
+
+      var prefersDark = false;
+      if (window.matchMedia) {
+        prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      }
+
+      var resolved = mode === 'light' || mode === 'dark' ? mode : (prefersDark ? 'dark' : 'light');
+      root.dataset.themeMode = mode;
+      root.dataset.theme = resolved;
+
+      if (metaTheme) {
+        metaTheme.setAttribute('content', resolved === 'light' ? '#f7efe2' : '#07131f');
+      }
+    })();
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;700;800&display=swap"
+    rel="stylesheet"
+  >
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <div class="page-shell">
+    <header class="site-header">
+      <a class="brand" href="#top" aria-label="一览首页">
+        <span class="brand-mark">览</span>
+        <span class="brand-copy">
+          <strong>一览</strong>
+          <span>Yilan</span>
+        </span>
+      </a>
+      <nav class="site-nav" aria-label="主导航">
+        <a href="#features">能力</a>
+        <a href="#workflow">流程</a>
+        <a href="#shots">产品细节</a>
+        <a href="#faq">FAQ</a>
+      </nav>
+      <div class="header-actions">
+        <div class="theme-control">
+          <button type="button" class="theme-toggle-btn" data-theme-toggle aria-live="polite" title="切换外观模式">
+            <span class="theme-toggle-prefix">外观</span>
+            <span class="theme-toggle-value" data-theme-toggle-value>系统</span>
+          </button>
+        </div>
+        <a class="ghost-btn" href="https://github.com/mutuyihao/yilan" target="_blank" rel="noreferrer noopener">GitHub</a>
+        <a class="primary-btn" href="https://discord.gg/MWWDwXZ2TV" target="_blank" rel="noreferrer noopener">加入社区</a>
+      </div>
+    </header>
+
+    <main id="top">
+      <section class="hero-section">
+        <div class="hero-copy">
+          <div class="eyebrow">AI Reading Workspace For The Open Web</div>
+          <h1>把网页变成可回看的工作台，而不只是一次性摘要</h1>
+          <p class="hero-lead">
+            一览把网页抽取、结构化总结、继续加工、历史沉淀和专注阅读串成一条顺滑流程。
+            你可以用它快速读懂文章，也可以把每次处理结果留下来，方便以后检索、收藏和回顾。
+          </p>
+          <div class="cta-row">
+            <a class="primary-btn large" href="https://github.com/mutuyihao/yilan" target="_blank" rel="noreferrer noopener">查看项目</a>
+            <a class="ghost-btn large" href="#shots">查看产品细节</a>
+          </div>
+          <ul class="hero-points">
+            <li>支持 Chromium 扩展安装与本地优先使用</li>
+            <li>支持简短总结、标准总结、详细分析、关键要点</li>
+            <li>支持行动项、术语表、问答卡片等二次生成</li>
+          </ul>
+        </div>
+        <div class="hero-visual">
+          <div class="hero-card orbit-card">
+            <span>网页抽取</span>
+            <span>结构化总结</span>
+            <span>本地历史</span>
+          </div>
+          <figure class="shot-frame shot-hero">
+            <img
+              class="theme-shot"
+              src="./assets/screens/hero-main-dark.png"
+              data-light-src="./assets/screens/hero-main-light.png"
+              data-dark-src="./assets/screens/hero-main-dark.png"
+              alt="一览主界面截图占位图"
+              width="1600"
+              height="980"
+              decoding="async"
+              style="object-fit: fill;height:350px"
+            >
+          </figure>
+        </div>
+      </section>
+
+      <section class="proof-strip" aria-label="产品特征">
+        <div class="proof-item">
+          <span class="proof-kicker">BYOK</span>
+          <strong>本地优先</strong>
+          <p>没有强绑定账号体系，适合先用起来。</p>
+        </div>
+        <div class="proof-item">
+          <span class="proof-kicker">Workflow</span>
+          <strong>从摘要到沉淀</strong>
+          <p>不止生成一次结果，而是形成可复用流程。</p>
+        </div>
+        <div class="proof-item">
+          <span class="proof-kicker">Readable</span>
+          <strong>专注阅读体验</strong>
+          <p>支持独立阅读页、导出和长截图分享卡。</p>
+        </div>
+      </section>
+
+      <section id="features" class="section-grid">
+        <div class="section-heading">
+          <div class="eyebrow">Why Yilan</div>
+          <h2>不是把文章压成几段话，而是把信息组织成你能继续使用的结果</h2>
+        </div>
+        <div class="feature-grid">
+          <article class="feature-card accent-a">
+            <h3>自动理解网页上下文</h3>
+            <p>提取正文、标题、作者、发布时间和站点信息，并根据页面类型调整处理策略。</p>
+          </article>
+          <article class="feature-card accent-b">
+            <h3>多种摘要与二次生成模式</h3>
+            <p>简短总结、标准总结、详细分析、关键要点，以及行动项、术语表、问答卡片。</p>
+          </article>
+          <article class="feature-card accent-c">
+            <h3>历史、收藏与检索</h3>
+            <p>处理结果可落到本地历史，支持搜索、按站点筛选、收藏与回看。</p>
+          </article>
+          <article class="feature-card accent-d">
+            <h3>专注阅读与分享</h3>
+            <p>支持独立阅读页、Markdown 导出，以及带来源链接的长截图分享卡。</p>
+          </article>
+        </div>
+      </section>
+
+      <section id="workflow" class="workflow-section">
+        <div class="section-heading compact">
+          <div class="eyebrow">Workflow</div>
+          <h2>三步上手，一条链路完成信息处理</h2>
+        </div>
+        <div class="workflow-grid">
+          <div class="workflow-copy">
+            <ol class="step-list">
+              <li>
+                <strong>打开网页并触发扩展</strong>
+                <p>右键页面或使用快捷键，直接把当前网页送进侧栏工作区。</p>
+              </li>
+              <li>
+                <strong>得到结构化结果</strong>
+                <p>根据页面内容生成摘要，也可以继续转成行动项、术语表或问答卡片。</p>
+              </li>
+              <li>
+                <strong>沉淀下来继续使用</strong>
+                <p>把结果加入历史与收藏，或者切到专注阅读页进行整理、复制与导出。</p>
+              </li>
+            </ol>
+          </div>
+          <figure class="shot-frame shot-workflow">
+            <img
+              class="theme-shot"
+              src="./assets/screens/workflow-summary-dark.png"
+              data-light-src="./assets/screens/workflow-summary-light.png"
+              data-dark-src="./assets/screens/workflow-summary-dark.png"
+              alt="一览工作流截图占位图"
+              width="1600"
+              height="980"
+              decoding="async"
+              style="object-fit: fill;height:450px"
+            >
+          </figure>
+        </div>
+      </section>
+
+      <section id="shots" class="shots-section">
+        <div class="section-heading compact">
+          <div class="eyebrow">MORE</div>
+          <h2>总结过的不再丢失，将选择模型的自由还给用户</h2>
+        </div>
+
+        <div class="shots-grid">
+          <figure class="shot-frame">
+            <img
+              class="theme-shot"
+              src="./assets/screens/history-reader-dark.png"
+              data-light-src="./assets/screens/history-reader-light.png"
+              data-dark-src="./assets/screens/history-reader-dark.png"
+              alt="历史与阅读页截图占位图"
+              width="600"
+              height="1550"
+              decoding="async"
+              style="object-fit:cover;object-position:top;height:750px"
+
+            >
+          </figure>
+          <figure class="shot-frame">
+            <img
+              class="theme-shot"
+              src="./assets/screens/settings-panel-dark.png"
+              data-light-src="./assets/screens/settings-panel-light.png"
+              data-dark-src="./assets/screens/settings-panel-dark.png"
+              alt="设置页截图占位图"
+              width="1600"
+              height="980"
+              decoding="async"
+              style="object-fit: fill;height:750px"
+
+            >
+          </figure>
+        </div>
+      </section>
+
+      <section class="cta-band">
+        <div>
+          <div class="eyebrow">KEEP OPENSOURCE</div>
+          <h2>保持开源，将是我们终身的承诺</h2>
+        </div>
+        <div class="cta-row">
+          <a class="primary-btn large" href="https://github.com/mutuyihao/yilan">打开仓库</a>
+          <a class="ghost-btn large" href="https://discord.gg/MWWDwXZ2TV" target="_blank" rel="noreferrer noopener">加入讨论</a>
+        </div>
+      </section>
+
+      <section id="faq" class="faq-section">
+        <div class="section-heading compact">
+          <div class="eyebrow">FAQ</div>
+          <h2>第一次使用“一览”时，用户可能碰到的几个问题</h2>
+        </div>
+        <div class="faq-grid">
+          <article class="faq-card">
+            <h3>“一览”是怎么开始工作的？</h3>
+            <p>打开任意网页后，右键选择“用“一览”总结此页”，或者直接按 `Alt + S`。侧栏会打开，并按你的入口设置自动开始生成，或者等待你手动触发。</p>
+          </article>
+          <article class="faq-card">
+            <h3>需要先配置 API Key 吗？</h3>
+            <p>需要。“一览”采用 `BYOK` 模式，首次使用前要在设置页填入你自己的 API Key，并选择厂商预设、Provider 和 Endpoint Mode。保存后可以先点“测试连接”确认配置可用。</p>
+          </article>
+          <article class="faq-card">
+            <h3>生成成功了，为什么历史里没有？</h3>
+            <p>通常是因为开启了无痕模式，或者关闭了“默认写入历史”。在这两种情况下，结果只会停留在当前侧栏，不会进入本地历史，也不能加入收藏。</p>
+          </article>
+          <article class="faq-card">
+            <h3>哪些网页可能无法提取？</h3>
+            <p>浏览器内部页面、扩展商店页面，或者其他受浏览器权限限制的页面，通常无法注入内容脚本。这不是“一览”侧栏本身的问题，而是浏览器的安全限制。</p>
+          </article>
+        </div>
+      </section>
+    </main>
+  </div>
+  <script src="./theme.js"></script>
+</body>
+</html>

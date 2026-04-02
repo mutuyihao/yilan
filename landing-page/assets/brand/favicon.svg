@@ -1,0 +1,22 @@
+<svg width="256" height="256" viewBox="0 0 256 256" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="brandGradient" x1="36" y1="28" x2="220" y2="220" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#3EC0A0"/>
+      <stop offset="1" stop-color="#5C97F5"/>
+    </linearGradient>
+    <filter id="glow" x="0" y="0" width="256" height="256" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feGaussianBlur stdDeviation="14"/>
+    </filter>
+  </defs>
+  <rect x="42" y="42" width="172" height="172" rx="54" fill="#1D425E" opacity="0.18" filter="url(#glow)"/>
+  <rect x="28" y="28" width="200" height="200" rx="56" fill="url(#brandGradient)"/>
+  <text
+    x="128"
+    y="146"
+    text-anchor="middle"
+    fill="#07131F"
+    font-family="'Noto Sans SC', 'Microsoft YaHei', 'PingFang SC', sans-serif"
+    font-size="108"
+    font-weight="800"
+  >览</text>
+</svg>
