@@ -18,7 +18,8 @@ const SETTINGS_KEYS = [
   'defaultAllowHistory',
   'defaultAllowShare',
   'entrypointAutoStart',
-  'entrypointSimpleMode'
+  'entrypointSimpleMode',
+  'entrypointReuseHistory'
 ];
 
 const ACTIVE_TAB_STORAGE_KEY = 'popupActiveTab';
@@ -360,7 +361,8 @@ function collectSettings() {
     defaultAllowHistory: $('defaultAllowHistory').checked,
     defaultAllowShare: $('defaultAllowShare').checked,
     entrypointAutoStart: $('entrypointAutoStart').checked,
-    entrypointSimpleMode: $('entrypointSimpleMode').checked
+    entrypointSimpleMode: $('entrypointSimpleMode').checked,
+    entrypointReuseHistory: $('entrypointReuseHistory').checked
   };
 }
 
@@ -508,6 +510,7 @@ async function loadSettings() {
   $('defaultAllowShare').checked = trustSettings.defaultAllowShare;
   $('entrypointAutoStart').checked = settings.entrypointAutoStart !== false;
   $('entrypointSimpleMode').checked = !!settings.entrypointSimpleMode;
+  $('entrypointReuseHistory').checked = settings.entrypointReuseHistory !== false;
 
   syncSelectionState({ preferredEndpointMode: endpointMode });
   syncThemePreferenceControl(themePreference);

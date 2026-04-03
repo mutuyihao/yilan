@@ -23,7 +23,8 @@ const SETTINGS_KEYS = [
   'defaultAllowHistory',
   'defaultAllowShare',
   'entrypointAutoStart',
-  'entrypointSimpleMode'
+  'entrypointSimpleMode',
+  'entrypointReuseHistory'
 ];
 
 const PROVIDER_LABELS = {
@@ -60,6 +61,7 @@ const THEME_MODE_LABELS = {
 const state = {
   article: null,
   visibleRecord: null,
+  visibleRecordUsesCurrentArticle: false,
   summaryMarkdown: '',
   generating: false,
   cancelRequested: false,
@@ -193,7 +195,8 @@ async function loadRuntimeSettings() {
   const trustSettings = Trust.normalizeSettings(rawSettings);
   state.settings = Object.assign({
     entrypointAutoStart: true,
-    entrypointSimpleMode: false
+    entrypointSimpleMode: false,
+    entrypointReuseHistory: true
   }, rawSettings, trustSettings);
   return state.settings;
 }
@@ -977,18 +980,22 @@ function refreshActionStates() {
   updateFavoriteButton();
 }
 
-function bindVisibleRecord(record) {
+function bindVisibleRecord(record, options) {
+  const preserveCurrentArticle = !!options?.preserveCurrentArticle && !!state.article;
+  const displayArticle = preserveCurrentArticle ? state.article : createArticleFromRecord(record);
+
   state.visibleRecord = record;
+  state.visibleRecordUsesCurrentArticle = preserveCurrentArticle;
   state.summaryMarkdown = record?.summaryMarkdown || '';
-  state.article = createArticleFromRecord(record);
-  renderArticleMeta(state.article, record);
+  state.article = displayArticle;
+  renderArticleMeta(displayArticle, record);
   state.lastDiagnostics = record?.diagnostics || null;
   renderDiagnostics();
 
   if (record?.status === 'cancelled') {
     renderCancelledState(record, getRecordUiError(record), state.lastDiagnostics);
     if (state.summaryMarkdown.trim()) {
-      updateStatsFromMarkdown(state.summaryMarkdown, state.article);
+      updateStatsFromMarkdown(state.summaryMarkdown, displayArticle);
     } else {
       setStats('');
     }
@@ -997,7 +1004,7 @@ function bindVisibleRecord(record) {
     setStats('');
   } else if (state.summaryMarkdown) {
     renderMarkdown(state.summaryMarkdown);
-    updateStatsFromMarkdown(state.summaryMarkdown, state.article);
+    updateStatsFromMarkdown(state.summaryMarkdown, displayArticle);
   } else {
     renderPlaceholder('\u6682\u65e0\u6458\u8981\u5185\u5bb9', '\u53ef\u4ee5\u91cd\u65b0\u751f\u6210\uff0c\u6216\u8005\u4ece\u5386\u53f2\u8bb0\u5f55\u91cc\u5207\u6362\u5176\u5b83\u6458\u8981\u3002');
     setStats('');
@@ -1015,6 +1022,23 @@ function bindVisibleRecord(record) {
   setSummaryModeControlValue(record?.summaryMode || 'medium');
   setSummaryModeMenuOpen(false);
   refreshActionStates();
+}
+
+function buildReusableRecordStatus(match) {
+  const updatedAtLabel = formatDateTime(
+    match?.record?.updatedAt || match?.record?.completedAt || match?.record?.createdAt || ''
+  );
+  const suffix = updatedAtLabel !== '-' ? '（' + updatedAtLabel + '）' : '';
+  return '已加载当前页面的历史摘要' + suffix + '，可点击“重新生成”更新当前内容。';
+}
+
+async function restoreReusableRecordForCurrentArticle(article) {
+  const match = await recordStore.findReusableRecordForArticle(article);
+  if (!match?.record) return false;
+
+  bindVisibleRecord(match.record, { preserveCurrentArticle: true });
+  setStatus(buildReusableRecordStatus(match), 'success');
+  return true;
 }
 
 function renderHistoryEmpty(message) {
@@ -1130,7 +1154,7 @@ function createHistoryItemElement(item) {
     event.stopPropagation();
     const updated = await recordStore.toggleFavorite(item.recordId);
     if (state.visibleRecord?.recordId === updated?.recordId) {
-      bindVisibleRecord(updated);
+      bindVisibleRecord(updated, { preserveCurrentArticle: state.visibleRecordUsesCurrentArticle });
     }
     await refreshHistoryList();
   });
@@ -1143,6 +1167,7 @@ function createHistoryItemElement(item) {
     await recordStore.deleteRecord(item.recordId);
     if (state.visibleRecord?.recordId === item.recordId) {
       state.visibleRecord = null;
+      state.visibleRecordUsesCurrentArticle = false;
       state.summaryMarkdown = '';
       renderPlaceholder('记录已删除', '可以重新生成当前页面摘要。');
     }
@@ -1645,7 +1670,7 @@ async function toggleFavoriteFromMain() {
   });
 
   const saved = await persistRecord(next);
-  bindVisibleRecord(saved);
+  bindVisibleRecord(saved, { preserveCurrentArticle: state.visibleRecordUsesCurrentArticle });
 
   if (!elements.historyPanel.classList.contains('hidden')) {
     await refreshHistoryList();
@@ -2014,6 +2039,7 @@ function bindEvents() {
         closeHistoryPanel();
         state.article = event.data.article;
         state.visibleRecord = null;
+        state.visibleRecordUsesCurrentArticle = false;
         state.summaryMarkdown = '';
 
         let settings = state.settings || {};
@@ -2023,6 +2049,7 @@ function bindEvents() {
 
         const autoStart = settings.entrypointAutoStart !== false;
         const simpleMode = !!settings.entrypointSimpleMode;
+        const reuseHistory = settings.entrypointReuseHistory !== false;
         const initialMode = simpleMode ? 'short' : (state.article?.preferredSummaryMode || 'medium');
         const triggeredByNavigation = event.data.source === 'navigation';
 
@@ -2030,6 +2057,17 @@ function bindEvents() {
         setSummaryModeMenuOpen(false);
         renderArticleMeta(state.article, { summaryMode: suggestedMode });
         refreshActionStates();
+
+        if (reuseHistory) {
+          renderInlineNote('正在检查历史摘要', '如果当前页面已有已完成摘要，会直接加载最近一次记录。');
+          setStatus('正在检查当前页面的历史摘要...');
+          setStats('');
+
+          const restored = await restoreReusableRecordForCurrentArticle(state.article);
+          if (restored) {
+            return;
+          }
+        }
 
         if (triggeredByNavigation && !autoStart) {
           renderPlaceholder('????????', '????????????????????????');

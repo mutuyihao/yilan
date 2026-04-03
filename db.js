@@ -112,6 +112,96 @@
     }));
   }
 
+  function getRecordTimestamp(record) {
+    return new Date(record?.updatedAt || record?.completedAt || record?.createdAt || 0).getTime();
+  }
+
+  function isReusablePrimaryRecord(record) {
+    const promptProfile = String(record?.promptProfile || 'primary').toLowerCase();
+    const status = String(record?.status || 'completed').toLowerCase();
+    const summaryMarkdown = String(record?.summaryMarkdown || '').trim();
+
+    if (!summaryMarkdown) return false;
+    if (status !== 'completed') return false;
+    if (record?.parentRecordId) return false;
+    return promptProfile === 'primary' || promptProfile === 'legacy';
+  }
+
+  function getReusableRecordMatch(record, article) {
+    if (!record || !article || !isReusablePrimaryRecord(record)) return null;
+
+    const articleId = String(article?.articleId || '').trim();
+    const normalizedUrl = Domain.normalizeUrl(article?.normalizedUrl || article?.canonicalUrl || article?.sourceUrl || '');
+    const sourceUrl = Domain.normalizeUrl(article?.sourceUrl || '');
+    const recordArticleId = String(record?.articleId || record?.articleSnapshot?.articleId || '').trim();
+    const recordNormalizedUrl = Domain.normalizeUrl(
+      record?.normalizedUrl || record?.articleSnapshot?.normalizedUrl || record?.sourceUrl || record?.articleSnapshot?.sourceUrl || ''
+    );
+    const recordSourceUrl = Domain.normalizeUrl(record?.sourceUrl || record?.articleSnapshot?.sourceUrl || '');
+
+    if (articleId && recordArticleId && articleId === recordArticleId) {
+      return { score: 3, matchType: 'articleId' };
+    }
+
+    if (normalizedUrl && recordNormalizedUrl && normalizedUrl === recordNormalizedUrl) {
+      return { score: 2, matchType: 'normalizedUrl' };
+    }
+
+    if (sourceUrl && recordSourceUrl && sourceUrl === recordSourceUrl) {
+      return { score: 1, matchType: 'sourceUrl' };
+    }
+
+    return null;
+  }
+
+  function findBestReusableRecordForArticle(records, article) {
+    let best = null;
+
+    (records || []).forEach((record) => {
+      const match = getReusableRecordMatch(record, article);
+      if (!match) return;
+
+      const candidate = {
+        record,
+        matchType: match.matchType,
+        score: match.score,
+        updatedAtMs: getRecordTimestamp(record),
+        favorite: !!record?.favorite
+      };
+
+      if (!best) {
+        best = candidate;
+        return;
+      }
+
+      if (candidate.score !== best.score) {
+        if (candidate.score > best.score) best = candidate;
+        return;
+      }
+
+      if (candidate.updatedAtMs !== best.updatedAtMs) {
+        if (candidate.updatedAtMs > best.updatedAtMs) best = candidate;
+        return;
+      }
+
+      if (candidate.favorite !== best.favorite) {
+        if (candidate.favorite) best = candidate;
+        return;
+      }
+
+      if (String(candidate.record?.recordId || '') < String(best.record?.recordId || '')) {
+        best = candidate;
+      }
+    });
+
+    if (!best) return null;
+    return {
+      record: best.record,
+      matchType: best.matchType,
+      exact: best.score === 3
+    };
+  }
+
   function normalizeRecord(input, existing) {
     const now = new Date().toISOString();
     const base = Object.assign({}, existing || {}, input || {});
@@ -361,6 +451,11 @@
     });
   }
 
+  async function findReusableRecordForArticle(article) {
+    const items = await getAll();
+    return findBestReusableRecordForArticle(items, article);
+  }
+
   async function toggleFavorite(recordId) {
     const existing = await getRecordById(recordId);
     if (!existing) return null;
@@ -402,9 +497,13 @@
     groupRecordsBySite,
     migrateLegacyRecord,
     shouldPersistRecord,
+    isReusablePrimaryRecord,
+    getReusableRecordMatch,
+    findBestReusableRecordForArticle,
     saveRecord,
     getAll,
     searchRecords,
+    findReusableRecordForArticle,
     getRecordById,
     toggleFavorite,
     updateRecord,
