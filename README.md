@@ -150,3 +150,8 @@ node tests/run-tests.js
 - 本项目原创代码与文档采用 `Apache-2.0`，详见 `LICENSE`。
 - `libs/` 下随仓库分发的第三方库继续沿用各自上游许可证，详见 `THIRD_PARTY_NOTICES.md`。
 - 如果第三方文件头部声明与本说明存在差异，以该第三方文件内保留的声明和其上游许可证文本为准。
+
+## 🙏 致谢
+
+本项目开发过程中获得了 [LINUX DO](https://linux.do/latest) 社区佬友的帮助，本产品会在社区发布，感谢社区的支持。
+
