@@ -5,8 +5,14 @@
     ADAPTER_NOT_FOUND: 'ADAPTER_NOT_FOUND',
     NETWORK_TIMEOUT: 'NETWORK_TIMEOUT',
     NETWORK_ERROR: 'NETWORK_ERROR',
+    NETWORK_CONNECTION_ERROR: 'NETWORK_CONNECTION_ERROR',
+    NETWORK_CORS_ERROR: 'NETWORK_CORS_ERROR',
+    NETWORK_DNS_ERROR: 'NETWORK_DNS_ERROR',
+    NETWORK_TLS_ERROR: 'NETWORK_TLS_ERROR',
+    NETWORK_STREAM_DISCONNECTED: 'NETWORK_STREAM_DISCONNECTED',
     HTTP_ERROR: 'HTTP_ERROR',
     PARSE_ERROR: 'PARSE_ERROR',
+    ENDPOINT_NOT_SUPPORTED: 'ENDPOINT_NOT_SUPPORTED',
     UNSUPPORTED_RESPONSE_FORMAT: 'UNSUPPORTED_RESPONSE_FORMAT',
     RUN_CANCELLED: 'RUN_CANCELLED',
     UNKNOWN_ERROR: 'UNKNOWN_ERROR'
@@ -33,6 +39,26 @@
       message: '网络请求失败，请检查网络或接口地址。',
       retriable: true
     },
+    [ERROR_CODES.NETWORK_CONNECTION_ERROR]: {
+      message: '无法建立到接口的网络连接，请检查网络、网关或代理。',
+      retriable: true
+    },
+    [ERROR_CODES.NETWORK_CORS_ERROR]: {
+      message: '浏览器拦截了跨域请求，请检查接口的 CORS 或扩展权限。',
+      retriable: false
+    },
+    [ERROR_CODES.NETWORK_DNS_ERROR]: {
+      message: '无法解析接口域名，请检查接口地址或 DNS。',
+      retriable: true
+    },
+    [ERROR_CODES.NETWORK_TLS_ERROR]: {
+      message: '接口 TLS/证书握手失败，请检查 HTTPS 证书或代理。',
+      retriable: true
+    },
+    [ERROR_CODES.NETWORK_STREAM_DISCONNECTED]: {
+      message: '流式连接意外中断，请检查接口的流式支持或网关稳定性。',
+      retriable: true
+    },
     [ERROR_CODES.HTTP_ERROR]: {
       message: '接口返回错误状态码。',
       retriable: true
@@ -40,6 +66,10 @@
     [ERROR_CODES.PARSE_ERROR]: {
       message: '模型响应解析失败。',
       retriable: true
+    },
+    [ERROR_CODES.ENDPOINT_NOT_SUPPORTED]: {
+      message: '当前接口可能不支持所选端点。',
+      retriable: false
     },
     [ERROR_CODES.UNSUPPORTED_RESPONSE_FORMAT]: {
       message: '接口响应格式无法识别。',
@@ -104,7 +134,7 @@
   function createHttpError(status, body, overrides) {
     const detail = String(body || '').trim().slice(0, 300);
     const message = detail ? `接口返回 ${status}：${detail}` : `接口返回 ${status}`;
-    return createError(ERROR_CODES.HTTP_ERROR, Object.assign({ message, detail }, overrides));
+    return createError(ERROR_CODES.HTTP_ERROR, Object.assign({ message, detail, httpStatus: status }, overrides));
   }
 
   function getUserMessage(errorLike) {

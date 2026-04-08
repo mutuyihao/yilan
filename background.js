@@ -7,12 +7,13 @@ importScripts(
   'adapters/registry.js'
 );
 
-importScripts('shared/abort-utils.js');
+importScripts('shared/abort-utils.js', 'shared/transport-utils.js');
 
 const AbortUtils = self.AISummaryAbortUtils;
 const Domain = self.AISummaryDomain;
 const Errors = self.AISummaryErrors;
 const AdapterRegistry = self.AISummaryAdapterRegistry;
+const TransportUtils = self.AISummaryTransportUtils;
 
 const CONTENT_SCRIPT_FILES = [
   'shared/domain.js',
@@ -325,6 +326,10 @@ function createDiagnostics(runId, runtime, meta) {
     chunkIndex: typeof meta?.chunkIndex === 'number' ? meta.chunkIndex : null,
     chunkCount: typeof meta?.chunkCount === 'number' ? meta.chunkCount : null,
     articleId: meta?.articleId || '',
+    transportMode: '',
+    httpStatus: null,
+    responseContentType: '',
+    requestId: '',
     retryCount: 0,
     attemptCount: 0,
     usage: null,
@@ -499,21 +504,10 @@ function safeSendResponse(sendResponse, payload) {
   }
 }
 
-function normalizeRuntimeError(error, runtime, stage, runId) {
-  if (error?.code && error?.message) {
-    return Errors.normalizeError(error, error.code, buildErrorContext(runtime, stage));
-  }
-
-  if (error?.name === 'AbortError') {
-    const code = isRunCancelled(runId) ? Errors.ERROR_CODES.RUN_CANCELLED : Errors.ERROR_CODES.NETWORK_TIMEOUT;
-    return Errors.createError(code, Object.assign({ detail: error.message || '' }, buildErrorContext(runtime, stage)));
-  }
-
-  if (error?.message && /failed to fetch|network|load failed/i.test(error.message)) {
-    return Errors.createError(Errors.ERROR_CODES.NETWORK_ERROR, Object.assign({ detail: error.message }, buildErrorContext(runtime, stage)));
-  }
-
-  return Errors.normalizeError(error, Errors.ERROR_CODES.UNKNOWN_ERROR, buildErrorContext(runtime, stage));
+function normalizeRuntimeError(error, runtime, stage, runId, options) {
+  return TransportUtils.normalizeTransportError(error, runtime, stage, Object.assign({
+    runCancelled: isRunCancelled(runId)
+  }, options || {}));
 }
 
 function createSseParser(onEvent) {
@@ -779,6 +773,7 @@ async function executeRun(options) {
   const adapter = resolution.adapter;
   const runtime = resolution.snapshot;
   const diagnostics = createDiagnostics(runId, runtime, meta);
+  diagnostics.transportMode = stream ? 'stream' : 'request';
   const maxRetries = runtime.retryPolicy?.maxRetries || 3;
   const timeoutMs = runtime.timeoutMs || 90000;
   const startedAt = Date.now();
@@ -797,6 +792,9 @@ async function executeRun(options) {
     }
 
     diagnostics.attemptCount = attempt;
+    diagnostics.httpStatus = null;
+    diagnostics.responseContentType = '';
+    diagnostics.requestId = '';
 
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort('timeout'), timeoutMs);
@@ -813,10 +811,19 @@ async function executeRun(options) {
       }), controller.signal);
 
       clearTimeout(timeout);
+      diagnostics.httpStatus = response.status;
+      diagnostics.responseContentType = response.headers.get('content-type') || '';
+      diagnostics.requestId = response.headers.get('x-request-id') || '';
 
       if (!response.ok) {
         const errorText = await response.text().catch(() => '');
-        throw Errors.createHttpError(response.status, errorText, buildErrorContext(runtime, meta.stage));
+        if (TransportUtils.isLikelyResponsesCompatibilityFailure(response.status, errorText, runtime)) {
+          throw TransportUtils.createEndpointCompatibilityError(response.status, errorText, runtime, meta.stage);
+        }
+        throw Errors.createHttpError(response.status, errorText, Object.assign({
+          responseContentType: diagnostics.responseContentType,
+          requestId: diagnostics.requestId
+        }, buildErrorContext(runtime, meta.stage)));
       }
 
       const result = stream
@@ -850,7 +857,7 @@ async function executeRun(options) {
       };
     } catch (error) {
       clearTimeout(timeout);
-      let normalized = normalizeRuntimeError(error, runtime, meta.stage, runId);
+      let normalized = normalizeRuntimeError(error, runtime, meta.stage, runId, { stream });
       diagnostics.lastError = sanitizeErrorForTransport(normalized);
 
       if (normalized.code === Errors.ERROR_CODES.RUN_CANCELLED) {
@@ -879,7 +886,7 @@ async function executeRun(options) {
           continue;
         } catch (retryError) {
           setRunController(runId, null);
-          normalized = normalizeRuntimeError(retryError, runtime, meta.stage, runId);
+          normalized = normalizeRuntimeError(retryError, runtime, meta.stage, runId, { stream });
           diagnostics.lastError = sanitizeErrorForTransport(normalized);
 
           if (normalized.code === Errors.ERROR_CODES.RUN_CANCELLED) {
@@ -939,6 +946,7 @@ async function handleStreamStart(port, portId, message) {
     safePortPost(port, {
       type: 'done',
       runId,
+      text: result.text,
       usage: result.usage,
       diagnostics: result.diagnostics
     });

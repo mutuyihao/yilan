@@ -4,6 +4,7 @@ const Domain = require('../shared/domain.js');
 const Strings = require('../shared/strings.js');
 const AbortUtils = require('../shared/abort-utils.js');
 const Errors = require('../shared/errors.js');
+const TransportUtils = require('../shared/transport-utils.js');
 const RunUtils = require('../shared/run-utils.js');
 const PageStrategy = require('../shared/page-strategy.js');
 const ArticleUtils = require('../shared/article-utils.js');
@@ -441,6 +442,62 @@ function testAdapterRegistry() {
   assert.strictEqual(anthropic.snapshot.provider, 'anthropic');
 }
 
+function testTransportUtilsExtractTextFromSse() {
+  const runtime = OpenAIAdapter.resolve({ aiProvider: 'openai' });
+  const raw = [
+    'event: response.output_text.delta',
+    'data: {"type":"response.output_text.delta","delta":"Hello "}',
+    '',
+    'event: response.output_text.delta',
+    'data: {"type":"response.output_text.delta","delta":"world"}',
+    '',
+    'data: [DONE]'
+  ].join('\n');
+
+  const text = TransportUtils.extractTextFromRawBody(raw, OpenAIAdapter, runtime);
+  assert.strictEqual(text, 'Hello world');
+}
+
+function testTransportUtilsExtractUsageFromSse() {
+  const runtime = OpenAIAdapter.resolve({ aiProvider: 'openai' });
+  const raw = [
+    'data: {"usage":{"input_tokens":12,"output_tokens":34}}',
+    '',
+    'data: [DONE]'
+  ].join('\n');
+
+  const usage = TransportUtils.extractUsageFromRawBody(raw, OpenAIAdapter, runtime);
+  assert.deepStrictEqual(usage, { input_tokens: 12, output_tokens: 34 });
+}
+
+function testTransportUtilsNormalizeTransportError() {
+  const runtime = OpenAIAdapter.resolve({
+    aiProvider: 'openai',
+    aiBaseURL: 'https://ice.v.ua/v1/responses'
+  });
+
+  const error = TransportUtils.normalizeTransportError(new Error('Failed to fetch'), runtime, 'chunk', {});
+  assert.strictEqual(error.code, Errors.ERROR_CODES.NETWORK_CONNECTION_ERROR);
+  assert.ok(error.message.includes('/chat/completions'));
+
+  const disconnected = TransportUtils.normalizeTransportError({ message: 'stream_disconnected' }, runtime, 'chunk', { reason: 'stream_disconnected' });
+  assert.strictEqual(disconnected.code, Errors.ERROR_CODES.NETWORK_STREAM_DISCONNECTED);
+}
+
+function testTransportUtilsEndpointCompatibility() {
+  const runtime = OpenAIAdapter.resolve({
+    aiProvider: 'openai',
+    aiBaseURL: 'https://ice.v.ua/v1/responses'
+  });
+
+  assert.strictEqual(TransportUtils.isLikelyResponsesCompatibilityFailure(404, '', runtime), true);
+
+  const compatibility = TransportUtils.createEndpointCompatibilityError(404, 'Not Found', runtime, 'chunk');
+  assert.strictEqual(compatibility.code, Errors.ERROR_CODES.ENDPOINT_NOT_SUPPORTED);
+  assert.strictEqual(compatibility.httpStatus, 404);
+  assert.ok(compatibility.message.includes('/responses'));
+}
+
 async function testAbortUtilsRaceWithAbort() {
   const controller = new AbortController();
   const promise = AbortUtils.raceWithAbort(new Promise((resolve) => setTimeout(() => resolve('late'), 50)), controller.signal);
@@ -473,6 +530,10 @@ async function run() {
   testGroupRecordsBySite();
   testOpenAIAdapterResolve();
   testAnthropicAdapter();
+  testTransportUtilsExtractTextFromSse();
+  testTransportUtilsExtractUsageFromSse();
+  testTransportUtilsNormalizeTransportError();
+  testTransportUtilsEndpointCompatibility();
   testProviderPresetsInference();
   testAdapterRegistry();
   await testAbortUtilsRaceWithAbort();

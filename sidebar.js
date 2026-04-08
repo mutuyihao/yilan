@@ -1311,20 +1311,37 @@ async function cancelGeneration() {
   Promise.allSettled(runIds.map((runId) => runtimeSendMessage({ action: 'cancelRun', runId }))).catch(() => {});
 }
 
-function streamPrompt(settings, prompt, meta, signal) {
+function buildStreamStartStatus(meta) {
+  if (meta?.stage === 'synthesis') return '正在汇总最终结果...';
+  if (meta?.stage === 'chunk') {
+    if (typeof meta?.chunkIndex === 'number' && typeof meta?.chunkCount === 'number') {
+      return '正在总结第 ' + (meta.chunkIndex + 1) + '/' + meta.chunkCount + ' 段...';
+    }
+    return '正在总结当前分段...';
+  }
+  return '正在生成总结...';
+}
+
+function buildStreamRetryStatus(meta, attempt) {
+  const prefix = meta?.stage === 'chunk'
+    ? buildStreamStartStatus(meta).replace(/\.\.\.$/, '')
+    : meta?.stage === 'synthesis'
+      ? '正在汇总最终结果'
+      : '正在生成总结';
+  return prefix + '，接口波动，正在进行第 ' + attempt + ' 次重试...';
+}
+
+function runPromptViaStream(settings, prompt, meta, signal, handlers) {
   return new Promise((resolve, reject) => {
     const runId = Domain.createRuntimeId('run');
     const port = chrome.runtime.connect({ name: 'ai-stream' });
+    const options = handlers || {};
     let settled = false;
+    let text = '';
 
     state.activePort = port;
     state.activeStreamRunId = runId;
     addActiveRun(runId);
-
-    function onAbort() {
-      cleanup();
-      reject(createCancelledUiError(meta, runId));
-    }
 
     function cleanup() {
       if (settled) return;
@@ -1334,6 +1351,11 @@ function streamPrompt(settings, prompt, meta, signal) {
       if (state.activePort === port) {
         safeDisconnectPort();
       }
+    }
+
+    function onAbort() {
+      cleanup();
+      reject(createCancelledUiError(meta, runId));
     }
 
     if (signal?.aborted) {
@@ -1346,25 +1368,40 @@ function streamPrompt(settings, prompt, meta, signal) {
       if (message.runId !== runId) return;
 
       if (message.type === 'started') {
-        setStatus(meta.stage === 'synthesis' ? '正在汇总最终结果...' : '正在生成总结...');
+        if (typeof options.onStarted === 'function') {
+          options.onStarted(message);
+        }
         return;
       }
 
       if (message.type === 'retry') {
-        const attempt = message.retry?.attempt || 1;
-        setStatus('接口波动，正在进行第 ' + attempt + ' 次重试...', 'warning');
+        if (typeof options.onRetry === 'function') {
+          options.onRetry(message.retry || {}, message);
+        }
         return;
       }
 
       if (message.type === 'token') {
-        state.summaryMarkdown += message.token;
-        scheduleMarkdownRender();
+        const token = String(message.token || '');
+        if (!token) return;
+        text += token;
+        if (typeof options.onToken === 'function') {
+          options.onToken(token, text, message);
+        }
         return;
       }
+
       if (message.type === 'done') {
+        const finalText = String(message.text || '');
+        if (finalText && !text) {
+          text = finalText;
+          if (typeof options.onToken === 'function') {
+            options.onToken(finalText, text, Object.assign({}, message, { syntheticFinal: true }));
+          }
+        }
         const diagnostics = message.diagnostics || null;
         cleanup();
-        resolve({ diagnostics, usage: message.usage || null });
+        resolve({ text, diagnostics, usage: message.usage || null });
         return;
       }
 
@@ -1380,7 +1417,10 @@ function streamPrompt(settings, prompt, meta, signal) {
       cleanup();
       reject(state.cancelRequested
         ? createCancelledUiError(meta, runId)
-        : normalizeUiError(Errors.createError(Errors.ERROR_CODES.NETWORK_ERROR, { detail: 'stream_disconnected' }))
+        : normalizeUiError(Errors.createError(Errors.ERROR_CODES.NETWORK_STREAM_DISCONNECTED, {
+            stage: meta?.stage || '',
+            detail: 'stream_disconnected'
+          }))
       );
     });
 
@@ -1394,36 +1434,32 @@ function streamPrompt(settings, prompt, meta, signal) {
   });
 }
 
-async function runChunkPrompt(settings, prompt, meta, signal) {
-  const runId = Domain.createRuntimeId('run');
-  addActiveRun(runId);
-
-  try {
-    let response;
-
-    try {
-      response = await AbortUtils.raceWithAbort(runtimeSendMessage({
-        action: 'runPrompt',
-        settings,
-        prompt,
-        runId,
-        meta
-      }), signal);
-    } catch (error) {
-      if (AbortUtils.isAbortError(error)) {
-        throw createCancelledUiError(meta, runId);
-      }
-      throw error;
+function streamPrompt(settings, prompt, meta, signal) {
+  return runPromptViaStream(settings, prompt, meta, signal, {
+    onStarted() {
+      setStatus(buildStreamStartStatus(meta));
+    },
+    onRetry(retry) {
+      const attempt = retry?.attempt || 1;
+      setStatus(buildStreamRetryStatus(meta, attempt), 'warning');
+    },
+    onToken(token) {
+      state.summaryMarkdown += token;
+      scheduleMarkdownRender();
     }
+  });
+}
 
-    if (!response?.success) {
-      throw normalizeUiError(Object.assign({}, response?.error || {}, { diagnostics: response?.diagnostics || null }));
+function runChunkPrompt(settings, prompt, meta, signal) {
+  return runPromptViaStream(settings, prompt, meta, signal, {
+    onStarted() {
+      setStatus(buildStreamStartStatus(meta));
+    },
+    onRetry(retry) {
+      const attempt = retry?.attempt || 1;
+      setStatus(buildStreamRetryStatus(meta, attempt), 'warning');
     }
-
-    return response;
-  } finally {
-    removeActiveRun(runId);
-  }
+  });
 }
 
 async function persistRecord(record) {
