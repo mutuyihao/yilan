@@ -1,8 +1,8 @@
 # 技术架构
 
-Last updated: 2026-04-03
+Last updated: 2026-04-15
 
-这份文档只描述当前仓库里已经落地并仍然有效的架构边界，不再保留旧规划文档里的重复描述。
+这份文档描述当前仓库已经落地并仍然有效的运行时边界、数据模型，以及支撑重构的工程验证边界。
 
 ## 运行时总览
 
@@ -17,6 +17,49 @@ Last updated: 2026-04-03
 7. `db.js` 把结构化结果保存到 IndexedDB，并提供搜索、收藏、删除和站点聚合能力。
 8. `reader.html / reader.js` 从临时阅读会话中恢复当前摘要，在新标签页提供专注阅读体验。
 
+## 工程验证边界
+
+运行时代码之外，当前仓库已经有两层验证护栏：
+
+### 1. `tests/` Node 层
+
+职责：
+
+- 覆盖纯逻辑和工具函数。
+- 覆盖记录存储、搜索、收藏、删除、复用等存储行为。
+- 覆盖 Manifest、HTML DOM、脚本顺序、消息 action 等静态契约。
+- 用 `tests/feature-matrix.js` 维护既有功能覆盖清单。
+
+关键文件：
+
+- `tests/harness.js`
+- `tests/feature-matrix.js`
+- `tests/unit-core.test.js`
+- `tests/unit-adapters-transport.test.js`
+- `tests/unit-record-store.test.js`
+- `tests/static-contracts.test.js`
+- `tests/fake-indexeddb.js`
+
+### 2. `e2e/` Playwright 层
+
+职责：
+
+- 在真实 Chromium 中加载未打包扩展。
+- 验证 popup、content script、background service worker、sidebar iframe、reader 页面之间的真实协作。
+- 通过本地 fixture 页面和 mock AI 接口回归高价值主链路。
+
+关键文件：
+
+- `playwright.config.js`
+- `e2e/test-server.js`
+- `e2e/extension-harness.js`
+- `e2e/extension.spec.js`
+
+职责分工：
+
+- Node 层跑得快，适合纯逻辑、存储和静态契约。
+- Playwright 层更接近真实用户路径，但不追求 provider 全排列和全部视觉细节。
+
 ## 主要模块
 
 ### `manifest.json`
@@ -29,6 +72,7 @@ Last updated: 2026-04-03
 - content script: `content.js` 及其依赖
 - 权限：`contextMenus`、`storage`、`activeTab`、`scripting`、`clipboardWrite`
 - `host_permissions: <all_urls>`
+- `web_accessible_resources` 暴露侧栏运行所需的 HTML、样式、共享脚本和第三方库
 
 ### `popup.html / popup.js`
 
@@ -140,6 +184,7 @@ Last updated: 2026-04-03
 - `errors.js`：统一错误模型
 - `abort-utils.js`：取消控制工具
 - `run-utils.js`：运行终态、取消说明、诊断摘要
+- `transport-utils.js`：SSE / raw body 解析与传输层辅助工具
 
 ### `adapters/`
 
@@ -246,6 +291,5 @@ provider-specific 逻辑集中在这里，而不是散落在 `background.js`：
 - 可信策略继续收敛在 `shared/trust-policy.js`，不要在 UI 层各自拼判断。
 - 历史记录始终以结构化对象保存，不退回到简单字符串列表。
 - 阅读页继续作为侧栏之外的补充阅读能力，而不是替代侧栏主工作流。
+- 验证体系保持 `Node 契约` 与 `Playwright 主链路` 分层，不拿其中一层去替代另一层。
 - 在没有明确收益之前，保持当前无构建、纯脚本的轻量结构。
-
-

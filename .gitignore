@@ -16,6 +16,8 @@ release/
 *.log
 *.tmp
 *.temp
+playwright-report/
+test-results/
 
 # OS / editor files
 .DS_Store

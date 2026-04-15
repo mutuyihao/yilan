@@ -1,15 +1,17 @@
 # 开发者指南
 
-Last updated: 2026-04-03
+Last updated: 2026-04-15
 
-这份文档覆盖当前仓库最需要的开发信息：如何理解代码、如何验证修改，以及修改后该同步更新哪些文档。
+这份文档面向在当前仓库里改代码的人，重点说明三件事：先看哪些文档、修改后怎么验证、哪些事实应该写回哪份文档。
 
 ## 建议阅读顺序
 
-1. [README.md](../README.md)
-2. [用户文档](USER_GUIDE.md)
-3. [技术架构](TECHNICAL_ARCHITECTURE.md)
-4. [协作与贡献](../CONTRIBUTING.md)
+1. [文档索引](README.md)
+2. [项目概览](../README.md)
+3. [测试体系](TESTING.md)
+4. [技术架构](TECHNICAL_ARCHITECTURE.md)
+5. [升级设计（draft）](UPGRADE_DESIGN.md)
+6. [协作与贡献](../CONTRIBUTING.md)
 
 ## 本地开发
 
@@ -28,75 +30,73 @@ Last updated: 2026-04-03
 4. 如果改动涉及 `popup.html` 或 `popup.js`，重新打开 popup。
 5. 如果改动涉及 `reader.html` 或 `reader.js`，重新打开独立阅读页。
 
-## 最小验证命令
+## 推荐验证流程
 
-### 语法检查
+### 1. 基础验证
 
 ```powershell
-node --check background.js
-node --check content.js
-node --check popup.js
-node --check sidebar.js
-node --check reader.js
-node --check db.js
-node --check shared/article-utils.js
-node --check shared/page-strategy.js
-node --check shared/trust-policy.js
-node --check adapters/openai-adapter.js
-node --check adapters/anthropic-adapter.js
-node --check adapters/registry.js
+npm test
 ```
 
-### 测试
+`npm test` 会跑 Node 层测试，并附带一方 JavaScript 文件的语法检查、功能覆盖矩阵和静态契约检查。
+
+### 2. 浏览器主链路回归
+
+```powershell
+npm run test:e2e
+```
+
+首次运行 Playwright 前，通常需要先安装 Chromium：
+
+```powershell
+npm run playwright:install
+```
+
+### 3. PowerShell 兼容写法
+
+如果 Windows PowerShell 拦截 `npm.ps1`，可改用：
+
+```powershell
+npm.cmd test
+npm.cmd run test:e2e
+npm.cmd run playwright:install
+```
+
+如果只需要 Node 层入口，也可以直接运行：
 
 ```powershell
 node tests/run-tests.js
 ```
 
-如果 PowerShell 拦截 `npm.ps1`，直接运行上面的 `node` 命令即可。
+## 验证分工
+
+- `npm test`：纯逻辑、存储层、静态契约、功能覆盖矩阵门禁。
+- `npm run test:e2e`：真实 Chromium 中的 popup、content script、background service worker、sidebar iframe、reader 页面与 mocked AI 链路。
+- 手工回归：主题视觉、浏览器受限页面、稀有 provider / endpoint 组合、快捷键设置页跳转等不适合全部固化成 E2E 的路径。
 
 ## 手工回归清单
 
-对用户可见改动，至少覆盖受影响路径。
+对用户可见改动，除了自动化之外，至少补受影响路径的人工确认。当前 Playwright 已覆盖 popup 自动保存与连接测试、主摘要生成、长文分段、历史复用、隐私/分享策略、取消生成、导出下载和阅读页打开，但以下场景仍建议手工确认：
 
 ### 设置页
 
 - 标签切换正常。
-- 文本输入会自动保存，离开输入框也会保存。
-- 复选框和下拉框立即保存。
 - 主题切换能同步到 popup、侧栏和阅读页。
-- 测试连接能使用刚保存的最新配置。
+- “检查入口”和“快捷键设置”仍能给出正确状态或跳转。
+- 厂商 preset、Provider、Endpoint Mode 的非常见组合仍能得到合理表单状态。
 
-### 侧栏主流程
+### 侧栏与历史
 
 - 右键菜单和 `Alt + S` 能打开侧栏。
-- `入口自动生成摘要` 开关行为正确。
-- `入口默认简短总结` 生效。
-- `优先显示本页历史摘要` 命中时会先显示旧摘要，且“重新生成”仍基于当前页面。
-- 主摘要能生成。
-- 长文能触发分段与汇总。
-- 取消能中断当前运行。
-
-### 历史与收藏
-
-- 历史记录可写入。
-- 搜索、收藏、删除可用。
-- 按站点聚合筛选可用。
-- 不写入历史的结果不会进入历史，也不能收藏。
+- 历史搜索、站点聚合、收藏、删除互相配合正常。
+- “优先显示本页历史摘要”命中后，点击“重新生成”仍基于当前页面，而不是旧记录快照。
+- 浏览器内部页面、扩展商店页等受限页面的行为符合浏览器权限预期。
 
 ### 阅读与导出
 
-- “阅读”按钮能打开独立阅读页。
-- 阅读页能显示当前摘要、原文链接和复制按钮。
-- Markdown 导出可用。
-- 长截图分享卡可生成，且带来源链接。
-
-### 隐私与控制
-
-- 无痕模式下结果不会写入历史。
-- 关闭默认写入历史后，结果只保留在当前侧栏。
-- 关闭分享卡后，分享按钮被禁用或拦截。
-- 侧栏显示的可信状态和真实行为一致。
+- 阅读页中的复制、原文跳转、布局和明暗主题正常。
+- Markdown 导出内容结构正确，来源信息没有缺失。
+- 分享长图下载后的视觉样式没有因 CSS 调整被破坏。
 
 ## 常见修改入口
 
@@ -114,6 +114,7 @@ node tests/run-tests.js
 优先查看：
 
 - `shared/provider-presets.js`
+- `shared/transport-utils.js`
 - `adapters/openai-adapter.js`
 - `adapters/anthropic-adapter.js`
 - `adapters/registry.js`
@@ -150,23 +151,34 @@ node tests/run-tests.js
 
 ## 文档维护规则
 
-仓库现在只保留四类核心文档：
+当前文档分成“稳定说明”和“规划草案”两类。
 
-- `README.md`：项目概览、快速开始、目录和验证入口
+稳定说明：
+
+- `README.md`：项目概览、快速开始、验证入口
+- `docs/README.md`：文档索引与文档分工
 - `docs/USER_GUIDE.md`：用户视角的功能和行为
 - `docs/TECHNICAL_ARCHITECTURE.md`：代码边界、数据模型、存储和运行链路
+- `docs/TESTING.md`：测试分层、覆盖口径、命令和新增功能要求
 - `docs/DEVELOPER_GUIDE.md`：开发流程、验证和维护约定
+
+规划草案：
+
+- `docs/UPGRADE_DESIGN.md`：Pinboard 启发下的后续升级方向与低风险重构路线
 
 出现以下变化时，需要同步更新：
 
 - 用户操作流程变化：更新 `README.md` 和 `docs/USER_GUIDE.md`
 - 架构边界、消息链路、数据模型变化：更新 `docs/TECHNICAL_ARCHITECTURE.md`
-- 开发流程、验证命令、回归要求变化：更新 `docs/DEVELOPER_GUIDE.md`
+- 测试命令、覆盖策略、验证入口变化：更新 `docs/TESTING.md` 和 `docs/DEVELOPER_GUIDE.md`
+- 文档入口或文档分工变化：更新 `README.md` 和 `docs/README.md`
+- 重构路线、阶段计划、技术债优先级变化：更新 `docs/UPGRADE_DESIGN.md`
 - 贡献约定变化：更新 `CONTRIBUTING.md`
 
 ## 当前建议保持的工程边界
 
 - 继续保持无构建、纯脚本结构，除非复杂度明显超过当前形态。
 - 共享逻辑优先放在 `shared/`，不要把同类判断复制到 popup、sidebar、reader 三处。
+- provider-specific 逻辑继续收敛在 `adapters/`，不要把 transport 和 provider 分支堆回 `background.js`。
 - 与落库和隐私相关的改动，务必同时检查 `db.js`、`shared/trust-policy.js` 和用户文档。
-- 对文案和 UI 的改动，也要验证历史、导出、分享和阅读页是否仍然一致。
+- 如果某条用户主路径能稳定地在浏览器里复现，优先补 Playwright，而不是只留下手工说明。

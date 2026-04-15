@@ -1,6 +1,6 @@
 # 一览
 
-Last updated: 2026-04-03
+Last updated: 2026-04-15
 
 官网：<https://yilan.app>
 GitHub：<https://github.com/mutuyihao/yilan>
@@ -8,7 +8,7 @@ GitHub：<https://github.com/mutuyihao/yilan>
 
 一览是一个基于 Manifest V3 的 Chromium 扩展，用来在浏览器里完成“抽取网页 -> 生成摘要 -> 继续加工 -> 本地沉淀 -> 专注阅读”这一整条链路。
 
-项目现在已经不是单一的摘要工具，而是一个轻量阅读工作台：
+当前版本已经不是单一的摘要工具，而是一个本地优先的网页阅读工作台：
 
 - 自动抽取网页正文、标题、作者、发布时间和站点信息。
 - 识别页面类型，并按页面类型推荐摘要策略。
@@ -18,7 +18,8 @@ GitHub：<https://github.com/mutuyihao/yilan>
 - 入口可优先复用当前页面的历史摘要，命中后直接展示旧结果，并保留“重新生成”更新当前页。
 - 支持把当前摘要打开到独立的新标签页阅读器。
 - 支持 Markdown 导出和带来源链接的长截图分享卡。
-- 设置页支持厂商预设、显式 endpoint mode、主题偏好、入口状态检查，并且默认自动保存。
+- 设置页支持厂商预设、显式 Endpoint Mode、主题偏好、入口状态检查，并且默认自动保存。
+- 当前测试基线已经分成 `Node 功能矩阵 + 静态契约` 与 `Playwright 浏览器主链路` 两层，用来给后续重构和技术债治理兜底。
 
 ## 当前边界
 
@@ -46,7 +47,7 @@ GitHub：<https://github.com/mutuyihao/yilan>
 
 说明：
 
-- 设置页现在默认自动保存，不需要先手动点击保存。
+- 设置页默认自动保存，不需要先手动点击保存。
 - 文本输入项会在停顿后保存，`blur` 时也会立即保存。
 - 下拉框和开关会立即保存。
 - 内置厂商预设目前包含 OpenAI、Anthropic、DeepSeek、Gemini、xAI、Qwen、GLM、MiniMax、Doubao、Hunyuan。
@@ -59,41 +60,41 @@ GitHub：<https://github.com/mutuyihao/yilan>
 4. 在侧栏中查看摘要、继续生成行动项/术语表/问答卡片、管理历史与收藏。
 5. 如需更舒服地阅读，点击顶部“阅读”按钮，在新标签页打开专注阅读页面。
 
-## 存储与权限
+## 开发与验证
 
-### `chrome.storage.sync`
+最常用的验证入口：
 
-用于保存用户设置，例如：
+```powershell
+npm test
+npm run test:e2e
+```
 
-- API Key
-- 厂商预设、Provider、Endpoint Mode
-- Base URL、模型名称、额外系统要求
-- 自动翻译、默认输出语言
-- 主题偏好
-- 无痕模式、默认写入历史、默认允许分享
-- 入口自动生成、入口默认简短总结、入口优先显示本页历史摘要
+首次运行浏览器端测试前，通常需要先安装 Chromium：
 
-### `chrome.storage.local`
+```powershell
+npm run playwright:install
+```
 
-用于保存运行时本地状态：
+如果 Windows PowerShell 拦截 `npm.ps1`，可改用：
 
-- 右键菜单 / 快捷键状态检查结果
-- 独立阅读页的临时会话快照
+```powershell
+npm.cmd test
+npm.cmd run test:e2e
+npm.cmd run playwright:install
+node tests/run-tests.js
+```
 
-### IndexedDB
-
-用于保存历史记录：
-
-- 数据库版本：`DB_VERSION = 2`
-- 主 store：`summaryRecords`
+更详细的覆盖口径、测试分层和新增功能要求见 [测试体系](docs/TESTING.md)。开发流程、手工回归和文档维护规则见 [开发者指南](docs/DEVELOPER_GUIDE.md)。
 
 ## 目录结构
 
 ```text
 .
 ├─ adapters/                  # Provider 适配层
-├─ docs/                      # 精简后的核心文档
+├─ docs/                      # 文档索引、用户/架构/测试/开发/升级设计
+├─ e2e/                       # Playwright 浏览器端测试与扩展 harness
 ├─ icon/                      # 扩展图标
+├─ landing-page/              # 官网静态页
 ├─ libs/                      # 第三方库
 │  ├─ readability.js          # vendored 的 Readability，用于正文抽取
 │  ├─ purify.min.js           # DOMPurify，用于净化 Markdown 渲染后的 HTML
@@ -101,48 +102,27 @@ GitHub：<https://github.com/mutuyihao/yilan>
 │  ├─ highlight.min.js        # highlight.js，用于代码块高亮
 │  ├─ github-dark.min.css     # Markdown / 代码块高亮样式
 │  └─ html2canvas.min.js      # 用于生成长截图分享卡
-├─ shared/                    # 领域工具、页面策略、可信策略、主题、厂商 preset
-├─ tests/                     # 最小测试集
+├─ shared/                    # 领域工具、页面策略、可信策略、主题、传输工具、厂商 preset
+├─ tests/                     # Node 功能矩阵、单元测试、静态契约
 ├─ background.js              # 后台编排、入口状态、运行控制、reader 会话
 ├─ content.js                 # 页面抽取与侧栏注入
 ├─ db.js                      # IndexedDB 历史存储与迁移
+├─ manifest.json              # 扩展清单
+├─ playwright.config.js       # Playwright 配置
 ├─ popup.html / popup.js      # 设置页、标签切换、自动保存、入口检查
-├─ sidebar.html / sidebar.js  # 侧栏工作流、历史、分享、诊断
 ├─ reader.html / reader.js    # 独立阅读页
-├─ style.css                  # 侧栏样式
-└─ manifest.json              # 扩展清单
-```
-
-## 开发与验证
-
-### 语法检查
-
-```powershell
-node --check background.js
-node --check content.js
-node --check popup.js
-node --check sidebar.js
-node --check reader.js
-node --check db.js
-node --check shared/article-utils.js
-node --check shared/page-strategy.js
-node --check shared/trust-policy.js
-node --check adapters/openai-adapter.js
-node --check adapters/anthropic-adapter.js
-node --check adapters/registry.js
-```
-
-### 测试
-
-```powershell
-node tests/run-tests.js
+├─ sidebar.html / sidebar.js  # 侧栏工作流、历史、分享、诊断
+└─ style.css                  # 侧栏样式
 ```
 
 ## 文档
 
+- [文档索引](docs/README.md)
 - [用户文档](docs/USER_GUIDE.md)
 - [技术架构](docs/TECHNICAL_ARCHITECTURE.md)
+- [测试体系](docs/TESTING.md)
 - [开发者指南](docs/DEVELOPER_GUIDE.md)
+- [升级设计（draft）](docs/UPGRADE_DESIGN.md)
 - [协作与贡献](CONTRIBUTING.md)
 
 ## License
@@ -151,7 +131,6 @@ node tests/run-tests.js
 - `libs/` 下随仓库分发的第三方库继续沿用各自上游许可证，详见 `THIRD_PARTY_NOTICES.md`。
 - 如果第三方文件头部声明与本说明存在差异，以该第三方文件内保留的声明和其上游许可证文本为准。
 
-## 🙏 致谢
+## 致谢
 
 本项目开发过程中获得了 [LINUX DO](https://linux.do/latest) 社区佬友的帮助，本产品会在社区发布，感谢社区的支持。
-
