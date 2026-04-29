@@ -1,81 +1,83 @@
-# 一览
+# Yilan
 
-Last updated: 2026-04-15
+Last updated: 2026-04-29
 
-官网：<https://yilan.app>
-GitHub：<https://github.com/mutuyihao/yilan>
-社区讨论：<https://discord.gg/MWWDwXZ2TV>
+Language: English | [中文](README.zh-CN.md)
 
-一览是一个基于 Manifest V3 的 Chromium 扩展，用来在浏览器里完成“抽取网页 -> 生成摘要 -> 继续加工 -> 本地沉淀 -> 专注阅读”这一整条链路。
+Website: <https://yilan.app>
+GitHub: <https://github.com/mutuyihao/yilan>
+Community: <https://discord.gg/MWWDwXZ2TV>
 
-当前版本已经不是单一的摘要工具，而是一个本地优先的网页阅读工作台：
+Yilan is a Manifest V3 Chromium extension for the full web reading workflow: extract a page, generate a summary, continue processing it, save it locally, and read it in a focused view.
 
-- 自动抽取网页正文、标题、作者、发布时间和站点信息。
-- 识别页面类型，并按页面类型推荐摘要策略。
-- 支持 `简短总结`、`标准总结`、`详细分析`、`关键要点` 四种主摘要模式。
-- 支持 `行动项`、`术语表`、`问答卡片` 三种二次生成模式。
-- 在侧栏中查看来源信息、可信与控制状态、历史与收藏、基础诊断。
-- 入口可优先复用当前页面的历史摘要，命中后直接展示旧结果，并保留“重新生成”更新当前页。
-- 支持把当前摘要打开到独立的新标签页阅读器。
-- 支持 Markdown 导出和带来源链接的长截图分享卡。
-- 设置页支持厂商预设、显式 Endpoint Mode、主题偏好、入口状态检查，并且默认自动保存。
-- 当前测试基线已经分成 `Node 功能矩阵 + 静态契约` 与 `Playwright 浏览器主链路` 两层，用来给后续重构和技术债治理兜底。
+The current version is no longer just a summarizer. It is a local-first web reading workspace:
 
-## 当前边界
+- Extracts article text, title, author, publish time, and site information automatically.
+- Detects page type and recommends a summary strategy for that page.
+- Supports four primary summary modes: `Brief Summary`, `Standard Summary`, `Detailed Analysis`, and `Key Points`.
+- Supports three follow-up generation modes: `Action Items`, `Glossary`, and `Q&A Cards`.
+- Shows source metadata, trust and control state, history, favorites, and basic diagnostics in the sidebar.
+- Can reuse the current page's latest historical summary at entry time, while keeping `Regenerate` available to refresh the page result.
+- Opens the current summary in a standalone new-tab reader.
+- Exports Markdown and creates long screenshot share cards with source links.
+- Provides provider presets, explicit Endpoint Mode, theme preference, entry status checks, and auto-save in the settings page.
+- Uses a two-layer test baseline: `Node feature matrix + static contracts` and `Playwright browser main flow`, which protects future refactors and technical-debt cleanup.
 
-- 项目是 `本地优先 + BYOK` 形态，没有内建账号体系或云同步。
-- 无痕模式只控制“是否写入本地历史”，不会阻止页面内容被发送到你配置的模型服务。
-- 历史只保存在当前浏览器 profile 的 IndexedDB 中。
-- 扩展目前面向 Chromium 浏览器，使用右键菜单和 `Alt + S` 作为主要入口。
+## Current Scope
 
-## 快速开始
+- Yilan is `local-first + BYOK`; it does not include built-in accounts or cloud sync.
+- Incognito mode only controls whether results are written to local history. It does not prevent page content from being sent to the model service you configure.
+- History is stored only in IndexedDB for the current browser profile.
+- The extension currently targets Chromium browsers and uses the context menu plus `Alt + S` as the main entry points.
 
-### 1. 加载扩展
+## Quick Start
 
-1. 打开 Chrome、Edge 或其他 Chromium 浏览器。
-2. 进入扩展管理页。
-3. 打开“开发者模式”。
-4. 选择“加载已解压的扩展程序”。
-5. 选择当前项目目录。
+### 1. Load the extension
 
-### 2. 配置模型
+1. Open Chrome, Edge, or another Chromium browser.
+2. Go to the browser's extensions management page.
+3. Enable Developer mode.
+4. Choose Load unpacked.
+5. Select this project directory.
 
-1. 点击扩展图标打开设置页。
-2. 在 `连接` 标签中选择厂商预设、Provider 和 Endpoint Mode。
-3. 填写 `API Key`，按需覆盖 `Base URL` 和 `模型名称`。
-4. 等待自动保存完成后点击“测试连接”。
+### 2. Configure a model
 
-说明：
+1. Click the extension icon to open the settings page.
+2. In the `Connection` tab, choose a provider preset, Provider, and Endpoint Mode.
+3. Enter your `API Key`, and override `Base URL` or `Model` if needed.
+4. Wait for auto-save to finish, then click `Test Connection`.
 
-- 设置页默认自动保存，不需要先手动点击保存。
-- 文本输入项会在停顿后保存，`blur` 时也会立即保存。
-- 下拉框和开关会立即保存。
-- 内置厂商预设目前包含 OpenAI、Anthropic、DeepSeek、Gemini、xAI、Qwen、GLM、MiniMax、Doubao、Hunyuan。
+Notes:
 
-### 3. 使用扩展
+- The settings page auto-saves by default; you do not need to click Save first.
+- Text inputs are saved after a short pause, and also save immediately on `blur`.
+- Select boxes and switches save immediately.
+- Built-in provider presets currently include OpenAI, Anthropic, DeepSeek, Gemini, xAI, Qwen, GLM, MiniMax, Doubao, and Hunyuan.
 
-1. 打开任意网页。
-2. 右键页面选择“用一览总结此页”，或按 `Alt + S`。
-3. 侧栏打开后，会先按入口配置检查是否复用当前页面的历史摘要；命中时直接显示最近一次已完成结果，否则再自动开始生成，或只打开侧栏等待手动触发。
-4. 在侧栏中查看摘要、继续生成行动项/术语表/问答卡片、管理历史与收藏。
-5. 如需更舒服地阅读，点击顶部“阅读”按钮，在新标签页打开专注阅读页面。
+### 3. Use the extension
 
-## 开发与验证
+1. Open any web page.
+2. Right-click the page and choose the Yilan summary action, or press `Alt + S`.
+3. When the sidebar opens, it checks the entry configuration first. If history reuse is enabled and a completed result exists for the current page, the latest result is shown immediately. Otherwise, generation starts automatically, or the sidebar waits for manual action depending on your settings.
+4. Use the sidebar to read the summary, generate action items / glossary / Q&A cards, and manage history or favorites.
+5. For focused reading, click the reader button at the top to open the result in a dedicated new tab.
 
-最常用的验证入口：
+## Development
+
+Common validation commands:
 
 ```powershell
 npm test
 npm run test:e2e
 ```
 
-首次运行浏览器端测试前，通常需要先安装 Chromium：
+Before running browser tests for the first time, install Chromium:
 
 ```powershell
 npm run playwright:install
 ```
 
-如果 Windows PowerShell 拦截 `npm.ps1`，可改用：
+If Windows PowerShell blocks `npm.ps1`, use:
 
 ```powershell
 npm.cmd test
@@ -84,54 +86,56 @@ npm.cmd run playwright:install
 node tests/run-tests.js
 ```
 
-更详细的覆盖口径、测试分层和新增功能要求见 [测试体系](docs/TESTING.md)。开发流程、手工回归和文档维护规则见 [开发者指南](docs/DEVELOPER_GUIDE.md)。
+For details about test scope, test layers, and requirements for new features, see [Testing](docs/TESTING.md). For the development workflow, manual regression checklist, and documentation maintenance rules, see [Developer Guide](docs/DEVELOPER_GUIDE.md).
 
-## 目录结构
+## Repository Layout
 
 ```text
 .
-├─ adapters/                  # Provider 适配层
-├─ docs/                      # 文档索引、用户/架构/测试/开发/规划草案
-├─ e2e/                       # Playwright 浏览器端测试与扩展 harness
-├─ icon/                      # 扩展图标
-├─ landing-page/              # 官网静态页
-├─ libs/                      # 第三方库
-│  ├─ readability.js          # vendored 的 Readability，用于正文抽取
-│  ├─ purify.min.js           # DOMPurify，用于净化 Markdown 渲染后的 HTML
-│  ├─ marked.min.js           # Marked，用于 Markdown -> HTML 渲染
-│  ├─ highlight.min.js        # highlight.js，用于代码块高亮
-│  ├─ github-dark.min.css     # Markdown / 代码块高亮样式
-│  └─ html2canvas.min.js      # 用于生成长截图分享卡
-├─ shared/                    # 领域工具、页面策略、可信策略、主题、传输工具、厂商 preset
-├─ tests/                     # Node 功能矩阵、单元测试、静态契约
-├─ background.js              # 后台编排、入口状态、运行控制、reader 会话
-├─ content.js                 # 页面抽取与侧栏注入
-├─ db.js                      # IndexedDB 历史存储与迁移
-├─ manifest.json              # 扩展清单
-├─ playwright.config.js       # Playwright 配置
-├─ popup.html / popup.js      # 设置页、标签切换、自动保存、入口检查
-├─ reader.html / reader.js    # 独立阅读页
-├─ sidebar.html / sidebar.js  # 侧栏工作流、历史、分享、诊断
-└─ style.css                  # 侧栏样式
+|-- adapters/                  # Provider adapters
+|-- docs/                      # Docs index, user/architecture/testing/dev docs, planning drafts
+|-- e2e/                       # Playwright browser tests and extension harness
+|-- icon/                      # Extension icons
+|-- landing-page/              # Static website
+|-- libs/                      # Third-party libraries
+|   |-- readability.js          # Vendored Readability for article extraction
+|   |-- purify.min.js           # DOMPurify for sanitizing rendered Markdown HTML
+|   |-- marked.min.js           # Marked for Markdown -> HTML rendering
+|   |-- highlight.min.js        # highlight.js for code block highlighting
+|   |-- github-dark.min.css     # Markdown / code block highlight styles
+|   `-- html2canvas.min.js      # Long screenshot share card generation
+|-- shared/                    # Domain utilities, page strategy, trust policy, theme, transport utilities, provider presets
+|-- tests/                     # Node feature matrix, unit tests, static contracts
+|-- background.js              # Background orchestration, entry state, run control, reader sessions
+|-- content.js                 # Page extraction and sidebar injection
+|-- db.js                      # IndexedDB history storage and migrations
+|-- manifest.json              # Extension manifest
+|-- playwright.config.js       # Playwright config
+|-- popup.html / popup.js      # Settings page, tabs, auto-save, entry checks
+|-- reader.html / reader.js    # Standalone reader page
+|-- sidebar.html / sidebar.js  # Sidebar workflow, history, sharing, diagnostics
+`-- style.css                  # Sidebar styles
 ```
 
-## 文档
+## Documentation
 
-- [文档索引](docs/README.md)
-- [用户文档](docs/USER_GUIDE.md)
-- [技术架构](docs/TECHNICAL_ARCHITECTURE.md)
-- [测试体系](docs/TESTING.md)
-- [开发者指南](docs/DEVELOPER_GUIDE.md)
-- [升级设计（draft）](docs/UPGRADE_DESIGN.md)
-- [TypeScript + Preact 迁移设计（draft）](docs/TS_PREACT_MIGRATION.md)
-- [协作与贡献](CONTRIBUTING.md)
+Most project docs are currently written in Chinese:
+
+- [Documentation index](docs/README.md)
+- [User Guide](docs/USER_GUIDE.md)
+- [Technical Architecture](docs/TECHNICAL_ARCHITECTURE.md)
+- [Testing](docs/TESTING.md)
+- [Developer Guide](docs/DEVELOPER_GUIDE.md)
+- [Upgrade Design draft](docs/UPGRADE_DESIGN.md)
+- [TypeScript + Preact Migration draft](docs/TS_PREACT_MIGRATION.md)
+- [Contributing](CONTRIBUTING.md)
 
 ## License
 
-- 本项目原创代码与文档采用 `Apache-2.0`，详见 `LICENSE`。
-- `libs/` 下随仓库分发的第三方库继续沿用各自上游许可证，详见 `THIRD_PARTY_NOTICES.md`。
-- 如果第三方文件头部声明与本说明存在差异，以该第三方文件内保留的声明和其上游许可证文本为准。
+- Original project code and documentation are licensed under `Apache-2.0`; see `LICENSE`.
+- Third-party libraries distributed under `libs/` keep their respective upstream licenses; see `THIRD_PARTY_NOTICES.md`.
+- If a third-party file header differs from this note, the notice preserved in that third-party file and its upstream license text take precedence.
 
-## 致谢
+## Acknowledgements
 
-本项目开发过程中获得了 [LINUX DO](https://linux.do/latest) 社区佬友的帮助，本产品会在社区发布，感谢社区的支持。
+This project received help from the [LINUX DO](https://linux.do/latest) community during development. The product is released to the community, and its support is appreciated.
