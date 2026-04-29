@@ -55,6 +55,7 @@ function countMatches(text, pattern) {
 test('first-party JavaScript files pass syntax checks', 'quality.syntax', () => {
   const files = listFirstPartyJsFiles();
   assert.ok(files.includes('background.js'));
+  assert.ok(files.includes('background/entrypoints.js'));
   assert.ok(files.includes('background/run-state.js'));
   assert.ok(files.includes('background/reader-sessions.js'));
   assert.ok(files.includes('sidebar.js'));
@@ -162,7 +163,8 @@ test('manifest, HTML script tags, and imported resources point to existing files
     'shared/abort-utils.js',
     'shared/transport-utils.js',
     'background/run-state.js',
-    'background/reader-sessions.js'
+    'background/reader-sessions.js',
+    'background/entrypoints.js'
   ].forEach((script) => {
     assert.ok(background.includes("'" + script + "'"), 'background importScripts missing ' + script);
   });
@@ -315,11 +317,17 @@ test('background service worker exposes entrypoints, run actions, cancellation, 
   'transport.streaming'
 ], () => {
   const js = readText('background.js');
+  const entrypoints = readText('background/entrypoints.js');
   const runState = readText('background/run-state.js');
   const readerSessions = readText('background/reader-sessions.js');
-  assert.ok(js.includes('chrome.runtime.onInstalled.addListener'));
-  assert.ok(js.includes('chrome.contextMenus.onClicked.addListener'));
-  assert.ok(js.includes('chrome.commands.onCommand.addListener'));
+  assert.ok(js.includes('const Entrypoints = self.YilanEntrypoints'));
+  assert.ok(js.includes('Entrypoints.bindEntrypoints'));
+  assert.ok(js.includes('Entrypoints.getEntrypointStatus'));
+  assert.ok(js.includes('Entrypoints.openShortcutSettings'));
+  assert.ok(entrypoints.includes('chrome.runtime.onInstalled.addListener'));
+  assert.ok(entrypoints.includes('chrome.contextMenus.onClicked.addListener'));
+  assert.ok(entrypoints.includes('chrome.commands.onCommand.addListener'));
+  assert.ok(entrypoints.includes('global.YilanEntrypoints = api'));
   assert.ok(js.includes('chrome.runtime.onConnect.addListener'));
   assert.ok(js.includes("message.action === 'testConnection'"));
   assert.ok(js.includes("message.action === 'runPrompt'"));
@@ -359,6 +367,10 @@ test('background service worker exposes entrypoints, run actions, cancellation, 
   assert.strictEqual(countMatches(js, /const portRuns = new Map\(/g), 0);
   assert.strictEqual(countMatches(js, /function prepareRun\(/g), 0);
   assert.strictEqual(countMatches(js, /function cancelPortRuns\(/g), 0);
+  assert.strictEqual(countMatches(js, /function ensureContextMenuRegistered\(/g), 0);
+  assert.strictEqual(countMatches(js, /function refreshShortcutStatus\(/g), 0);
+  assert.strictEqual(countMatches(js, /chrome\.contextMenus\.onClicked\.addListener/g), 0);
+  assert.strictEqual(countMatches(js, /chrome\.commands\.onCommand\.addListener/g), 0);
 });
 
 test('content script extraction, sidebar injection, and SPA navigation contracts stay wired', [

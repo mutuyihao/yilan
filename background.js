@@ -7,7 +7,13 @@ importScripts(
   'adapters/registry.js'
 );
 
-importScripts('shared/abort-utils.js', 'shared/transport-utils.js', 'background/run-state.js', 'background/reader-sessions.js');
+importScripts(
+  'shared/abort-utils.js',
+  'shared/transport-utils.js',
+  'background/run-state.js',
+  'background/reader-sessions.js',
+  'background/entrypoints.js'
+);
 
 const AbortUtils = self.AISummaryAbortUtils;
 const Domain = self.AISummaryDomain;
@@ -16,6 +22,7 @@ const AdapterRegistry = self.AISummaryAdapterRegistry;
 const TransportUtils = self.AISummaryTransportUtils;
 const RunState = self.YilanRunState;
 const ReaderSessions = self.YilanReaderSessions;
+const Entrypoints = self.YilanEntrypoints;
 
 const CONTENT_SCRIPT_FILES = [
   'shared/domain.js',
@@ -25,47 +32,6 @@ const CONTENT_SCRIPT_FILES = [
   'libs/readability.js',
   'content.js'
 ];
-
-const SUMMARY_CONTEXT_MENU_ID = 'summarizeArticle';
-const SUMMARY_COMMAND_ID = 'trigger-summary';
-const ENTRYPOINT_STATUS_KEY = 'entrypointStatus';
-const SHORTCUT_SETTINGS_URL = /\bEdg\//.test(self.navigator?.userAgent || '')
-  ? 'edge://extensions/shortcuts'
-  : 'chrome://extensions/shortcuts';
-
-function storageLocalGet(key) {
-  return new Promise((resolve) => {
-    chrome.storage.local.get(key, (items) => resolve(items || {}));
-  });
-}
-
-function storageLocalSet(payload) {
-  return new Promise((resolve) => {
-    chrome.storage.local.set(payload, resolve);
-  });
-}
-
-function contextMenusRemoveAll() {
-  return new Promise((resolve) => {
-    chrome.contextMenus.removeAll(() => {
-      resolve(chrome.runtime.lastError?.message || '');
-    });
-  });
-}
-
-function contextMenuCreate(payload) {
-  return new Promise((resolve) => {
-    chrome.contextMenus.create(payload, () => {
-      resolve(chrome.runtime.lastError?.message || '');
-    });
-  });
-}
-
-function commandsGetAll() {
-  return new Promise((resolve) => {
-    chrome.commands.getAll((commands) => resolve(Array.isArray(commands) ? commands : []));
-  });
-}
 
 function createTab(url) {
   return new Promise((resolve) => {
@@ -79,152 +45,6 @@ function createTab(url) {
     });
   });
 }
-
-function createDefaultEntrypointStatus() {
-  return {
-    browserShortcutSettingsUrl: SHORTCUT_SETTINGS_URL,
-    contextMenu: {
-      id: SUMMARY_CONTEXT_MENU_ID,
-      status: 'unknown',
-      lastEnsuredAt: '',
-      lastTriggeredAt: '',
-      lastCheckedAt: '',
-      lastError: ''
-    },
-    shortcut: {
-      command: SUMMARY_COMMAND_ID,
-      status: 'unknown',
-      shortcut: '',
-      lastTriggeredAt: '',
-      lastCheckedAt: '',
-      conflictStatus: 'unknown',
-      note: ''
-    }
-  };
-}
-
-async function readEntrypointStatus() {
-  const items = await storageLocalGet(ENTRYPOINT_STATUS_KEY);
-  const defaults = createDefaultEntrypointStatus();
-  const stored = items[ENTRYPOINT_STATUS_KEY] || {};
-  return {
-    browserShortcutSettingsUrl: SHORTCUT_SETTINGS_URL,
-    contextMenu: Object.assign({}, defaults.contextMenu, stored.contextMenu || {}),
-    shortcut: Object.assign({}, defaults.shortcut, stored.shortcut || {})
-  };
-}
-
-async function updateEntrypointStatus(patch) {
-  const current = await readEntrypointStatus();
-  const next = {
-    browserShortcutSettingsUrl: SHORTCUT_SETTINGS_URL,
-    contextMenu: Object.assign({}, current.contextMenu, patch?.contextMenu || {}),
-    shortcut: Object.assign({}, current.shortcut, patch?.shortcut || {})
-  };
-  await storageLocalSet({ [ENTRYPOINT_STATUS_KEY]: next });
-  return next;
-}
-
-async function ensureContextMenuRegistered(reason) {
-  const checkedAt = new Date().toISOString();
-  const removeError = await contextMenusRemoveAll();
-  const createError = await contextMenuCreate({
-    id: SUMMARY_CONTEXT_MENU_ID,
-    title: '用一览总结此页',
-    contexts: ['page', 'selection', 'link']
-  });
-
-  const error = createError || removeError;
-  return updateEntrypointStatus({
-    contextMenu: {
-      id: SUMMARY_CONTEXT_MENU_ID,
-      status: error ? 'error' : 'ready',
-      lastEnsuredAt: checkedAt,
-      lastCheckedAt: checkedAt,
-      lastError: error ? '[' + reason + '] ' + error : ''
-    }
-  });
-}
-
-async function refreshShortcutStatus() {
-  const checkedAt = new Date().toISOString();
-  const commands = await commandsGetAll();
-  const command = commands.find((item) => item.name === SUMMARY_COMMAND_ID) || null;
-  const shortcut = command?.shortcut || '';
-  const status = !command ? 'missing' : shortcut ? 'assigned' : 'unassigned';
-  const note = !command
-    ? 'manifest 中未找到 trigger-summary 快捷键。'
-    : shortcut
-      ? '浏览器已分配快捷键；如果按下无响应，请前往快捷键设置页重新绑定。'
-      : '当前没有检测到已生效的快捷键，可能未分配或与其它快捷键冲突。';
-
-  return updateEntrypointStatus({
-    shortcut: {
-      command: SUMMARY_COMMAND_ID,
-      status,
-      shortcut,
-      lastCheckedAt: checkedAt,
-      conflictStatus: shortcut ? 'unknown' : 'possible_or_unassigned',
-      note
-    }
-  });
-}
-
-async function getEntrypointStatus() {
-  await ensureContextMenuRegistered('status_check');
-  return refreshShortcutStatus();
-}
-
-chrome.runtime.onInstalled.addListener(() => {
-  ensureContextMenuRegistered('installed').catch((error) => {
-    console.warn('[Yilan] Failed to register context menu on install.', error);
-  });
-  refreshShortcutStatus().catch((error) => {
-    console.warn('[Yilan] Failed to refresh shortcut status on install.', error);
-  });
-});
-
-chrome.runtime.onStartup.addListener(() => {
-  ensureContextMenuRegistered('startup').catch((error) => {
-    console.warn('[Yilan] Failed to register context menu on startup.', error);
-  });
-  refreshShortcutStatus().catch((error) => {
-    console.warn('[Yilan] Failed to refresh shortcut status on startup.', error);
-  });
-});
-
-ensureContextMenuRegistered('service_worker_started').catch((error) => {
-  console.warn('[Yilan] Failed to register context menu on service worker start.', error);
-});
-
-refreshShortcutStatus().catch((error) => {
-  console.warn('[Yilan] Failed to refresh shortcut status on service worker start.', error);
-});
-
-chrome.contextMenus.onClicked.addListener(async (info, tab) => {
-  if (info.menuItemId !== SUMMARY_CONTEXT_MENU_ID) return;
-  updateEntrypointStatus({
-    contextMenu: {
-      status: 'ready',
-      lastTriggeredAt: new Date().toISOString()
-    }
-  }).catch(() => {});
-  await safeInjectAndRun(tab, 'extractAndSummarize');
-});
-
-chrome.commands.onCommand.addListener(async (command) => {
-  if (command !== SUMMARY_COMMAND_ID) return;
-  updateEntrypointStatus({
-    shortcut: {
-      status: 'assigned',
-      lastTriggeredAt: new Date().toISOString()
-    }
-  }).catch(() => {});
-  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-  if (tab) {
-    await safeInjectAndRun(tab, 'extractAndSummarize');
-  }
-});
 
 async function safeInjectAndRun(tab, action) {
   if (!tab?.id) return;
@@ -249,6 +69,11 @@ async function safeInjectAndRun(tab, action) {
     console.error('[Yilan] Failed to trigger content action.', error);
   }
 }
+
+Entrypoints.bindEntrypoints({
+  logger: console,
+  onTrigger: safeInjectAndRun
+});
 
 function wait(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -823,7 +648,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   if (message.action === 'getEntrypointStatus') {
-    getEntrypointStatus().then((entrypoints) => {
+    Entrypoints.getEntrypointStatus().then((entrypoints) => {
       sendResponse({ success: true, entrypoints });
     }).catch((error) => {
       sendResponse({
@@ -835,17 +660,13 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   if (message.action === 'openShortcutSettings') {
-    createTab(SHORTCUT_SETTINGS_URL).then((result) => {
-      sendResponse({
-        success: result.success,
-        error: result.error,
-        url: SHORTCUT_SETTINGS_URL
-      });
+    Entrypoints.openShortcutSettings().then((result) => {
+      sendResponse(result);
     }).catch((error) => {
       sendResponse({
         success: false,
         error: String(error?.message || error || '打开快捷键设置失败。'),
-        url: SHORTCUT_SETTINGS_URL
+        url: Entrypoints.SHORTCUT_SETTINGS_URL
       });
     });
     return true;

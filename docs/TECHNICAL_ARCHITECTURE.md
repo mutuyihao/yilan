@@ -13,7 +13,7 @@ Last updated: 2026-04-29
 3. `shared/article-utils.js` 把抽取结果标准化为文章快照，并根据长度决定是否分段。
 4. `shared/page-strategy.js` 基于页面类型给出页面策略和推荐摘要模式。
 5. `sidebar.js` 负责主摘要、二次生成、历史、收藏、分享、阅读页入口和诊断展示。
-6. `background.js` 通过 `adapters/` 执行请求，统一处理流式、取消、重试、超时、错误和入口状态维护；运行状态表和 port-run 映射由 `background/run-state.js` 管理，阅读页临时会话由 `background/reader-sessions.js` 管理。
+6. `background.js` 通过 `adapters/` 执行请求，统一处理流式、取消、重试和错误；右键菜单、快捷键和入口状态由 `background/entrypoints.js` 管理，运行状态表和 port-run 映射由 `background/run-state.js` 管理，阅读页临时会话由 `background/reader-sessions.js` 管理。
 7. `db.js` 把结构化结果保存到 IndexedDB，并提供搜索、收藏、删除和站点聚合能力。
 8. `reader.html / reader.js` 从临时阅读会话中恢复当前摘要，在新标签页提供专注阅读体验。
 
@@ -159,9 +159,16 @@ SPA 路由切换的当前默认策略：
 - 流式输出和取消控制编排
 - 统一错误归一化
 - 连接测试
-- 维护右键菜单和快捷键状态
-- 打开快捷键设置页
-- 创建独立阅读页会话并打开 `reader.html`
+- 委托入口模块维护右键菜单和快捷键状态
+- 委托入口模块打开快捷键设置页
+- 委托阅读会话模块创建独立阅读页会话并打开 `reader.html`
+
+`background/entrypoints.js` 负责扩展入口边界：
+
+- 注册右键菜单并记录 context menu 状态。
+- 检查 `trigger-summary` 快捷键状态并记录冲突提示。
+- 绑定 context menu / command 事件到后台传入的页面触发函数。
+- 打开浏览器快捷键设置页。
 
 `background/run-state.js` 负责后台运行状态边界：
 
@@ -327,6 +334,7 @@ provider-specific 逻辑集中在这里，而不是散落在 `background.js`：
 当前有几个边界不应再被打散：
 
 - provider 逻辑继续收敛在 `adapters/`，不要回到 `background.js` 里堆分支。
+- 右键菜单、快捷键和入口状态继续收敛在 `background/entrypoints.js`。
 - 可信策略继续收敛在 `shared/trust-policy.js`，不要在 UI 层各自拼判断。
 - 历史记录始终以结构化对象保存，不退回到简单字符串列表。
 - 阅读页继续作为侧栏之外的补充阅读能力，而不是替代侧栏主工作流。

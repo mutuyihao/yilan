@@ -37,6 +37,7 @@ interface Window {
   AISummaryOpenAIAdapter: any;
   AISummaryAnthropicAdapter: any;
   AISummaryAdapterRegistry: any;
+  YilanEntrypoints: any;
   YilanRunState: any;
   YilanReaderSessions: any;
   YilanSidebarHistory: any;

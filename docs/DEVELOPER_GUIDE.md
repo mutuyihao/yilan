@@ -138,12 +138,13 @@ node tests/run-tests.js
 优先查看：
 
 - `background.js`
+- `background/entrypoints.js`
 - `background/run-state.js`
 - `background/reader-sessions.js`
 - `shared/abort-utils.js`
 - `shared/transport-utils.js`
 
-原则：active runs、port-run 映射和取消状态归 `background/run-state.js` 管理；阅读页临时会话归 `background/reader-sessions.js` 管理；请求执行、重试和 transport 错误归一仍留在后台主流程与共享 transport 工具中。
+原则：右键菜单、快捷键和入口状态归 `background/entrypoints.js` 管理；active runs、port-run 映射和取消状态归 `background/run-state.js` 管理；阅读页临时会话归 `background/reader-sessions.js` 管理；请求执行、重试和 transport 错误归一仍留在后台主流程与共享 transport 工具中。
 
 ### 侧栏 UI 与阅读体验
 
@@ -218,6 +219,7 @@ node tests/run-tests.js
 - TypeScript 契约当前只做 `tsc --noEmit` 检查，不能把 `types/` 当作运行时代码加载。
 - 共享逻辑优先放在 `shared/`，不要把同类判断复制到 popup、sidebar、reader 三处。
 - provider-specific 逻辑继续收敛在 `adapters/`，不要把 transport 和 provider 分支堆回 `background.js`。
+- 入口状态继续收敛在 `background/entrypoints.js`，不要把 context menu / command listener 重新散回 `background.js`。
 - 后台运行状态继续收敛在 `background/run-state.js`，不要把 active run / port run Map 重新散回 `background.js`。
 - 阅读页临时会话继续收敛在 `background/reader-sessions.js`，不要把 reader session 过期清理散回 `background.js`。
 - 与落库和隐私相关的改动，务必同时检查 `db.js`、`shared/trust-policy.js` 和用户文档。
