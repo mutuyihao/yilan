@@ -486,6 +486,10 @@ function safePortPost(port, payload) {
   }
 }
 
+function readRuntimeLastErrorMessage() {
+  return chrome.runtime.lastError?.message || '';
+}
+
 function safeSendResponse(sendResponse, payload) {
   if (typeof sendResponse !== 'function') return false;
   try {
@@ -850,6 +854,7 @@ chrome.runtime.onConnect.addListener((port) => {
   });
 
   port.onDisconnect.addListener(() => {
+    readRuntimeLastErrorMessage();
     cancelPortRuns(portId);
   });
 });
@@ -970,6 +975,5 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   return false;
 });
-
 
 

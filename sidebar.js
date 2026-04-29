@@ -1039,6 +1039,10 @@ function safeDisconnectPort() {
   state.activeStreamRunId = '';
 }
 
+function readRuntimeLastErrorMessage() {
+  return chrome.runtime.lastError?.message || '';
+}
+
 function addActiveRun(runId) {
   state.activeRunIds.add(runId);
 }
@@ -1168,13 +1172,14 @@ function runPromptViaStream(settings, prompt, meta, signal, handlers) {
     });
 
     port.onDisconnect.addListener(() => {
+      const disconnectReason = readRuntimeLastErrorMessage();
       if (settled) return;
       cleanup();
       reject(state.cancelRequested
         ? createCancelledUiError(meta, runId)
         : normalizeUiError(Errors.createError(Errors.ERROR_CODES.NETWORK_STREAM_DISCONNECTED, {
             stage: meta?.stage || '',
-            detail: 'stream_disconnected'
+            detail: disconnectReason || 'stream_disconnected'
           }))
       );
     });

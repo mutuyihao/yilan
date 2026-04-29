@@ -195,6 +195,7 @@ test('sidebar page DOM, scripts, actions, history, export, share, and reader con
   assert.strictEqual(countMatches(js, /function renderHistoryEmpty\(/g), 0);
   assert.strictEqual(countMatches(js, /function refreshHistoryList\(/g), 0);
   assert.strictEqual(countMatches(js, /function openHistoryPanel\(/g), 0);
+  assert.ok(js.includes('readRuntimeLastErrorMessage'));
   assert.ok(js.includes('recordStore.findReusableRecordForArticle'));
   assert.ok(js.includes('Trust.buildTrustPolicy'));
   assert.ok(js.includes('AISummaryTheme'));
@@ -296,6 +297,7 @@ test('background service worker exposes entrypoints, run actions, cancellation, 
   assert.ok(js.includes('createReaderSession'));
   assert.ok(js.includes('cancelPortRuns'));
   assert.ok(js.includes('executeRun'));
+  assert.ok(js.includes('readRuntimeLastErrorMessage'));
   assert.ok(js.includes('TransportUtils.normalizeTransportError'));
   assert.ok(js.includes('TransportUtils.createSseParser'));
   assert.ok(js.includes('TransportUtils.extractTextFromRawBody'));
