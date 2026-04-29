@@ -300,10 +300,6 @@ function tryParseJson(raw) {
   }
 }
 
-function normalizePreview(raw) {
-  return String(raw || '').replace(/\s+/g, ' ').trim().slice(0, 300);
-}
-
 function buildErrorContext(runtime, stage) {
   return {
     provider: runtime?.provider || '',
@@ -510,134 +506,6 @@ function normalizeRuntimeError(error, runtime, stage, runId, options) {
   }, options || {}));
 }
 
-function createSseParser(onEvent) {
-  let buffer = '';
-  let eventName = '';
-  let dataLines = [];
-
-  function flushEvent() {
-    const payload = dataLines.join('\n').trim();
-    const currentEvent = eventName || 'message';
-    eventName = '';
-    dataLines = [];
-
-    if (!payload) return;
-    onEvent(currentEvent, payload);
-  }
-
-  return {
-    push(chunk, isFinal) {
-      buffer += String(chunk || '').replace(/\r\n/g, '\n').replace(/\r/g, '\n');
-
-      while (buffer.includes('\n')) {
-        const lineBreakIndex = buffer.indexOf('\n');
-        const line = buffer.slice(0, lineBreakIndex);
-        buffer = buffer.slice(lineBreakIndex + 1);
-
-        if (!line) {
-          flushEvent();
-          continue;
-        }
-
-        if (line.startsWith(':')) continue;
-
-        if (line.startsWith('event:')) {
-          eventName = line.slice(6).trim();
-          continue;
-        }
-
-        if (line.startsWith('data:')) {
-          dataLines.push(line.slice(5).trimStart());
-        }
-      }
-
-      if (isFinal) {
-        if (buffer.trim()) {
-          const line = buffer.trim();
-          if (line.startsWith('event:')) {
-            eventName = line.slice(6).trim();
-          } else if (line.startsWith('data:')) {
-            dataLines.push(line.slice(5).trimStart());
-          }
-        }
-        buffer = '';
-        flushEvent();
-      }
-    }
-  };
-}
-
-function extractTextFromRawBody(rawBody, adapter, runtime) {
-  const trimmed = String(rawBody || '').trim();
-  if (!trimmed) return '';
-
-  const parsed = tryParseJson(trimmed);
-  if (parsed) {
-    return adapter.extractText(parsed, runtime);
-  }
-
-  let text = '';
-  const blocks = trimmed.split(/\n\s*\n/);
-  for (const block of blocks) {
-    const lines = block.split('\n');
-    let eventName = '';
-    const dataLines = [];
-
-    for (const rawLine of lines) {
-      const line = rawLine.trim();
-      if (!line) continue;
-      if (line.startsWith('event:')) {
-        eventName = line.slice(6).trim();
-      } else if (line.startsWith('data:')) {
-        dataLines.push(line.slice(5).trim());
-      }
-    }
-
-    const data = dataLines.join('\n').trim();
-    if (!data || data === '[DONE]') continue;
-
-    const json = tryParseJson(data);
-    if (!json) continue;
-
-    text += adapter.extractDelta(json, runtime, eventName) || '';
-    if (!text) {
-      text = adapter.extractText(json, runtime) || text;
-    }
-  }
-
-  return text;
-}
-
-function extractUsageFromRawBody(rawBody, adapter, runtime) {
-  const trimmed = String(rawBody || '').trim();
-  if (!trimmed) return null;
-
-  const parsed = tryParseJson(trimmed);
-  if (parsed) {
-    return adapter.extractUsage(parsed, runtime);
-  }
-
-  let usage = null;
-  const blocks = trimmed.split(/\n\s*\n/);
-  for (const block of blocks) {
-    const dataLine = block
-      .split('\n')
-      .map((line) => line.trim())
-      .filter((line) => line.startsWith('data:'))
-      .map((line) => line.slice(5).trim())
-      .join('\n')
-      .trim();
-
-    if (!dataLine || dataLine === '[DONE]') continue;
-
-    const json = tryParseJson(dataLine);
-    if (!json) continue;
-    usage = adapter.extractUsage(json, runtime) || usage;
-  }
-
-  return usage;
-}
-
 async function consumeNonStreamResponse(response, adapter, runtime, signal) {
   const rawBody = await AbortUtils.raceWithAbort(response.text(), signal).catch((error) => {
     if (AbortUtils.isAbortError(error)) {
@@ -646,14 +514,13 @@ async function consumeNonStreamResponse(response, adapter, runtime, signal) {
     return '';
   });
   AbortUtils.throwIfAborted(signal);
-  const parsed = tryParseJson(rawBody.trim());
-  const text = parsed ? adapter.extractText(parsed, runtime) : extractTextFromRawBody(rawBody, adapter, runtime);
-  const usage = parsed ? adapter.extractUsage(parsed, runtime) : extractUsageFromRawBody(rawBody, adapter, runtime);
+  const text = TransportUtils.extractTextFromRawBody(rawBody, adapter, runtime);
+  const usage = TransportUtils.extractUsageFromRawBody(rawBody, adapter, runtime);
 
   return {
     text: text || '',
     usage: usage || null,
-    preview: normalizePreview(rawBody)
+    preview: TransportUtils.normalizePreview(rawBody)
   };
 }
 
@@ -686,7 +553,7 @@ async function consumeStreamResponse(response, adapter, runtime, onToken, signal
     signal?.addEventListener('abort', handleAbort, { once: true });
   }
 
-  const parser = createSseParser((eventName, rawData) => {
+  const parser = TransportUtils.createSseParser((eventName, rawData) => {
     if (!rawData || rawData === '[DONE]') return;
 
     const json = tryParseJson(rawData);
@@ -733,13 +600,13 @@ async function consumeStreamResponse(response, adapter, runtime, onToken, signal
     parser.push('', true);
 
     if (!text) {
-      text = extractTextFromRawBody(rawBody, adapter, runtime);
+      text = TransportUtils.extractTextFromRawBody(rawBody, adapter, runtime);
     }
 
     return {
       text: text || '',
-      usage: usage || extractUsageFromRawBody(rawBody, adapter, runtime),
-      preview: normalizePreview(rawBody)
+      usage: usage || TransportUtils.extractUsageFromRawBody(rawBody, adapter, runtime),
+      preview: TransportUtils.normalizePreview(rawBody)
     };
   } catch (error) {
     if (signal?.aborted && !AbortUtils.isAbortError(error) && abortError) {
@@ -1103,7 +970,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   return false;
 });
-
 
 
 

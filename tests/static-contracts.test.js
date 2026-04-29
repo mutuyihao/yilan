@@ -289,6 +289,13 @@ test('background service worker exposes entrypoints, run actions, cancellation, 
   assert.ok(js.includes('cancelPortRuns'));
   assert.ok(js.includes('executeRun'));
   assert.ok(js.includes('TransportUtils.normalizeTransportError'));
+  assert.ok(js.includes('TransportUtils.createSseParser'));
+  assert.ok(js.includes('TransportUtils.extractTextFromRawBody'));
+  assert.ok(js.includes('TransportUtils.extractUsageFromRawBody'));
+  assert.ok(js.includes('TransportUtils.normalizePreview'));
+  assert.strictEqual(countMatches(js, /function createSseParser\(/g), 0);
+  assert.strictEqual(countMatches(js, /function extractTextFromRawBody\(/g), 0);
+  assert.strictEqual(countMatches(js, /function extractUsageFromRawBody\(/g), 0);
 });
 
 test('content script extraction, sidebar injection, and SPA navigation contracts stay wired', [
