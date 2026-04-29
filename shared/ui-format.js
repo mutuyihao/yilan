@@ -15,6 +15,7 @@
     const date = new Date(value);
     if (Number.isNaN(date.getTime())) return emptyText;
 
+    /** @type {Intl.DateTimeFormatOptions} */
     const formatOptions = {
       hour12: false,
       month: '2-digit',

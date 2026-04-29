@@ -34,6 +34,7 @@ Last updated: 2026-04-29
 
 ```powershell
 npm test
+npm run typecheck
 npm run test:e2e
 ```
 
@@ -47,6 +48,7 @@ npm run playwright:install
 
 ```powershell
 npm.cmd test
+npm.cmd run typecheck
 npm.cmd run test:e2e
 npm.cmd run playwright:install
 ```
@@ -56,6 +58,8 @@ npm.cmd run playwright:install
 ```powershell
 node tests/run-tests.js
 ```
+
+`npm run typecheck` 使用 `tsc --noEmit`，当前只作为契约检查门禁，不生成扩展运行产物。
 
 ## 测试分层
 
@@ -68,6 +72,14 @@ node tests/run-tests.js
 - `tests/unit-record-store.test.js`：记录存储、历史搜索、站点聚合、收藏删除、当前页复用、session-only 记录。
 - `tests/static-contracts.test.js`：Manifest、HTML DOM 契约、脚本顺序、background/content/sidebar/popup/reader 入口契约、一方 JS 语法检查，以及规划文档 guardrail。
 - `tests/fake-indexeddb.js`：面向记录层测试的最小内存 IndexedDB。
+
+### TypeScript 契约层
+
+- `tsconfig.json`：启用 `allowJs` + `checkJs`，让当前运行脚本先进入类型检查，但不改变 Manifest、HTML 脚本顺序或发布产物。
+- `types/messages.ts`：锁定 runtime message、port message 和 sidebar iframe message 的 action/type 边界。
+- `types/history.ts`：锁定 `ArticleSnapshot`、`SummaryRecord` 和 reader session snapshot 的字段形状。
+- `types/settings.ts`：锁定用户设置、provider preset、endpoint mode 和运行时 adapter snapshot。
+- `types/diagnostics.ts`：锁定 transport/run diagnostics 和错误诊断字段。
 
 ### 性能基线
 

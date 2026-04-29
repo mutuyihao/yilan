@@ -1,6 +1,6 @@
 # 开发者指南
 
-Last updated: 2026-04-15
+Last updated: 2026-04-29
 
 这份文档面向在当前仓库里改代码的人，重点说明三件事：先看哪些文档、修改后怎么验证、哪些事实应该写回哪份文档。
 
@@ -41,7 +41,15 @@ npm test
 
 `npm test` 会跑 Node 层测试，并附带一方 JavaScript 文件的语法检查、功能覆盖矩阵和静态契约检查。
 
-### 2. 浏览器主链路回归
+### 2. TypeScript 契约检查
+
+```powershell
+npm run typecheck
+```
+
+`npm run typecheck` 只做 `tsc --noEmit` 契约检查，不生成构建产物。涉及消息协议、记录结构、设置项、诊断或 provider 配置时应与 `npm test` 一起运行。
+
+### 3. 浏览器主链路回归
 
 ```powershell
 npm run test:e2e
@@ -53,12 +61,13 @@ npm run test:e2e
 npm run playwright:install
 ```
 
-### 3. PowerShell 兼容写法
+### 4. PowerShell 兼容写法
 
 如果 Windows PowerShell 拦截 `npm.ps1`，可改用：
 
 ```powershell
 npm.cmd test
+npm.cmd run typecheck
 npm.cmd run test:e2e
 npm.cmd run playwright:install
 ```
@@ -72,6 +81,7 @@ node tests/run-tests.js
 ## 验证分工
 
 - `npm test`：纯逻辑、存储层、静态契约、功能覆盖矩阵门禁。
+- `npm run typecheck`：TypeScript 契约和当前 JS 的 `checkJs` 门禁，不改变运行产物。
 - `npm run test:e2e`：真实 Chromium 中的 popup、content script、background service worker、sidebar iframe、reader 页面与 mocked AI 链路。
 - 手工回归：主题视觉、浏览器受限页面、稀有 provider / endpoint 组合、快捷键设置页跳转等不适合全部固化成 E2E 的路径。
 
@@ -123,6 +133,18 @@ node tests/run-tests.js
 
 原则：provider-specific 逻辑优先放进 `adapters/`，不要把兼容分支堆回后台主流程。
 
+### 后台运行与取消
+
+优先查看：
+
+- `background.js`
+- `background/run-state.js`
+- `background/reader-sessions.js`
+- `shared/abort-utils.js`
+- `shared/transport-utils.js`
+
+原则：active runs、port-run 映射和取消状态归 `background/run-state.js` 管理；阅读页临时会话归 `background/reader-sessions.js` 管理；请求执行、重试和 transport 错误归一仍留在后台主流程与共享 transport 工具中。
+
 ### 侧栏 UI 与阅读体验
 
 优先查看：
@@ -149,6 +171,18 @@ node tests/run-tests.js
 - `db.js`
 - `sidebar.js`
 - `shared/run-utils.js`
+
+### TypeScript 契约
+
+优先查看：
+
+- `tsconfig.json`
+- `types/messages.ts`
+- `types/history.ts`
+- `types/settings.ts`
+- `types/diagnostics.ts`
+
+原则：类型反映当前字段和消息 action，不借机重命名或改变运行时代码；迁移到构建链前，类型文件不进入 Manifest 或 HTML 脚本加载列表。
 
 ## 文档维护规则
 
@@ -181,7 +215,10 @@ node tests/run-tests.js
 ## 当前建议保持的工程边界
 
 - 当前运行产物继续保持无构建、纯脚本结构；TypeScript、构建链和 Preact 迁移必须按 `docs/TS_PREACT_MIGRATION.md` 分阶段推进。
+- TypeScript 契约当前只做 `tsc --noEmit` 检查，不能把 `types/` 当作运行时代码加载。
 - 共享逻辑优先放在 `shared/`，不要把同类判断复制到 popup、sidebar、reader 三处。
 - provider-specific 逻辑继续收敛在 `adapters/`，不要把 transport 和 provider 分支堆回 `background.js`。
+- 后台运行状态继续收敛在 `background/run-state.js`，不要把 active run / port run Map 重新散回 `background.js`。
+- 阅读页临时会话继续收敛在 `background/reader-sessions.js`，不要把 reader session 过期清理散回 `background.js`。
 - 与落库和隐私相关的改动，务必同时检查 `db.js`、`shared/trust-policy.js` 和用户文档。
 - 如果某条用户主路径能稳定地在浏览器里复现，优先补 Playwright，而不是只留下手工说明。

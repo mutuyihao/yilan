@@ -69,6 +69,7 @@ Common validation commands:
 
 ```powershell
 npm test
+npm run typecheck
 npm run test:e2e
 ```
 
@@ -82,6 +83,7 @@ If Windows PowerShell blocks `npm.ps1`, use:
 
 ```powershell
 npm.cmd test
+npm.cmd run typecheck
 npm.cmd run test:e2e
 npm.cmd run playwright:install
 node tests/run-tests.js

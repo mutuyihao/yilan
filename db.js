@@ -156,6 +156,7 @@
   }
 
   function findBestReusableRecordForArticle(records, article) {
+    /** @type {any} */
     let best = null;
 
     (records || []).forEach((record) => {

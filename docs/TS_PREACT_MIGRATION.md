@@ -1,6 +1,6 @@
 # TypeScript + Preact 迁移设计
 
-Last updated: 2026-04-15
+Last updated: 2026-04-29
 
 Status: draft
 
@@ -25,6 +25,12 @@ Status: draft
 TypeScript 可以先上，而且应优先上。它可以在不改变运行产物的前提下暴露隐式契约问题。
 
 Preact 也可行，但应限定在 UI 页面。推荐迁移顺序是 `popup` -> `reader` -> `sidebar`。`sidebar` 最大、状态最多，必须先拆纯逻辑和状态边界，再组件化。
+
+当前落地状态：
+
+- 已新增 `typescript`、`tsconfig.json` 和 `npm run typecheck`，使用 `tsc --noEmit`，不生成运行产物。
+- 已新增 `types/messages.ts`、`types/history.ts`、`types/settings.ts`、`types/diagnostics.ts`，先锁定现有消息、记录、设置和诊断字段。
+- 当前仍保持无构建、纯脚本运行结构；`types/` 不进入 Manifest 或 HTML 脚本加载列表。
 
 ## 分阶段计划
 

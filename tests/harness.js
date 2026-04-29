@@ -39,6 +39,7 @@ function readJson(relativePath) {
 function listFirstPartyJsFiles() {
   const roots = [
     '.',
+    'background',
     'shared',
     'adapters',
     'tests',

@@ -55,6 +55,8 @@ function countMatches(text, pattern) {
 test('first-party JavaScript files pass syntax checks', 'quality.syntax', () => {
   const files = listFirstPartyJsFiles();
   assert.ok(files.includes('background.js'));
+  assert.ok(files.includes('background/run-state.js'));
+  assert.ok(files.includes('background/reader-sessions.js'));
   assert.ok(files.includes('sidebar.js'));
   assert.ok(files.includes('tests/run-tests.js'));
 
@@ -62,6 +64,33 @@ test('first-party JavaScript files pass syntax checks', 'quality.syntax', () => 
     assert.doesNotThrow(() => {
       new vm.Script(readText(file), { filename: file });
     }, file);
+  });
+});
+
+test('TypeScript typecheck contract stays wired without changing runtime entrypoints', 'quality.docs_upgrade_design', () => {
+  const packageJson = readJson('package.json');
+  const tsconfig = readJson('tsconfig.json');
+
+  assert.strictEqual(packageJson.scripts.typecheck, 'tsc --noEmit');
+  assert.ok(packageJson.devDependencies.typescript);
+  assert.strictEqual(tsconfig.compilerOptions.allowJs, true);
+  assert.strictEqual(tsconfig.compilerOptions.checkJs, true);
+  assert.strictEqual(tsconfig.compilerOptions.noEmit, true);
+  assert.ok(tsconfig.include.includes('types/**/*.ts'));
+  assert.ok(tsconfig.exclude.includes('dist'));
+
+  const contracts = {
+    'types/messages.ts': ['RuntimeMessage', 'StreamPortMessage', 'SidebarFrameMessage'],
+    'types/history.ts': ['ArticleSnapshot', 'SummaryRecord', 'ReaderSessionSnapshot'],
+    'types/settings.ts': ['UserSettings', 'ProviderPreset', 'RuntimeAdapterSnapshot'],
+    'types/diagnostics.ts': ['RunDiagnostics', 'ComposedDiagnostics', 'TransportErrorDiagnostic']
+  };
+
+  Object.entries(contracts).forEach(([file, needles]) => {
+    const text = readText(file);
+    needles.forEach((needle) => {
+      assert.ok(text.includes(needle), file + ' missing ' + needle);
+    });
   });
 });
 
@@ -131,7 +160,9 @@ test('manifest, HTML script tags, and imported resources point to existing files
     'adapters/anthropic-adapter.js',
     'adapters/registry.js',
     'shared/abort-utils.js',
-    'shared/transport-utils.js'
+    'shared/transport-utils.js',
+    'background/run-state.js',
+    'background/reader-sessions.js'
   ].forEach((script) => {
     assert.ok(background.includes("'" + script + "'"), 'background importScripts missing ' + script);
   });
@@ -284,6 +315,8 @@ test('background service worker exposes entrypoints, run actions, cancellation, 
   'transport.streaming'
 ], () => {
   const js = readText('background.js');
+  const runState = readText('background/run-state.js');
+  const readerSessions = readText('background/reader-sessions.js');
   assert.ok(js.includes('chrome.runtime.onInstalled.addListener'));
   assert.ok(js.includes('chrome.contextMenus.onClicked.addListener'));
   assert.ok(js.includes('chrome.commands.onCommand.addListener'));
@@ -294,10 +327,26 @@ test('background service worker exposes entrypoints, run actions, cancellation, 
   assert.ok(js.includes("message.action === 'triggerHistory'"));
   assert.ok(js.includes("message.action === 'getEntrypointStatus'"));
   assert.ok(js.includes("message.action === 'openReaderTab'"));
-  assert.ok(js.includes('createReaderSession'));
-  assert.ok(js.includes('cancelPortRuns'));
+  assert.ok(js.includes('const ReaderSessions = self.YilanReaderSessions'));
+  assert.ok(js.includes('ReaderSessions.createReaderSession'));
+  assert.ok(readerSessions.includes('function cleanupReaderSessions('));
+  assert.ok(readerSessions.includes('function createReaderSession('));
+  assert.ok(readerSessions.includes('global.YilanReaderSessions = api'));
+  assert.ok(js.includes('const RunState = self.YilanRunState'));
   assert.ok(js.includes('executeRun'));
   assert.ok(js.includes('readRuntimeLastErrorMessage'));
+  [
+    'prepareRun',
+    'setRunController',
+    'isRunCancelled',
+    'cancelRun',
+    'finishRun',
+    'cancelPortRuns'
+  ].forEach((name) => {
+    assert.ok(js.includes('RunState.' + name), 'background.js does not use RunState.' + name);
+    assert.ok(runState.includes('function ' + name + '('), 'run-state module missing ' + name);
+  });
+  assert.ok(runState.includes('global.YilanRunState = api'));
   assert.ok(js.includes('TransportUtils.normalizeTransportError'));
   assert.ok(js.includes('TransportUtils.createSseParser'));
   assert.ok(js.includes('TransportUtils.extractTextFromRawBody'));
@@ -306,6 +355,10 @@ test('background service worker exposes entrypoints, run actions, cancellation, 
   assert.strictEqual(countMatches(js, /function createSseParser\(/g), 0);
   assert.strictEqual(countMatches(js, /function extractTextFromRawBody\(/g), 0);
   assert.strictEqual(countMatches(js, /function extractUsageFromRawBody\(/g), 0);
+  assert.strictEqual(countMatches(js, /const activeRuns = new Map\(/g), 0);
+  assert.strictEqual(countMatches(js, /const portRuns = new Map\(/g), 0);
+  assert.strictEqual(countMatches(js, /function prepareRun\(/g), 0);
+  assert.strictEqual(countMatches(js, /function cancelPortRuns\(/g), 0);
 });
 
 test('content script extraction, sidebar injection, and SPA navigation contracts stay wired', [
@@ -363,6 +416,10 @@ test('planning docs record upgrade direction and TS/Preact migration guardrails'
     'TypeScript',
     'Preact',
     'npm.cmd run typecheck',
+    'types/messages.ts',
+    'types/history.ts',
+    'types/settings.ts',
+    'types/diagnostics.ts',
     'popup',
     'reader',
     'sidebar',

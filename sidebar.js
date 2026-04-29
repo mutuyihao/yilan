@@ -417,7 +417,7 @@ function scheduleMarkdownRender() {
   if (renderScheduled) return;
   renderScheduled = true;
   const delay = Math.max(0, STREAM_RENDER_INTERVAL_MS - (getNowMs() - lastMarkdownRenderAt));
-  renderTimeoutId = setTimeout(() => {
+  renderTimeoutId = window.setTimeout(() => {
     renderTimeoutId = 0;
     renderFrameId = requestAnimationFrame(() => {
       renderFrameId = 0;

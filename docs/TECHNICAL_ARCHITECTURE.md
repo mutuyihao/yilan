@@ -13,7 +13,7 @@ Last updated: 2026-04-29
 3. `shared/article-utils.js` 把抽取结果标准化为文章快照，并根据长度决定是否分段。
 4. `shared/page-strategy.js` 基于页面类型给出页面策略和推荐摘要模式。
 5. `sidebar.js` 负责主摘要、二次生成、历史、收藏、分享、阅读页入口和诊断展示。
-6. `background.js` 通过 `adapters/` 执行请求，统一处理流式、取消、重试、超时、错误和入口状态维护。
+6. `background.js` 通过 `adapters/` 执行请求，统一处理流式、取消、重试、超时、错误和入口状态维护；运行状态表和 port-run 映射由 `background/run-state.js` 管理，阅读页临时会话由 `background/reader-sessions.js` 管理。
 7. `db.js` 把结构化结果保存到 IndexedDB，并提供搜索、收藏、删除和站点聚合能力。
 8. `reader.html / reader.js` 从临时阅读会话中恢复当前摘要，在新标签页提供专注阅读体验。
 
@@ -59,6 +59,14 @@ Last updated: 2026-04-29
 
 - Node 层跑得快，适合纯逻辑、存储和静态契约。
 - Playwright 层更接近真实用户路径，但不追求 provider 全排列和全部视觉细节。
+
+### 3. TypeScript 契约层
+
+职责：
+
+- 通过 `npm run typecheck` 执行 `tsc --noEmit`，只做类型和契约检查，不生成运行产物。
+- 用 `types/messages.ts`、`types/history.ts`、`types/settings.ts`、`types/diagnostics.ts` 锁定消息协议、记录结构、设置项和运行诊断字段。
+- 当前仍保持无构建、纯脚本结构，类型文件不进入 Manifest 或 HTML 脚本加载列表。
 
 ## 主要模块
 
@@ -148,12 +156,24 @@ SPA 路由切换的当前默认策略：
 职责：
 
 - provider 适配器解析与请求执行
-- 流式输出和取消控制
+- 流式输出和取消控制编排
 - 统一错误归一化
 - 连接测试
 - 维护右键菜单和快捷键状态
 - 打开快捷键设置页
 - 创建独立阅读页会话并打开 `reader.html`
+
+`background/run-state.js` 负责后台运行状态边界：
+
+- 维护 active runs 和 stream port 到 run 的映射
+- 绑定当前请求的 `AbortController`
+- 处理单个 run 取消、port 断开批量取消和 run 结束清理
+
+`background/reader-sessions.js` 负责独立阅读页临时会话：
+
+- 清理过期的 `readerSession:` storage.local 记录。
+- 为 `openReaderTab` 创建 24 小时有效的 reader session snapshot。
+- 保持 reader 会话与后台运行状态解耦。
 
 主要消息入口：
 
@@ -310,5 +330,6 @@ provider-specific 逻辑集中在这里，而不是散落在 `background.js`：
 - 可信策略继续收敛在 `shared/trust-policy.js`，不要在 UI 层各自拼判断。
 - 历史记录始终以结构化对象保存，不退回到简单字符串列表。
 - 阅读页继续作为侧栏之外的补充阅读能力，而不是替代侧栏主工作流。
+- 后台 reader session 创建和过期清理继续收敛在 `background/reader-sessions.js`。
 - 验证体系保持 `Node 契约` 与 `Playwright 主链路` 分层，不拿其中一层去替代另一层。
 - 当前运行产物仍是无构建、纯脚本结构；如引入 TypeScript、构建链或 Preact，必须按专项迁移设计分阶段验证。

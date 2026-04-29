@@ -7,13 +7,15 @@ importScripts(
   'adapters/registry.js'
 );
 
-importScripts('shared/abort-utils.js', 'shared/transport-utils.js');
+importScripts('shared/abort-utils.js', 'shared/transport-utils.js', 'background/run-state.js', 'background/reader-sessions.js');
 
 const AbortUtils = self.AISummaryAbortUtils;
 const Domain = self.AISummaryDomain;
 const Errors = self.AISummaryErrors;
 const AdapterRegistry = self.AISummaryAdapterRegistry;
 const TransportUtils = self.AISummaryTransportUtils;
+const RunState = self.YilanRunState;
+const ReaderSessions = self.YilanReaderSessions;
 
 const CONTENT_SCRIPT_FILES = [
   'shared/domain.js',
@@ -27,14 +29,9 @@ const CONTENT_SCRIPT_FILES = [
 const SUMMARY_CONTEXT_MENU_ID = 'summarizeArticle';
 const SUMMARY_COMMAND_ID = 'trigger-summary';
 const ENTRYPOINT_STATUS_KEY = 'entrypointStatus';
-const READER_SESSION_PREFIX = 'readerSession:';
-const READER_SESSION_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 const SHORTCUT_SETTINGS_URL = /\bEdg\//.test(self.navigator?.userAgent || '')
   ? 'edge://extensions/shortcuts'
   : 'chrome://extensions/shortcuts';
-
-const activeRuns = new Map();
-const portRuns = new Map();
 
 function storageLocalGet(key) {
   return new Promise((resolve) => {
@@ -45,12 +42,6 @@ function storageLocalGet(key) {
 function storageLocalSet(payload) {
   return new Promise((resolve) => {
     chrome.storage.local.set(payload, resolve);
-  });
-}
-
-function storageLocalRemove(keys) {
-  return new Promise((resolve) => {
-    chrome.storage.local.remove(keys, resolve);
   });
 }
 
@@ -110,35 +101,6 @@ function createDefaultEntrypointStatus() {
       note: ''
     }
   };
-}
-
-async function cleanupReaderSessions() {
-  const items = await storageLocalGet(null);
-  const now = Date.now();
-  const staleKeys = Object.entries(items || {})
-    .filter(([key, value]) => {
-      if (!String(key || '').startsWith(READER_SESSION_PREFIX)) return false;
-      const createdAt = new Date(value?.createdAt || 0).getTime();
-      return !createdAt || Number.isNaN(createdAt) || (now - createdAt) > READER_SESSION_MAX_AGE_MS;
-    })
-    .map(([key]) => key);
-
-  if (staleKeys.length) {
-    await storageLocalRemove(staleKeys);
-  }
-}
-
-async function createReaderSession(snapshot) {
-  await cleanupReaderSessions();
-  const sessionId = Domain.createRuntimeId('reader');
-  const key = READER_SESSION_PREFIX + sessionId;
-  await storageLocalSet({
-    [key]: {
-      createdAt: new Date().toISOString(),
-      snapshot: snapshot || null
-    }
-  });
-  return sessionId;
 }
 
 async function readEntrypointStatus() {
@@ -335,70 +297,6 @@ function createDiagnostics(runId, runtime, meta) {
   };
 }
 
-function ensurePortRunSet(portId) {
-  if (!portRuns.has(portId)) {
-    portRuns.set(portId, new Set());
-  }
-  return portRuns.get(portId);
-}
-
-function prepareRun(runId, payload) {
-  const next = Object.assign({ runId, cancelled: false, controller: null }, activeRuns.get(runId) || {}, payload || {});
-  activeRuns.set(runId, next);
-
-  if (next.portId) {
-    ensurePortRunSet(next.portId).add(runId);
-  }
-
-  return next;
-}
-
-function setRunController(runId, controller) {
-  const entry = activeRuns.get(runId);
-  if (!entry) return;
-  entry.controller = controller || null;
-  activeRuns.set(runId, entry);
-}
-
-function isRunCancelled(runId) {
-  return !!activeRuns.get(runId)?.cancelled;
-}
-
-function cancelRun(runId, reason) {
-  const entry = activeRuns.get(runId);
-  if (!entry) return false;
-
-  entry.cancelled = true;
-  entry.cancelReason = reason || 'user';
-  activeRuns.set(runId, entry);
-
-  try {
-    entry.controller?.abort(reason || 'user');
-  } catch {}
-
-  return true;
-}
-
-function finishRun(runId) {
-  const entry = activeRuns.get(runId);
-  if (entry?.portId) {
-    const ids = portRuns.get(entry.portId);
-    if (ids) {
-      ids.delete(runId);
-      if (!ids.size) {
-        portRuns.delete(entry.portId);
-      }
-    }
-  }
-
-  activeRuns.delete(runId);
-}
-
-function cancelPortRuns(portId) {
-  const ids = Array.from(portRuns.get(portId) || []);
-  ids.forEach((runId) => cancelRun(runId, 'port_disconnected'));
-}
-
 function toSerializableValue(value, seen) {
   if (value === null) return null;
 
@@ -506,7 +404,7 @@ function safeSendResponse(sendResponse, payload) {
 
 function normalizeRuntimeError(error, runtime, stage, runId, options) {
   return TransportUtils.normalizeTransportError(error, runtime, stage, Object.assign({
-    runCancelled: isRunCancelled(runId)
+    runCancelled: RunState.isRunCancelled(runId)
   }, options || {}));
 }
 
@@ -649,14 +547,14 @@ async function executeRun(options) {
   const timeoutMs = runtime.timeoutMs || 90000;
   const startedAt = Date.now();
 
-  prepareRun(runId, {
+  RunState.prepareRun(runId, {
     portId: options.portId || '',
     stage: meta.stage || 'primary',
     runtime
   });
 
   for (let attempt = 1; attempt <= maxRetries; attempt += 1) {
-    if (isRunCancelled(runId)) {
+    if (RunState.isRunCancelled(runId)) {
       const cancelled = Errors.createError(Errors.ERROR_CODES.RUN_CANCELLED, buildErrorContext(runtime, meta.stage));
       cancelled.diagnostics = sanitizeDiagnosticsForTransport(diagnostics);
       throw cancelled;
@@ -669,7 +567,7 @@ async function executeRun(options) {
 
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort('timeout'), timeoutMs);
-    setRunController(runId, controller);
+    RunState.setRunController(runId, controller);
 
     try {
       const response = await AbortUtils.raceWithAbort(fetch(runtime.baseUrl, {
@@ -717,7 +615,7 @@ async function executeRun(options) {
       diagnostics.preview = result.preview || '';
       diagnostics.usage = result.usage || null;
 
-      finishRun(runId);
+      RunState.finishRun(runId);
 
       return {
         success: true,
@@ -732,11 +630,11 @@ async function executeRun(options) {
       diagnostics.lastError = sanitizeErrorForTransport(normalized);
 
       if (normalized.code === Errors.ERROR_CODES.RUN_CANCELLED) {
-        setRunController(runId, null);
+        RunState.setRunController(runId, null);
         diagnostics.status = 'cancelled';
         diagnostics.durationMs = Date.now() - startedAt;
         diagnostics.completedAt = new Date().toISOString();
-        finishRun(runId);
+        RunState.finishRun(runId);
         normalized.diagnostics = sanitizeDiagnosticsForTransport(diagnostics);
         throw normalized;
       }
@@ -748,15 +646,15 @@ async function executeRun(options) {
         options.onRetry?.({ attempt, delay, error: normalized });
         const retryController = controller.signal.aborted ? new AbortController() : controller;
         if (retryController !== controller) {
-          setRunController(runId, retryController);
+          RunState.setRunController(runId, retryController);
         }
 
         try {
           await AbortUtils.waitWithAbort(delay, retryController.signal);
-          setRunController(runId, null);
+          RunState.setRunController(runId, null);
           continue;
         } catch (retryError) {
-          setRunController(runId, null);
+          RunState.setRunController(runId, null);
           normalized = normalizeRuntimeError(retryError, runtime, meta.stage, runId, { stream });
           diagnostics.lastError = sanitizeErrorForTransport(normalized);
 
@@ -764,24 +662,24 @@ async function executeRun(options) {
             diagnostics.status = 'cancelled';
             diagnostics.durationMs = Date.now() - startedAt;
             diagnostics.completedAt = new Date().toISOString();
-            finishRun(runId);
+            RunState.finishRun(runId);
             normalized.diagnostics = sanitizeDiagnosticsForTransport(diagnostics);
             throw normalized;
           }
         }
       }
 
-      setRunController(runId, null);
+      RunState.setRunController(runId, null);
       diagnostics.status = 'failed';
       diagnostics.durationMs = Date.now() - startedAt;
       diagnostics.completedAt = new Date().toISOString();
-      finishRun(runId);
+      RunState.finishRun(runId);
       normalized.diagnostics = sanitizeDiagnosticsForTransport(diagnostics);
       throw normalized;
     }
   }
 
-  finishRun(runId);
+  RunState.finishRun(runId);
   throw Errors.createError(Errors.ERROR_CODES.UNKNOWN_ERROR, { stage: meta.stage || '' });
 }
 
@@ -848,14 +746,14 @@ chrome.runtime.onConnect.addListener((port) => {
       safePortPost(port, {
         type: 'cancelAck',
         runId: message.runId,
-        success: cancelRun(message.runId, 'user')
+        success: RunState.cancelRun(message.runId, 'user')
       });
     }
   });
 
   port.onDisconnect.addListener(() => {
     readRuntimeLastErrorMessage();
-    cancelPortRuns(portId);
+    RunState.cancelPortRuns(portId);
   });
 });
 
@@ -907,7 +805,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   if (message.action === 'cancelRun') {
     sendResponse({
-      success: cancelRun(message.runId, 'user')
+      success: RunState.cancelRun(message.runId, 'user')
     });
     return false;
   }
@@ -954,7 +852,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   if (message.action === 'openReaderTab') {
-    createReaderSession(message.snapshot || null).then((sessionId) => {
+    ReaderSessions.createReaderSession(message.snapshot || null).then((sessionId) => {
       const url = chrome.runtime.getURL('reader.html?session=' + encodeURIComponent(sessionId));
       return createTab(url).then((result) => ({
         success: result.success,
@@ -975,5 +873,3 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   return false;
 });
-
-
