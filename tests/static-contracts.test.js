@@ -88,6 +88,7 @@ test('manifest declares MV3 shell, entrypoints, permissions, and accessible reso
     'sidebar.html',
     'style.css',
     'db.js',
+    'sidebar/history.js',
     'sidebar.js',
     'shared/theme.js',
     'shared/ui-format.js',
@@ -150,6 +151,7 @@ test('sidebar page DOM, scripts, actions, history, export, share, and reader con
 ], () => {
   const html = readText('sidebar.html');
   const js = readText('sidebar.js');
+  const historyJs = readText('sidebar/history.js');
   const ids = extractHtmlIds(html);
   const jsIds = extractQuotedCalls(js, /getElementById\('([^']+)'\)/g);
   assertAllIdsExist('sidebar.html', jsIds, ids);
@@ -173,6 +175,7 @@ test('sidebar page DOM, scripts, actions, history, export, share, and reader con
     'libs/highlight.min.js',
     'libs/html2canvas.min.js',
     'db.js',
+    'sidebar/history.js',
     'sidebar.js'
   ]);
 
@@ -184,9 +187,14 @@ test('sidebar page DOM, scripts, actions, history, export, share, and reader con
   assert.ok(js.includes('function exportShareImage()'));
   assert.ok(js.includes('html2canvas(card'));
   assert.ok(js.includes("action: 'openReaderTab'"));
-  assert.ok(js.includes('recordStore.searchRecords'));
-  assert.ok(js.includes('recordStore.toggleFavorite'));
-  assert.ok(js.includes('recordStore.deleteRecord'));
+  assert.ok(historyJs.includes('YilanSidebarHistory'));
+  assert.ok(historyJs.includes('createHistoryController'));
+  assert.ok(historyJs.includes('recordStore.searchRecords'));
+  assert.ok(historyJs.includes('recordStore.toggleFavorite'));
+  assert.ok(historyJs.includes('recordStore.deleteRecord'));
+  assert.strictEqual(countMatches(js, /function renderHistoryEmpty\(/g), 0);
+  assert.strictEqual(countMatches(js, /function refreshHistoryList\(/g), 0);
+  assert.strictEqual(countMatches(js, /function openHistoryPanel\(/g), 0);
   assert.ok(js.includes('recordStore.findReusableRecordForArticle'));
   assert.ok(js.includes('Trust.buildTrustPolicy'));
   assert.ok(js.includes('AISummaryTheme'));
