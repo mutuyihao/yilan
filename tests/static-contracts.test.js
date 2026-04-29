@@ -293,18 +293,32 @@ test('background service worker exposes entrypoints, run actions, cancellation, 
 
 test('content script extraction, sidebar injection, and SPA navigation contracts stay wired', [
   'content.extraction',
-  'content.sidebar_injection'
+  'content.sidebar_injection',
+  'content.spa_navigation_refresh'
 ], () => {
   const js = readText('content.js');
+  const sidebar = readText('sidebar.js');
   assert.ok(js.includes('new Readability'));
   assert.ok(js.includes('ArticleUtils.buildArticleSnapshot'));
   assert.ok(js.includes('createSidebarFrame'));
   assert.ok(js.includes('injectSidebar'));
+  assert.ok(js.includes('postToExistingSidebar'));
   assert.ok(js.includes('removeSidebar'));
   assert.ok(js.includes('syncSidebarViewport'));
   assert.ok(js.includes("window.addEventListener('popstate'"));
   assert.ok(js.includes("window.addEventListener('hashchange'"));
+  assert.ok(js.includes("autoStartOnNavigation: false"));
+  assert.ok(js.includes("duringGeneration: 'defer'"));
+  assert.ok(js.includes("source: 'navigation'"));
   assert.ok(js.includes("event.data?.type === 'closeSidebar'"));
+  assert.ok(sidebar.includes('DEFAULT_NAVIGATION_POLICY'));
+  assert.ok(sidebar.includes('NAVIGATION_DURING_GENERATION'));
+  assert.ok(sidebar.includes("DEFER: 'defer'"));
+  assert.ok(sidebar.includes("REPLACE: 'replace'"));
+  assert.ok(sidebar.includes("IGNORE: 'ignore'"));
+  assert.ok(sidebar.includes('pendingNavigationPayload'));
+  assert.ok(sidebar.includes('applyPendingNavigationPayload'));
+  assert.ok(sidebar.includes('navigationPolicy.autoStartOnNavigation'));
 });
 
 test('planning docs record upgrade direction and TS/Preact migration guardrails', 'quality.docs_upgrade_design', () => {

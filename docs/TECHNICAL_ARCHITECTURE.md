@@ -1,6 +1,6 @@
 # 技术架构
 
-Last updated: 2026-04-15
+Last updated: 2026-04-29
 
 这份文档描述当前仓库已经落地并仍然有效的运行时边界、数据模型，以及支撑重构的工程验证边界。TypeScript、构建链和 Preact 迁移属于规划草案，见 [TypeScript + Preact 迁移设计](TS_PREACT_MIGRATION.md)。
 
@@ -102,11 +102,14 @@ Last updated: 2026-04-15
 - 构建文章快照输入
 - 注入侧栏容器和资源
 - 在入口触发时把数据发给侧栏
+- 跟踪 same-document navigation，并在已有侧栏打开时刷新页面上下文
 
 说明：
 
 - `content.js` 使用 `libs/readability.js` 这个 vendored 的外部库做正文抽取。
 - `readability.js` 属于第三方依赖，不是项目自研模块。
+- 右键、快捷键和 popup 等显式入口仍通过 `injectSidebar()` 打开或重建侧栏。
+- SPA / 同文档路由切换不会重建 iframe；`content.js` 会向现有 iframe `postMessage` 发送 `articleData`，并带上 `source: 'navigation'` 与内部 `navigationPolicy`。
 
 ### `sidebar.html / sidebar.js / style.css`
 
@@ -121,6 +124,13 @@ Last updated: 2026-04-15
 - 生成长截图分享卡
 - 打开新标签页阅读器
 - 展示运行诊断
+
+SPA 路由切换的当前默认策略：
+
+- `navigationPolicy.autoStartOnNavigation` 默认为 `false`，所以导航刷新只更新上下文，不自动发起模型请求。
+- `navigationPolicy.duringGeneration` 默认为 `defer`，所以生成中收到导航刷新时，只保存最新 pending payload，不取消旧 run，也不断开 stream port。
+- 旧 run 进入 `finally` 后，侧栏会应用最新 pending navigation：更新 meta，优先复用新页面历史；未命中历史时显示等待手动“重新生成”的占位态。
+- 内部预留 `defer`、`replace`、`ignore` 三种运行中导航策略。当前没有暴露用户设置，也没有改变 `chrome.storage` schema 或 Manifest 权限。
 
 ### `reader.html / reader.js`
 

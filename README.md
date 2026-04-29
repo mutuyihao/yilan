@@ -18,6 +18,7 @@ The current version is no longer just a summarizer. It is a local-first web read
 - Supports three follow-up generation modes: `Action Items`, `Glossary`, and `Q&A Cards`.
 - Shows source metadata, trust and control state, history, favorites, and basic diagnostics in the sidebar.
 - Can reuse the current page's latest historical summary at entry time, while keeping `Regenerate` available to refresh the page result.
+- Refreshes sidebar context after same-document SPA route changes without automatically starting a new model request by default.
 - Opens the current summary in a standalone new-tab reader.
 - Exports Markdown and creates long screenshot share cards with source links.
 - Provides provider presets, explicit Endpoint Mode, theme preference, entry status checks, and auto-save in the settings page.

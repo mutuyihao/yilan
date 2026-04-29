@@ -67,6 +67,45 @@ function createSlowArticleHtml(origin) {
 </html>`;
 }
 
+function createSpaRouterHtml(origin, options) {
+  const slow = !!options?.slow;
+  const initialTitle = slow ? 'Playwright Slow Article' : 'SPA Initial Article';
+  const initialPath = slow ? '/spa-router?slow=1' : '/spa-router';
+  const routedPath = slow ? '/spa-router?slow=1&route=next' : '/spa-router?route=next';
+  const initialBody = slow
+    ? 'This SPA fixture starts with a deliberately slow article so route changes can happen while streaming generation is still active. '.repeat(10)
+    : 'This SPA fixture starts with a regular article so route changes can be tested after the sidebar has become idle. '.repeat(10);
+  const routedBody = 'This routed SPA article is the new page context. It should update the sidebar metadata without automatically starting a new model request. '.repeat(10);
+
+  return `<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <title>${initialTitle}</title>
+  <meta name="author" content="SPA Fixture Author">
+  <meta name="description" content="A SPA route fixture used by Playwright extension tests.">
+  <meta property="og:site_name" content="SPA Fixture Site">
+  <link id="canonicalLink" rel="canonical" href="${origin}${initialPath}">
+</head>
+<body>
+  <button id="routeNext" type="button">Navigate SPA Route</button>
+  <article>
+    <h1 id="spaTitle">${initialTitle}</h1>
+    <p id="spaBody">${initialBody}</p>
+  </article>
+  <script>
+    document.getElementById('routeNext').addEventListener('click', () => {
+      document.title = 'SPA Routed Article';
+      document.getElementById('canonicalLink').setAttribute('href', '${origin}${routedPath}');
+      document.getElementById('spaTitle').textContent = 'SPA Routed Article';
+      document.getElementById('spaBody').textContent = '${routedBody}';
+      history.pushState({ route: 'next' }, '', '${routedPath}');
+    });
+  </script>
+</body>
+</html>`;
+}
+
 function parseBody(raw) {
   if (!raw) return null;
   try {
@@ -230,6 +269,12 @@ async function startTestServer() {
     if (request.method === 'GET' && url.pathname === '/article-slow') {
       response.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
       response.end(createSlowArticleHtml(origin));
+      return;
+    }
+
+    if (request.method === 'GET' && url.pathname === '/spa-router') {
+      response.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+      response.end(createSpaRouterHtml(origin, { slow: url.searchParams.get('slow') === '1' }));
       return;
     }
 

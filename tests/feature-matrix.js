@@ -6,6 +6,7 @@ module.exports = [
   { id: 'entrypoint.status', label: 'Entrypoint status and shortcut checks' },
   { id: 'content.extraction', label: 'Page content extraction' },
   { id: 'content.sidebar_injection', label: 'Sidebar iframe injection and viewport sync' },
+  { id: 'content.spa_navigation_refresh', label: 'SPA navigation refresh without auto-start' },
   { id: 'article.snapshot', label: 'Article snapshot normalization' },
   { id: 'article.chunking', label: 'Long article chunking' },
   { id: 'page.strategy', label: 'Page type strategy selection' },

@@ -302,6 +302,85 @@ test.describe('Yilan extension E2E', () => {
     }
   });
 
+  test('SPA navigation refreshes sidebar context without auto-starting a new summary', async () => {
+    const harness = await launchExtensionContext();
+    try {
+      await resetExtensionState(harness.serviceWorker);
+      await setSyncSettings(harness.serviceWorker, buildDefaultSettings(server.origin, {
+        entrypointAutoStart: true,
+        entrypointReuseHistory: true,
+        privacyMode: false
+      }));
+
+      const page = harness.context.pages()[0] || await harness.context.newPage();
+      await page.goto(server.origin + '/spa-router');
+      await page.bringToFront();
+
+      server.clearRequests();
+      await triggerActiveTabAction(harness.serviceWorker, 'extractAndSummarize');
+      const sidebar = await waitForSidebarFrame(page);
+
+      await expect.poll(() => server.getRequests().length).toBe(1);
+      await expect(sidebar.locator('#articleTitle')).toContainText('SPA Initial Article');
+      await expect(sidebar.locator('#copyBtn')).toBeEnabled();
+
+      server.clearRequests();
+      await page.locator('#routeNext').click();
+
+      await expect(sidebar.locator('#articleTitle')).toContainText('SPA Routed Article');
+      await expect(sidebar.locator('#summaryRoot')).toHaveClass(/summary-placeholder/);
+      await expect(sidebar.locator('#regenerateBtn')).toBeEnabled();
+      expect(server.getRequests()).toHaveLength(0);
+
+      await sidebar.locator('#regenerateBtn').click();
+      await expect.poll(() => server.getRequests().length).toBe(1);
+      await expect(sidebar.locator('#copyBtn')).toBeEnabled();
+    } finally {
+      await harness.close();
+    }
+  });
+
+  test('SPA navigation during generation defers sidebar refresh until the old run completes', async () => {
+    const harness = await launchExtensionContext();
+    try {
+      await resetExtensionState(harness.serviceWorker);
+      await setSyncSettings(harness.serviceWorker, buildDefaultSettings(server.origin, {
+        entrypointAutoStart: true,
+        entrypointReuseHistory: true,
+        privacyMode: false
+      }));
+
+      const page = harness.context.pages()[0] || await harness.context.newPage();
+      await page.goto(server.origin + '/spa-router?slow=1');
+      await page.bringToFront();
+
+      server.clearRequests();
+      await triggerActiveTabAction(harness.serviceWorker, 'extractAndSummarize');
+      const sidebar = await waitForSidebarFrame(page);
+
+      await expect.poll(() => server.getRequests().length).toBe(1);
+      await expect(sidebar.locator('#articleTitle')).toContainText('Playwright Slow Article');
+      await expect(sidebar.locator('#cancelBtn')).toBeEnabled();
+
+      await page.locator('#routeNext').click();
+      await page.waitForTimeout(800);
+
+      expect(server.getRequests()).toHaveLength(1);
+      await expect(sidebar.locator('#articleTitle')).toContainText('Playwright Slow Article');
+
+      await expect(sidebar.locator('#articleTitle')).toContainText('SPA Routed Article', { timeout: 20000 });
+      await expect(sidebar.locator('#summaryRoot')).toHaveClass(/summary-placeholder/);
+      await expect(sidebar.locator('#regenerateBtn')).toBeEnabled();
+      expect(server.getRequests()).toHaveLength(1);
+
+      await sidebar.locator('#regenerateBtn').click();
+      await expect.poll(() => server.getRequests().length).toBe(2);
+      await expect(sidebar.locator('#copyBtn')).toBeEnabled();
+    } finally {
+      await harness.close();
+    }
+  });
+
   test('keeps no-trace summaries out of IndexedDB history', async () => {
     const harness = await launchExtensionContext();
     try {

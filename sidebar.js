@@ -34,6 +34,17 @@ const SETTINGS_KEYS = [
   'entrypointReuseHistory'
 ];
 
+const NAVIGATION_DURING_GENERATION = {
+  DEFER: 'defer',
+  REPLACE: 'replace',
+  IGNORE: 'ignore'
+};
+
+const DEFAULT_NAVIGATION_POLICY = {
+  autoStartOnNavigation: false,
+  duringGeneration: NAVIGATION_DURING_GENERATION.DEFER
+};
+
 const markdownToPlainText = SummaryText.markdownToPlainText;
 const stripMarkdownPreview = SummaryText.stripMarkdownPreview;
 const extractBullets = SummaryText.extractBullets;
@@ -62,6 +73,7 @@ const state = {
   selectedSiteHost: '',
   summaryModeMenuOpen: false,
   autoScroll: true,
+  pendingNavigationPayload: null,
   settings: Object.assign({}, Trust.DEFAULT_SETTINGS),
   trustPolicy: Trust.buildTrustPolicy(null, Trust.DEFAULT_SETTINGS)
 };
@@ -861,6 +873,135 @@ async function restoreReusableRecordForCurrentArticle(article) {
   return true;
 }
 
+function normalizeNavigationPolicy(policy) {
+  const rawDuringGeneration = String(policy?.duringGeneration || '').trim();
+  const duringGeneration = rawDuringGeneration === NAVIGATION_DURING_GENERATION.IGNORE ||
+    rawDuringGeneration === NAVIGATION_DURING_GENERATION.REPLACE ||
+    rawDuringGeneration === NAVIGATION_DURING_GENERATION.DEFER
+    ? rawDuringGeneration
+    : DEFAULT_NAVIGATION_POLICY.duringGeneration;
+
+  return {
+    autoStartOnNavigation: policy?.autoStartOnNavigation === true,
+    duringGeneration
+  };
+}
+
+function createPendingNavigationPayload(message, navigationPolicy) {
+  return {
+    type: 'articleData',
+    source: 'navigation',
+    article: message.article,
+    navigationPolicy
+  };
+}
+
+function renderManualSummaryReadyState(triggeredByNavigation) {
+  renderPlaceholder(
+    '\u9875\u9762\u5df2\u5c31\u7eea',
+    triggeredByNavigation
+      ? '\u5df2\u5207\u6362\u5230\u65b0\u9875\u9762\uff0c\u4e0d\u4f1a\u81ea\u52a8\u5f00\u59cb\u603b\u7ed3\u3002\u70b9\u51fb\u201c\u91cd\u65b0\u751f\u6210\u201d\u540e\u624d\u4f1a\u8bf7\u6c42\u6a21\u578b\u3002'
+      : '\u70b9\u51fb\u201c\u91cd\u65b0\u751f\u6210\u201d\u5f00\u59cb\u751f\u6210\u6458\u8981\uff0c\u6216\u5148\u5207\u6362\u6458\u8981\u6a21\u5f0f\u3002'
+  );
+  setStatus(triggeredByNavigation ? '\u7b49\u5f85\u624b\u52a8\u5f00\u59cb' : '\u5c31\u7eea');
+  setStats('');
+}
+
+async function applyArticleDataPayload(message) {
+  const triggeredByNavigation = message.source === 'navigation';
+  const navigationPolicy = normalizeNavigationPolicy(message.navigationPolicy);
+
+  closeHistoryPanel();
+  state.article = message.article;
+  state.visibleRecord = null;
+  state.visibleRecordUsesCurrentArticle = false;
+  state.summaryMarkdown = '';
+
+  let settings = state.settings || {};
+  try {
+    settings = await loadRuntimeSettings();
+  } catch {}
+
+  const entrypointAutoStart = settings.entrypointAutoStart !== false;
+  const autoStart = triggeredByNavigation ? navigationPolicy.autoStartOnNavigation : entrypointAutoStart;
+  const simpleMode = !!settings.entrypointSimpleMode;
+  const reuseHistory = settings.entrypointReuseHistory !== false;
+  const initialMode = simpleMode ? 'short' : (state.article?.preferredSummaryMode || 'medium');
+
+  const suggestedMode = setSummaryModeControlValue(initialMode);
+  setSummaryModeMenuOpen(false);
+  renderArticleMeta(state.article, { summaryMode: suggestedMode });
+  refreshActionStates();
+
+  if (reuseHistory) {
+    renderInlineNote('\u6b63\u5728\u68c0\u67e5\u5386\u53f2\u6458\u8981', '\u5982\u679c\u5f53\u524d\u9875\u9762\u5df2\u6709\u5df2\u5b8c\u6210\u6458\u8981\uff0c\u4f1a\u76f4\u63a5\u52a0\u8f7d\u6700\u8fd1\u4e00\u6b21\u8bb0\u5f55\u3002');
+    setStatus('\u6b63\u5728\u68c0\u67e5\u5f53\u524d\u9875\u9762\u7684\u5386\u53f2\u6458\u8981...');
+    setStats('');
+
+    const restored = await restoreReusableRecordForCurrentArticle(state.article);
+    if (restored) {
+      return;
+    }
+  }
+
+  if (!autoStart) {
+    renderManualSummaryReadyState(triggeredByNavigation);
+    return;
+  }
+
+  renderPlaceholder(
+    '\u6b63\u5728\u8bfb\u53d6\u9875\u9762\u5185\u5bb9',
+    simpleMode
+      ? '\u5df2\u542f\u7528\u7b80\u5355\u603b\u7ed3\uff0c\u9a6c\u4e0a\u5f00\u59cb\u751f\u6210\u3002'
+      : '\u9a6c\u4e0a\u5f00\u59cb\u751f\u6210\u5f53\u524d\u9875\u9762\u7684\u6458\u8981\u3002'
+  );
+  startPrimarySummary(suggestedMode).catch((error) => {
+    const normalized = normalizeUiError(error);
+    renderErrorBox(normalized);
+    setStatus(normalized.message, 'error');
+    refreshActionStates();
+  });
+}
+
+async function handleArticleDataPayload(message) {
+  const triggeredByNavigation = message.source === 'navigation';
+  const navigationPolicy = normalizeNavigationPolicy(message.navigationPolicy);
+
+  if (triggeredByNavigation && state.generating) {
+    if (navigationPolicy.duringGeneration === NAVIGATION_DURING_GENERATION.IGNORE) {
+      return;
+    }
+
+    if (navigationPolicy.duringGeneration === NAVIGATION_DURING_GENERATION.REPLACE) {
+      state.pendingNavigationPayload = createPendingNavigationPayload(message, navigationPolicy);
+      cancelGeneration().catch((error) => {
+        console.error(error);
+      });
+      return;
+    }
+
+    // Default: keep the current run alive and apply only the latest SPA route after it settles.
+    state.pendingNavigationPayload = createPendingNavigationPayload(message, navigationPolicy);
+    return;
+  }
+
+  await applyArticleDataPayload(Object.assign({}, message, { navigationPolicy }));
+}
+
+async function applyPendingNavigationPayload() {
+  if (state.generating || !state.pendingNavigationPayload) return;
+
+  const pending = state.pendingNavigationPayload;
+  state.pendingNavigationPayload = null;
+
+  try {
+    await applyArticleDataPayload(pending);
+  } catch (error) {
+    console.error(error);
+    setStatus('\u5904\u7406\u9875\u9762\u5bfc\u822a\u66f4\u65b0\u5931\u8d25', 'error');
+  }
+}
+
 function renderHistoryEmpty(message) {
   elements.historySiteFilters.innerHTML = '';
   elements.historyList.innerHTML = '<div class="history-empty">' + escapeHtml(message) + '</div>';
@@ -1411,6 +1552,7 @@ async function startPrimarySummary(summaryMode) {
     state.activeRunIds.clear();
     safeDisconnectPort();
     refreshActionStates();
+    await applyPendingNavigationPayload();
   }
 }
 
@@ -1497,6 +1639,7 @@ async function startSecondarySummary(mode) {
     state.activeRunIds.clear();
     safeDisconnectPort();
     refreshActionStates();
+    await applyPendingNavigationPayload();
   }
 }
 
@@ -1878,77 +2021,7 @@ function bindEvents() {
     }
 
     if (event.data?.type === 'articleData' && event.data.article) {
-      (async () => {
-        closeHistoryPanel();
-        state.article = event.data.article;
-        state.visibleRecord = null;
-        state.visibleRecordUsesCurrentArticle = false;
-        state.summaryMarkdown = '';
-
-        let settings = state.settings || {};
-        try {
-          settings = await loadRuntimeSettings();
-        } catch {}
-
-        const autoStart = settings.entrypointAutoStart !== false;
-        const simpleMode = !!settings.entrypointSimpleMode;
-        const reuseHistory = settings.entrypointReuseHistory !== false;
-        const initialMode = simpleMode ? 'short' : (state.article?.preferredSummaryMode || 'medium');
-        const triggeredByNavigation = event.data.source === 'navigation';
-
-        const suggestedMode = setSummaryModeControlValue(initialMode);
-        setSummaryModeMenuOpen(false);
-        renderArticleMeta(state.article, { summaryMode: suggestedMode });
-        refreshActionStates();
-
-        if (reuseHistory) {
-          renderInlineNote('\u6b63\u5728\u68c0\u67e5\u5386\u53f2\u6458\u8981', '\u5982\u679c\u5f53\u524d\u9875\u9762\u5df2\u6709\u5df2\u5b8c\u6210\u6458\u8981\uff0c\u4f1a\u76f4\u63a5\u52a0\u8f7d\u6700\u8fd1\u4e00\u6b21\u8bb0\u5f55\u3002');
-          setStatus('\u6b63\u5728\u68c0\u67e5\u5f53\u524d\u9875\u9762\u7684\u5386\u53f2\u6458\u8981...');
-          setStats('');
-
-          const restored = await restoreReusableRecordForCurrentArticle(state.article);
-          if (restored) {
-            return;
-          }
-        }
-
-        if (triggeredByNavigation && !autoStart) {
-          renderPlaceholder('\u9875\u9762\u5df2\u5c31\u7eea', '\u5df2\u63a5\u6536\u5230\u5f53\u524d\u9875\u9762\u5185\u5bb9\uff0c\u4f46\u5165\u53e3\u8bbe\u7f6e\u4e3a\u624b\u52a8\u542f\u52a8\u3002');
-          setStatus('\u7b49\u5f85\u624b\u52a8\u5f00\u59cb');
-          setStats('');
-          return;
-        }
-        if (triggeredByNavigation) {
-          renderPlaceholder(
-            '\u6b63\u5728\u8bfb\u53d6\u9875\u9762\u5185\u5bb9',
-            simpleMode
-              ? '\u5df2\u542f\u7528\u7b80\u5355\u603b\u7ed3\uff0c\u9a6c\u4e0a\u5f00\u59cb\u751f\u6210\u3002'
-              : '\u9a6c\u4e0a\u5f00\u59cb\u751f\u6210\u5f53\u524d\u9875\u9762\u7684\u6458\u8981\u3002'
-          );
-          startPrimarySummary(suggestedMode).catch((error) => {
-            const normalized = normalizeUiError(error);
-            renderErrorBox(normalized);
-            setStatus(normalized.message, 'error');
-            refreshActionStates();
-          });
-          return;
-        }
-
-        if (!autoStart) {
-          renderPlaceholder('\u9875\u9762\u5df2\u5c31\u7eea', '\u70b9\u51fb\u201c\u91cd\u65b0\u751f\u6210\u201d\u5f00\u59cb\u751f\u6210\u6458\u8981\uff0c\u6216\u5148\u5207\u6362\u6458\u8981\u6a21\u5f0f\u3002');
-          setStatus('\u5c31\u7eea');
-          setStats('');
-          return;
-        }
-
-        renderPlaceholder('\u6b63\u5728\u8bfb\u53d6\u9875\u9762\u5185\u5bb9', simpleMode ? '\u5df2\u542f\u7528\u7b80\u5355\u603b\u7ed3\uff0c\u9a6c\u4e0a\u5f00\u59cb\u751f\u6210\u3002' : '\u9a6c\u4e0a\u5f00\u59cb\u751f\u6210\u5f53\u524d\u9875\u9762\u7684\u6458\u8981\u3002');
-        startPrimarySummary(suggestedMode).catch((error) => {
-          const normalized = normalizeUiError(error);
-          renderErrorBox(normalized);
-          setStatus(normalized.message, 'error');
-          refreshActionStates();
-        });
-      })().catch((error) => {
+      handleArticleDataPayload(event.data).catch((error) => {
         console.error(error);
         setStatus('\u5904\u7406\u5165\u53e3\u89e6\u53d1\u5931\u8d25', 'error');
       });
