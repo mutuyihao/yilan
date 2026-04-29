@@ -11,7 +11,8 @@ Last updated: 2026-04-15
 3. [测试体系](TESTING.md)
 4. [技术架构](TECHNICAL_ARCHITECTURE.md)
 5. [升级设计（draft）](UPGRADE_DESIGN.md)
-6. [协作与贡献](../CONTRIBUTING.md)
+6. [TypeScript + Preact 迁移设计（draft）](TS_PREACT_MIGRATION.md)
+7. [协作与贡献](../CONTRIBUTING.md)
 
 ## 本地开发
 
@@ -165,6 +166,7 @@ node tests/run-tests.js
 规划草案：
 
 - `docs/UPGRADE_DESIGN.md`：Pinboard 启发下的后续升级方向与低风险重构路线
+- `docs/TS_PREACT_MIGRATION.md`：TypeScript、构建链和 Preact 的分阶段迁移方案
 
 出现以下变化时，需要同步更新：
 
@@ -172,12 +174,13 @@ node tests/run-tests.js
 - 架构边界、消息链路、数据模型变化：更新 `docs/TECHNICAL_ARCHITECTURE.md`
 - 测试命令、覆盖策略、验证入口变化：更新 `docs/TESTING.md` 和 `docs/DEVELOPER_GUIDE.md`
 - 文档入口或文档分工变化：更新 `README.md` 和 `docs/README.md`
-- 重构路线、阶段计划、技术债优先级变化：更新 `docs/UPGRADE_DESIGN.md`
+- 产品升级方向、行为等价重构路线变化：更新 `docs/UPGRADE_DESIGN.md`
+- TypeScript、构建链、框架迁移变化：更新 `docs/TS_PREACT_MIGRATION.md`
 - 贡献约定变化：更新 `CONTRIBUTING.md`
 
 ## 当前建议保持的工程边界
 
-- 继续保持无构建、纯脚本结构，除非复杂度明显超过当前形态。
+- 当前运行产物继续保持无构建、纯脚本结构；TypeScript、构建链和 Preact 迁移必须按 `docs/TS_PREACT_MIGRATION.md` 分阶段推进。
 - 共享逻辑优先放在 `shared/`，不要把同类判断复制到 popup、sidebar、reader 三处。
 - provider-specific 逻辑继续收敛在 `adapters/`，不要把 transport 和 provider 分支堆回 `background.js`。
 - 与落库和隐私相关的改动，务必同时检查 `db.js`、`shared/trust-policy.js` 和用户文档。

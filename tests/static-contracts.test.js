@@ -48,6 +48,10 @@ function assertInOrder(values, expected) {
   assert.deepStrictEqual(indexes, sorted, 'Scripts are not in dependency order');
 }
 
+function countMatches(text, pattern) {
+  return (text.match(pattern) || []).length;
+}
+
 test('first-party JavaScript files pass syntax checks', 'quality.syntax', () => {
   const files = listFirstPartyJsFiles();
   assert.ok(files.includes('background.js'));
@@ -86,6 +90,13 @@ test('manifest declares MV3 shell, entrypoints, permissions, and accessible reso
     'db.js',
     'sidebar.js',
     'shared/theme.js',
+    'shared/ui-format.js',
+    'shared/ui-labels.js',
+    'shared/summary-text.js',
+    'shared/diagnostics-view.js',
+    'shared/reader-view.js',
+    'shared/history-view.js',
+    'shared/sidebar-meta-view.js',
     'shared/domain.js',
     'shared/article-utils.js',
     'shared/trust-policy.js',
@@ -150,6 +161,13 @@ test('sidebar page DOM, scripts, actions, history, export, share, and reader con
     'shared/article-utils.js',
     'shared/trust-policy.js',
     'shared/run-utils.js',
+    'shared/ui-format.js',
+    'shared/ui-labels.js',
+    'shared/summary-text.js',
+    'shared/diagnostics-view.js',
+    'shared/reader-view.js',
+    'shared/history-view.js',
+    'shared/sidebar-meta-view.js',
     'libs/purify.min.js',
     'libs/marked.min.js',
     'libs/highlight.min.js',
@@ -172,6 +190,9 @@ test('sidebar page DOM, scripts, actions, history, export, share, and reader con
   assert.ok(js.includes('recordStore.findReusableRecordForArticle'));
   assert.ok(js.includes('Trust.buildTrustPolicy'));
   assert.ok(js.includes('AISummaryTheme'));
+  assert.strictEqual(countMatches(js, /function renderThemeToggleState\(/g), 1);
+  assert.strictEqual(countMatches(js, /function cycleThemePreference\(/g), 1);
+  assert.strictEqual(countMatches(js, /function updateFavoriteButton\(/g), 1);
 });
 
 test('popup DOM, tabs, autosave, provider settings, connection test, and entrypoint controls stay wired', [
@@ -188,6 +209,8 @@ test('popup DOM, tabs, autosave, provider settings, connection test, and entrypo
   assertAllIdsExist('popup.html', jsIds, ids);
 
   assertInOrder(extractScriptSources(html), [
+    'shared/ui-format.js',
+    'shared/ui-labels.js',
     'shared/errors.js',
     'shared/trust-policy.js',
     'shared/provider-presets.js',
@@ -222,6 +245,10 @@ test('reader page DOM, markdown rendering, copy, diagnostics, and session lookup
   assertAllIdsExist('reader.html', dollarIds, ids);
 
   assertInOrder(extractScriptSources(html), [
+    'shared/ui-format.js',
+    'shared/ui-labels.js',
+    'shared/summary-text.js',
+    'shared/reader-view.js',
     'db.js',
     'libs/purify.min.js',
     'libs/marked.min.js',
@@ -280,8 +307,13 @@ test('content script extraction, sidebar injection, and SPA navigation contracts
   assert.ok(js.includes("event.data?.type === 'closeSidebar'"));
 });
 
-test('upgrade design records Pinboard direction, refactor guardrails, phases, and regression checklist', 'quality.docs_upgrade_design', () => {
-  const doc = readText('docs/UPGRADE_DESIGN.md');
+test('planning docs record upgrade direction and TS/Preact migration guardrails', 'quality.docs_upgrade_design', () => {
+  const index = readText('docs/README.md');
+  const upgradeDoc = readText('docs/UPGRADE_DESIGN.md');
+  const migrationDoc = readText('docs/TS_PREACT_MIGRATION.md');
+
+  assert.ok(index.includes('TS_PREACT_MIGRATION.md'));
+
   [
     'Pinboard',
     '\u4e2a\u4eba\u7f51\u9875\u8bb0\u5fc6\u5e93',
@@ -293,6 +325,18 @@ test('upgrade design records Pinboard direction, refactor guardrails, phases, an
     'Phase 4',
     '\u56de\u5f52\u6e05\u5355'
   ].forEach((needle) => {
-    assert.ok(doc.includes(needle), 'Upgrade design missing: ' + needle);
+    assert.ok(upgradeDoc.includes(needle), 'Upgrade design missing: ' + needle);
+  });
+
+  [
+    'TypeScript',
+    'Preact',
+    'npm.cmd run typecheck',
+    'popup',
+    'reader',
+    'sidebar',
+    'dist/'
+  ].forEach((needle) => {
+    assert.ok(migrationDoc.includes(needle), 'TS/Preact migration design missing: ' + needle);
   });
 });

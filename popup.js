@@ -2,6 +2,8 @@ const Errors = window.AISummaryErrors;
 const Trust = window.AISummaryTrust;
 const ProviderPresets = window.AISummaryProviderPresets;
 const Theme = window.AISummaryTheme;
+const UiFormat = window.AISummaryUiFormat;
+const UiLabels = window.AISummaryUiLabels;
 
 const SETTINGS_KEYS = [
   'providerPreset',
@@ -26,11 +28,6 @@ const ACTIVE_TAB_STORAGE_KEY = 'popupActiveTab';
 const AUTOSAVE_DEBOUNCE_MS = 500;
 const IDLE_STATUS_TEXT = '设置修改后会自动保存。';
 const WAITING_AUTOSAVE_TEXT = '检测到变更，输入停顿后会自动保存。';
-
-const PROVIDER_LABELS = {
-  openai: 'OpenAI / OpenAI 兼容接口',
-  anthropic: 'Anthropic / Claude 兼容接口'
-};
 
 const PROVIDER_FALLBACK_HINTS = {
   openai: '留空时使用 OpenAI 默认根地址，也可以直接填写完整 endpoint。',
@@ -104,18 +101,7 @@ function setStatus(text, tone) {
   node.className = 'status' + (tone ? ' ' + tone : '');
 }
 
-function formatDateTime(value) {
-  if (!value) return '未记录';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return '未记录';
-  return date.toLocaleString('zh-CN', {
-    hour12: false,
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit'
-  });
-}
+const formatDateTime = (value) => UiFormat.formatDateTime(value, { emptyText: '未记录', includeYear: false });
 
 function setBadge(id, text, tone) {
   const node = $(id);
@@ -235,7 +221,7 @@ function syncProviderOptions(presetId) {
   Array.from(providerSelect.options).forEach((option) => {
     const supported = allowed.has(option.value);
     option.disabled = !supported;
-    option.textContent = PROVIDER_LABELS[option.value] || option.value;
+    option.textContent = UiLabels.getProviderLabel(option.value, { variant: 'settings', fallback: option.value });
   });
 
   providerSelect.value = ProviderPresets.normalizeProvider(providerSelect.value, presetId);

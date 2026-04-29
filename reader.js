@@ -1,29 +1,9 @@
 const recordStore = window.db;
+const UiFormat = window.AISummaryUiFormat;
+const UiLabels = window.AISummaryUiLabels;
+const ReaderView = window.AISummaryReaderView;
 
 const READER_SESSION_PREFIX = 'readerSession:';
-
-const MODE_LABELS = {
-  short: '简短总结',
-  medium: '标准总结',
-  long: '深度总结',
-  key_points: '关键要点',
-  qa: '问答卡片',
-  glossary: '术语表',
-  action_items: '行动项'
-};
-
-const PROVIDER_LABELS = {
-  openai: 'OpenAI Compatible',
-  anthropic: 'Anthropic',
-  legacy: 'Legacy'
-};
-
-const STATUS_LABELS = {
-  completed: '已完成',
-  running: '生成中',
-  failed: '失败',
-  cancelled: '已取消'
-};
 
 const $ = (id) => document.getElementById(id);
 
@@ -45,39 +25,12 @@ function setStatus(text, tone) {
   node.className = 'status-line' + (tone ? ' ' + tone : '');
 }
 
-function escapeHtml(text) {
-  return String(text || '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-}
-
-function formatDateTime(value) {
-  if (!value) return '未记录';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return '未记录';
-  return date.toLocaleString('zh-CN', {
-    hour12: false,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit'
-  });
-}
-
-function getProviderLabel(provider) {
-  return PROVIDER_LABELS[String(provider || '').toLowerCase()] || provider || '未知来源';
-}
-
-function getModeLabel(mode) {
-  return MODE_LABELS[String(mode || '').trim()] || mode || '标准总结';
-}
+const escapeHtml = UiFormat.escapeHtml;
+const normalizeExternalUrl = ReaderView.normalizeExternalUrl;
+const mergeSnapshotWithRecord = ReaderView.mergeSnapshotWithRecord;
 
 function getStatusLabel(status) {
-  return STATUS_LABELS[String(status || '').trim()] || '已完成';
+  return UiLabels.getRecordStatusLabel(status, { variant: 'reader', fallback: '已完成' });
 }
 
 function estimateReadMinutes(text) {
@@ -95,48 +48,9 @@ function buildDetail(label, value) {
   return `<span class="detail-pill">${escapeHtml(label)}<strong>${escapeHtml(value)}</strong></span>`;
 }
 
-function normalizeExternalUrl(value) {
-  const raw = String(value || '').trim();
-  if (!raw) return '';
-
-  try {
-    const url = new URL(raw);
-    if (url.protocol === 'http:' || url.protocol === 'https:') {
-      return url.toString();
-    }
-  } catch (error) {
-    return '';
-  }
-
-  return '';
-}
-
 function parseSessionId() {
   const url = new URL(window.location.href);
   return String(url.searchParams.get('session') || '').trim();
-}
-
-function mergeSnapshotWithRecord(snapshot, record) {
-  if (!record) return snapshot;
-  return Object.assign({}, snapshot, {
-    recordId: record.recordId || snapshot.recordId || '',
-    sourceUrl: record.normalizedUrl || record.sourceUrl || snapshot.sourceUrl || '',
-    sourceHost: record.sourceHost || snapshot.sourceHost || '',
-    summaryMode: record.summaryMode || snapshot.summaryMode || 'medium',
-    summaryModeLabel: getModeLabel(record.summaryMode || snapshot.summaryMode),
-    provider: record.provider || snapshot.provider || '',
-    providerLabel: getProviderLabel(record.provider || snapshot.provider),
-    model: record.model || snapshot.model || '',
-    status: record.status || snapshot.status || 'completed',
-    completedAt: record.completedAt || snapshot.completedAt || '',
-    completedAtLabel: formatDateTime(record.completedAt || snapshot.completedAt || record.createdAt || ''),
-    favorite: !!record.favorite,
-    allowHistory: record.allowHistory !== false,
-    privacyMode: !!record.privacyMode,
-    summaryMarkdown: record.summaryMarkdown || snapshot.summaryMarkdown || '',
-    summaryPlainText: record.summaryPlainText || snapshot.summaryPlainText || recordStore.markdownToPlainText(record.summaryMarkdown || snapshot.summaryMarkdown || ''),
-    diagnostics: record.diagnostics || snapshot.diagnostics || null
-  });
 }
 
 async function loadReaderSnapshot() {

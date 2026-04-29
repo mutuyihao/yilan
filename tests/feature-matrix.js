@@ -41,5 +41,5 @@ module.exports = [
   { id: 'ui.reader_contract', label: 'Reader DOM contract' },
   { id: 'quality.syntax', label: 'First-party JavaScript syntax' },
   { id: 'quality.performance_baseline', label: 'Large history performance baselines' },
-  { id: 'quality.docs_upgrade_design', label: 'Upgrade design documentation' }
+  { id: 'quality.docs_upgrade_design', label: 'Planning and migration documentation' }
 ];

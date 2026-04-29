@@ -1,5 +1,6 @@
 ﻿(function (global) {
   const Domain = global.AISummaryDomain || (typeof require === 'function' ? require('./shared/domain.js') : null);
+  const SummaryText = global.AISummarySummaryText || (typeof require === 'function' ? require('./shared/summary-text.js') : null);
 
   const DB_NAME = 'aiSummaryDB';
   const DB_VERSION = 2;
@@ -13,7 +14,7 @@
     });
   }
 
-  function markdownToPlainText(markdown) {
+  const markdownToPlainText = SummaryText?.markdownToPlainText || function markdownToPlainTextFallback(markdown) {
     return String(markdown || '')
       .replace(/```[\s\S]*?```/g, ' ')
       .replace(/`([^`]+)`/g, '$1')
@@ -23,7 +24,7 @@
       .replace(/\n{2,}/g, '\n')
       .replace(/\s+/g, ' ')
       .trim();
-  }
+  };
 
   function buildDedupeKey(record) {
     const seed = [

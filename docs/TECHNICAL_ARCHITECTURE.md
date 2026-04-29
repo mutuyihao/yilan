@@ -2,7 +2,7 @@
 
 Last updated: 2026-04-15
 
-这份文档描述当前仓库已经落地并仍然有效的运行时边界、数据模型，以及支撑重构的工程验证边界。
+这份文档描述当前仓库已经落地并仍然有效的运行时边界、数据模型，以及支撑重构的工程验证边界。TypeScript、构建链和 Preact 迁移属于规划草案，见 [TypeScript + Preact 迁移设计](TS_PREACT_MIGRATION.md)。
 
 ## 运行时总览
 
@@ -44,7 +44,7 @@ Last updated: 2026-04-15
 
 职责：
 
-- 在真实 Chromium 中加载未打包扩展。
+- 在真实 Chromium 中加载当前扩展目录。
 - 验证 popup、content script、background service worker、sidebar iframe、reader 页面之间的真实协作。
 - 通过本地 fixture 页面和 mock AI 接口回归高价值主链路。
 
@@ -73,6 +73,8 @@ Last updated: 2026-04-15
 - 权限：`contextMenus`、`storage`、`activeTab`、`scripting`、`clipboardWrite`
 - `host_permissions: <all_urls>`
 - `web_accessible_resources` 暴露侧栏运行所需的 HTML、样式、共享脚本和第三方库
+
+当前 Manifest 仍直接引用根目录脚本和 HTML。未来如果引入 `dist/` 构建产物，需要同步更新 Playwright 加载目录、静态契约测试和文档入口。
 
 ### `popup.html / popup.js`
 
@@ -181,6 +183,13 @@ Last updated: 2026-04-15
 - `trust-policy.js`：无痕和默认策略归一化
 - `provider-presets.js`：厂商 preset、Provider / Endpoint Mode 默认值
 - `theme.js`：popup、侧栏、阅读页的主题同步
+- `ui-format.js`：popup、侧栏、阅读页共用的 HTML 转义和时间显示工具
+- `ui-labels.js`：popup、侧栏、阅读页共用的 provider、摘要模式、记录状态、策略和 warning 显示文案
+- `summary-text.js`：存储层、侧栏、阅读页共用的 Markdown 转纯文本、摘要预览截断和 bullet 提取工具
+- `diagnostics-view.js`：侧栏共用的运行诊断与取消态视图推导工具，负责 partial summary、toggle 文案和取消态 facts 组装
+- `reader-view.js`：侧栏与阅读页共用的阅读快照投影工具，负责会话快照构建、记录合并和外链规范化
+- `history-view.js`：侧栏历史面板共用的展示数据组装工具，负责历史项与站点分组的纯视图模型
+- `sidebar-meta-view.js`：侧栏文章信息与 trust card 共用的展示数据组装工具，负责 meta 文案、warnings 和 trust badge/tone 推导
 - `errors.js`：统一错误模型
 - `abort-utils.js`：取消控制工具
 - `run-utils.js`：运行终态、取消说明、诊断摘要
@@ -292,4 +301,4 @@ provider-specific 逻辑集中在这里，而不是散落在 `background.js`：
 - 历史记录始终以结构化对象保存，不退回到简单字符串列表。
 - 阅读页继续作为侧栏之外的补充阅读能力，而不是替代侧栏主工作流。
 - 验证体系保持 `Node 契约` 与 `Playwright 主链路` 分层，不拿其中一层去替代另一层。
-- 在没有明确收益之前，保持当前无构建、纯脚本的轻量结构。
+- 当前运行产物仍是无构建、纯脚本结构；如引入 TypeScript、构建链或 Preact，必须按专项迁移设计分阶段验证。

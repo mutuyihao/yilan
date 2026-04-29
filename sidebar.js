@@ -3,9 +3,16 @@ const Strings = window.AISummaryStrings;
 const AbortUtils = window.AISummaryAbortUtils;
 const Errors = window.AISummaryErrors;
 const ArticleUtils = window.AISummaryArticle;
+const DiagnosticsView = window.AISummaryDiagnosticsView;
 const Trust = window.AISummaryTrust;
 const RunUtils = window.AISummaryRunUtils;
+const SidebarMetaView = window.AISummarySidebarMetaView;
 const Theme = window.AISummaryTheme;
+const UiFormat = window.AISummaryUiFormat;
+const UiLabels = window.AISummaryUiLabels;
+const SummaryText = window.AISummarySummaryText;
+const ReaderView = window.AISummaryReaderView;
+const HistoryView = window.AISummaryHistoryView;
 const recordStore = window.db;
 
 const SETTINGS_KEYS = [
@@ -27,36 +34,16 @@ const SETTINGS_KEYS = [
   'entrypointReuseHistory'
 ];
 
-const PROVIDER_LABELS = {
-  openai: 'OpenAI Compatible',
-  anthropic: 'Anthropic',
-  legacy: 'Legacy'
-};
-
-const WARNING_LABELS = {
-  missing_title: '标题不完整',
-  empty_content: '正文为空',
-  very_short_content: '正文偏短',
-  content_truncated: '正文已截断',
-  legacy_import: '来自旧版历史迁移'
-};
-
-const THEME_PREFERENCE_LABELS = {
-  system: '自动跟随系统',
-  light: '固定日间',
-  dark: '固定夜间'
-};
-
-const THEME_BUTTON_LABELS = {
-  system: '自动',
-  light: '日间',
-  dark: '夜间'
-};
-
-const THEME_MODE_LABELS = {
-  light: '日间',
-  dark: '夜间'
-};
+const markdownToPlainText = SummaryText.markdownToPlainText;
+const stripMarkdownPreview = SummaryText.stripMarkdownPreview;
+const extractBullets = SummaryText.extractBullets;
+const buildReaderSnapshot = ReaderView.buildReaderSnapshot;
+const buildHistoryItemView = HistoryView.buildHistoryItemView;
+const buildHistoryGroupView = HistoryView.buildHistoryGroupView;
+const buildDiagnosticsPanelModel = DiagnosticsView.buildDiagnosticsPanelModel;
+const buildCancelledStateModel = DiagnosticsView.buildCancelledStateModel;
+const buildArticleMetaView = SidebarMetaView.buildArticleMetaView;
+const buildTrustCardView = SidebarMetaView.buildTrustCardView;
 
 const state = {
   article: null,
@@ -235,39 +222,11 @@ function createCancelledUiError(meta, runId) {
   }));
 }
 
-function escapeHtml(text) {
-  return String(text || '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-}
+const escapeHtml = UiFormat.escapeHtml;
+const formatDateTime = (value) => UiFormat.formatDateTime(value, { emptyText: '-' });
 
-function formatDateTime(value) {
-  if (!value) return '-';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return '-';
-  return date.toLocaleString('zh-CN', {
-    hour12: false,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit'
-  });
-}
-
-function formatDuration(ms) {
-  if (!ms) return '0s';
-  if (ms < 1000) return ms + 'ms';
-  if (ms < 60000) return (ms / 1000).toFixed(1) + 's';
-  const minutes = Math.floor(ms / 60000);
-  const seconds = Math.round((ms % 60000) / 1000);
-  return minutes + 'm ' + seconds + 's';
-}
 function getModeLabel(mode) {
-  return Strings.SUMMARY_MODES[mode]?.label || mode || '标准总结';
+  return UiLabels.getSummaryModeLabel(mode, { fallback: '\u6807\u51c6\u603b\u7ed3' });
 }
 
 function getSummaryModeOptions() {
@@ -311,43 +270,15 @@ function focusActiveSummaryModeOption() {
 }
 
 function getProviderLabel(provider) {
-  return PROVIDER_LABELS[provider] || provider || '未知';
+  return UiLabels.getProviderLabel(provider, { fallback: '\u672a\u77e5' });
 }
 
 function getRecordStatusLabel(status) {
-  const labels = {
-    completed: '已完成',
-    failed: '失败',
-    cancelled: '已取消',
-    running: '进行中'
-  };
-  return labels[status] || status || '已完成';
+  return UiLabels.getRecordStatusLabel(status, { fallback: '\u5df2\u5b8c\u6210' });
 }
 
 function getStrategyLabel(sourceStrategy, sourceType) {
-  if (sourceStrategy?.label) return sourceStrategy.label;
-  const fallback = {
-    news: '新闻速读',
-    blog: '博客洞察',
-    doc: '文档精读',
-    forum: '问答归纳',
-    repo: 'README 导读'
-  };
-  return fallback[sourceType] || '通用精读';
-}
-
-function stripMarkdownPreview(markdown, limit = 120) {
-  const plain = recordStore.markdownToPlainText(markdown || '');
-  return plain.slice(0, limit);
-}
-
-function extractBullets(markdown) {
-  return String(markdown || '')
-    .split('\n')
-    .map((line) => line.trim())
-    .filter((line) => /^[-*+]\s+/.test(line) || /^\d+\.\s+/.test(line))
-    .map((line) => line.replace(/^[-*+]\s+/, '').replace(/^\d+\.\s+/, ''))
-    .slice(0, 8);
+  return UiLabels.getStrategyLabel(sourceStrategy, sourceType);
 }
 
 function getTargetLanguage(settings, article) {
@@ -359,19 +290,15 @@ function withCustomPrompt(prompt, settings) {
   const custom = String(settings.systemPrompt || '').trim();
   if (!custom) return prompt;
   return [
-    '以下是用户的额外要求，请优先遵守。',
+    '\u4ee5\u4e0b\u662f\u7528\u6237\u7684\u989d\u5916\u8981\u6c42\uff0c\u8bf7\u4f18\u5148\u9075\u5b88\u3002',
     custom,
     '---',
     prompt
-  ].join('\n\n');
-}
-
-function summarizeWarnings(warnings) {
-  return (warnings || []).map((item) => WARNING_LABELS[item] || item);
+  ].join('\\n\\n');
 }
 
 function setStatus(text, tone) {
-  elements.statusText.textContent = text || '就绪';
+  elements.statusText.textContent = text || '\u5c31\u7eea';
   elements.statusText.className = 'status-text';
   if (tone === 'success') elements.statusText.classList.add('status-success');
   if (tone === 'warning') elements.statusText.classList.add('status-warning');
@@ -381,40 +308,6 @@ function setStatus(text, tone) {
 
 function setStats(text) {
   elements.statsText.textContent = text || '';
-}
-
-function renderThemeToggleState() {
-  const preference = Theme.getCurrentPreference();
-  const theme = Theme.getCurrentTheme();
-  const nextPreference = Theme.getNextPreference(preference);
-  const themeLabel = THEME_MODE_LABELS[theme] || THEME_MODE_LABELS.light;
-  const currentLabel = preference === 'system'
-    ? THEME_PREFERENCE_LABELS.system + '（当前' + themeLabel + '）'
-    : THEME_PREFERENCE_LABELS[preference] || THEME_PREFERENCE_LABELS.system;
-  const nextLabel = THEME_PREFERENCE_LABELS[nextPreference] || THEME_PREFERENCE_LABELS.system;
-  const buttonLabel = THEME_BUTTON_LABELS[preference] || THEME_BUTTON_LABELS.system;
-
-  elements.themeBtn.textContent = buttonLabel;
-  elements.themeBtn.dataset.preference = preference;
-  elements.themeBtn.dataset.theme = theme;
-
-  const title = '当前：' + currentLabel + '；点击切换到：' + nextLabel;
-  elements.themeBtn.title = title;
-  elements.themeBtn.setAttribute('aria-label', title);
-}
-
-async function cycleThemePreference() {
-  const currentPreference = Theme.getCurrentPreference();
-  const nextPreference = Theme.getNextPreference(currentPreference);
-  const result = await Theme.saveThemePreference(nextPreference);
-  const themeLabel = THEME_MODE_LABELS[result.theme] || THEME_MODE_LABELS.light;
-
-  setStatus(
-    result.preference === 'system'
-      ? '配色已改为跟随系统，当前生效：' + themeLabel + '。'
-      : '配色已切换为固定' + themeLabel + '。',
-    'success'
-  );
 }
 
 function getShareCardThemePalette() {
@@ -475,11 +368,11 @@ function getShareCardThemePalette() {
 }
 
 function updateStatsFromMarkdown(markdown, article) {
-  const plainLength = recordStore.markdownToPlainText(markdown || '').length;
+  const plainLength = markdownToPlainText(markdown || '').length;
   const parts = [];
-  if (plainLength) parts.push(plainLength + ' 字');
-  if (article?.chunkCount > 1) parts.push(article.chunkCount + ' 段');
-  setStats(parts.join(' · '));
+  if (plainLength) parts.push(plainLength + ' \u5b57');
+  if (article?.chunkCount > 1) parts.push(article.chunkCount + ' \u6bb5');
+  setStats(parts.join(' \u00b7 '));
 }
 
 function highlightBlocks(root) {
@@ -540,7 +433,7 @@ function renderPlaceholder(title, detail) {
   cancelScheduledMarkdownRender();
   elements.summaryRoot.className = 'summary-root summary-placeholder';
   elements.summaryRoot.innerHTML = [
-    '<div class="placeholder-icon">览</div>',
+    '<div class="placeholder-icon">\u89c8</div>',
     '<h2>' + escapeHtml(title) + '</h2>',
     '<p>' + escapeHtml(detail) + '</p>'
   ].join('');
@@ -552,7 +445,7 @@ function renderInlineNote(title, detail, extraHtml) {
     ? [
         '<span class="inline-note-badge" aria-hidden="true">',
         '<span class="inline-note-badge-dots"><span></span><span></span><span></span></span>',
-        '<span>处理中</span>',
+        '<span>\u5904\u7406\u4e2d</span>',
         '</span>'
       ].join('')
     : '';
@@ -585,34 +478,6 @@ function renderErrorBox(error) {
   ].join('');
 }
 
-function getRecordPartialSummary(record) {
-  const markdown = record?.summaryMarkdown || state.summaryMarkdown || '';
-  const plainText = recordStore.markdownToPlainText(markdown).trim();
-  return {
-    markdown,
-    plainText,
-    charCount: plainText.length,
-    hasPartialContent: !!plainText
-  };
-}
-
-function getSecondaryModeLabel(record, diagnostics) {
-  const stage = diagnostics?.finalRun?.stage || diagnostics?.error?.stage || '';
-  if (stage !== 'secondary' && record?.promptProfile !== 'secondary') return '';
-  return getModeLabel(record?.summaryMode || '');
-}
-
-function getDiagnosticsUiOptions(record, diagnostics) {
-  const partial = getRecordPartialSummary(record);
-  return {
-    partial,
-    options: {
-      hasPartialContent: partial.hasPartialContent,
-      secondaryModeLabel: getSecondaryModeLabel(record, diagnostics)
-    }
-  };
-}
-
 function getRecordUiError(record) {
   if (record?.diagnostics?.error) {
     return normalizeUiError(record.diagnostics.error);
@@ -624,28 +489,13 @@ function getRecordUiError(record) {
   });
 }
 
-function buildCancelledStatusText(record, diagnostics) {
-  const { options } = getDiagnosticsUiOptions(record, diagnostics);
-  const info = RunUtils.describeCancellation(diagnostics, options);
-  return info.hasPartialContent ? info.detail + ' \u5df2\u4fdd\u7559\u5f53\u524d\u5df2\u751f\u6210\u5185\u5bb9\u3002' : info.detail;
-}
-
 function renderCancelledState(record, errorLike, diagnostics) {
   cancelScheduledMarkdownRender();
   const safeDiagnostics = diagnostics || state.lastDiagnostics || null;
   const safeError = normalizeUiError(errorLike || Errors.createError(Errors.ERROR_CODES.RUN_CANCELLED));
-  const { partial, options } = getDiagnosticsUiOptions(record, safeDiagnostics);
-  const info = RunUtils.describeCancellation(safeDiagnostics, options);
-  const facts = [
-    info.stageLabel ? '\u9636\u6bb5\uff1a' + info.stageLabel : '',
-    info.progress ? '\u8fdb\u5ea6\uff1a' + info.progress : '',
-    partial.hasPartialContent
-      ? '\u5185\u5bb9\uff1a\u5df2\u4fdd\u7559\u53d6\u6d88\u524d\u5df2\u751f\u6210\u5185\u5bb9\uff0c\u5f53\u524d\u7ea6 ' + partial.charCount + ' \u5b57\u3002'
-      : '\u5185\u5bb9\uff1a' + info.partial,
-    partial.hasPartialContent
-      ? '\u64cd\u4f5c\uff1a\u5f53\u524d\u5185\u5bb9\u4ecd\u53ef\u590d\u5236\u3001\u5bfc\u51fa\uff0c\u6216\u7ee7\u7eed\u505a\u4e8c\u6b21\u751f\u6210\u3002'
-      : '\u64cd\u4f5c\uff1a\u53ef\u4ee5\u76f4\u63a5\u91cd\u65b0\u751f\u6210\uff0c\u6216\u7a0d\u540e\u91cd\u8bd5\u3002'
-  ].filter(Boolean);
+  const cancelledView = buildCancelledStateModel(record, safeDiagnostics, state.summaryMarkdown);
+  const partial = cancelledView.partial;
+  const info = cancelledView.info;
   const detail = safeError.detail && safeError.detail !== safeError.message
     ? '<div class="cancelled-detail">' + escapeHtml(safeError.detail) + '</div>'
     : '';
@@ -663,7 +513,7 @@ function renderCancelledState(record, errorLike, diagnostics) {
     '<div class="cancelled-box">',
     '<strong>' + escapeHtml(info.title) + '</strong>',
     '<div class="cancelled-description">' + escapeHtml(info.detail) + '</div>',
-    facts.length ? '<ul class="cancelled-meta-list">' + facts.map((item) => '<li>' + escapeHtml(item) + '</li>').join('') + '</ul>' : '',
+    cancelledView.facts.length ? '<ul class="cancelled-meta-list">' + cancelledView.facts.map((item) => '<li>' + escapeHtml(item) + '</li>').join('') + '</ul>' : '',
     detail,
     '</div>',
     partialHtml
@@ -674,12 +524,12 @@ function renderCancelledState(record, errorLike, diagnostics) {
 
 function renderChunkProgress(completed, total, partialSummaries) {
   const recent = partialSummaries.slice(-2).map((item) => {
-    return '<li>' + escapeHtml(stripMarkdownPreview(item, 140) || '分段处理完成') + '</li>';
+    return '<li>' + escapeHtml(stripMarkdownPreview(item, 140) || '\u5206\u6bb5\u5904\u7406\u5b8c\u6210') + '</li>';
   }).join('');
 
   renderInlineNote(
-    '正在分段总结长文',
-    '已完成 ' + completed + '/' + total + ' 个分段，正在整理中。',
+    '\u6b63\u5728\u5206\u6bb5\u603b\u7ed3\u957f\u6587',
+    '\u5df2\u5b8c\u6210 ' + completed + '/' + total + ' \u4e2a\u5206\u6bb5\uff0c\u6b63\u5728\u6574\u7406\u4e2d\u3002',
     recent ? '<ul style="margin-top:10px">' + recent + '</ul>' : ''
   );
 }
@@ -693,7 +543,7 @@ function createArticleFromRecord(record) {
     sourceUrl: record?.sourceUrl || snapshot.sourceUrl || '',
     sourceHost: record?.sourceHost || snapshot.sourceHost || Domain.getSourceHost(record?.normalizedUrl || record?.sourceUrl || ''),
     sourceType: snapshot.sourceType || 'unknown',
-    title: record?.titleSnapshot || snapshot.title || '未命名页面',
+    title: record?.titleSnapshot || snapshot.title || '\u672a\u547d\u540d\u9875\u9762',
     subtitle: snapshot.subtitle || '',
     excerpt: snapshot.excerpt || '',
     author: snapshot.author || '',
@@ -734,52 +584,49 @@ function setBadgeTone(element, tone) {
 }
 
 function renderTrustCard(article) {
-  const policy = Trust.buildTrustPolicy(article, state.settings);
-  state.trustPolicy = policy;
+  const trustView = buildTrustCardView(article, state.settings);
+  state.trustPolicy = trustView.policy;
 
-  elements.trustTitle.textContent = article ? '当前页面策略' : '当前默认策略';
-  elements.trustSummary.textContent = policy.summary;
-  elements.trustModeBadge.textContent = policy.modeLabel;
-  elements.trustHistoryBadge.textContent = policy.historyLabel;
-  elements.trustShareBadge.textContent = policy.shareLabel;
-  elements.trustSendValue.textContent = policy.willSendToModel ? '会发送' : '等待页面内容';
-  elements.trustSendNote.textContent = policy.sendMessage;
-  elements.trustHistoryValue.textContent = policy.allowHistory ? '会写入本地历史' : '不会写入历史';
-  elements.trustHistoryNote.textContent = policy.historyMessage;
-  elements.trustShareValue.textContent = policy.allowShare ? '允许生成分享卡' : '当前不允许分享';
-  elements.trustShareNote.textContent = policy.shareMessage;
-  elements.privacyToggleBtn.textContent = policy.privacyMode ? '关闭无痕' : '开启无痕';
-  elements.privacyToggleBtn.classList.toggle('action-btn-primary', policy.privacyMode);
+  elements.trustTitle.textContent = trustView.title;
+  elements.trustSummary.textContent = trustView.summary;
+  elements.trustModeBadge.textContent = trustView.modeBadge;
+  elements.trustHistoryBadge.textContent = trustView.historyBadge;
+  elements.trustShareBadge.textContent = trustView.shareBadge;
+  elements.trustSendValue.textContent = trustView.sendValue;
+  elements.trustSendNote.textContent = trustView.sendNote;
+  elements.trustHistoryValue.textContent = trustView.historyValue;
+  elements.trustHistoryNote.textContent = trustView.historyNote;
+  elements.trustShareValue.textContent = trustView.shareValue;
+  elements.trustShareNote.textContent = trustView.shareNote;
+  elements.privacyToggleBtn.textContent = trustView.privacyToggleLabel;
+  elements.privacyToggleBtn.classList.toggle('action-btn-primary', trustView.privacyTogglePrimary);
 
-  setBadgeTone(elements.trustModeBadge, policy.privacyMode ? 'warning' : 'soft');
-  setBadgeTone(elements.trustHistoryBadge, policy.allowHistory ? 'success' : 'warning');
-  setBadgeTone(elements.trustShareBadge, policy.allowShare ? 'accent' : 'danger');
+  setBadgeTone(elements.trustModeBadge, trustView.modeTone);
+  setBadgeTone(elements.trustHistoryBadge, trustView.historyTone);
+  setBadgeTone(elements.trustShareBadge, trustView.shareTone);
 }
 
 function renderArticleMeta(article, record) {
   const currentArticle = article || createArticleFromRecord(record);
   const modeKey = record?.summaryMode || elements.summaryModeSelect.value || 'medium';
-
-  elements.articleTitle.textContent = currentArticle?.title || '等待页面内容';
-  elements.sourceLink.textContent = currentArticle?.normalizedUrl || currentArticle?.sourceUrl || '当前尚未载入网页链接';
-  elements.sourceLink.href = currentArticle?.normalizedUrl || currentArticle?.sourceUrl || '#';
-  elements.hostBadge.textContent = currentArticle?.sourceHost || '未识别站点';
-  elements.siteTypeBadge.textContent = Strings.SITE_TYPE_LABELS[currentArticle?.sourceType] || '通用网页';
-  elements.strategyBadge.textContent = getStrategyLabel(currentArticle?.sourceStrategy, currentArticle?.sourceType);
-  elements.modeBadge.textContent = getModeLabel(modeKey);
-  elements.authorValue.textContent = currentArticle?.author || '-';
-  elements.publishedValue.textContent = formatDateTime(currentArticle?.publishedAt);
-  elements.lengthValue.textContent = currentArticle?.contentLength ? currentArticle.contentLength + ' 字' : '-';
   const safeModeKey = getSafeSummaryMode(modeKey);
-  const simpleModeEnabled = !!state.settings?.entrypointSimpleMode && safeModeKey === 'short';
-  elements.chunkValue.textContent = simpleModeEnabled
-    ? '简单模式 · 单次请求'
-    : currentArticle?.chunkCount > 1
-      ? (currentArticle.chunkingStrategy || 'paragraph_split') + ' · ' + currentArticle.chunkCount + ' 段'
-      : '无需分段';
+  const metaView = buildArticleMetaView(currentArticle, {
+    summaryMode: modeKey,
+    simpleModeEnabled: !!state.settings?.entrypointSimpleMode && safeModeKey === 'short'
+  });
 
-  const warnings = summarizeWarnings(currentArticle?.warnings || []);
-  elements.warningList.innerHTML = warnings.map((item) => '<span class="warning-chip">' + escapeHtml(item) + '</span>').join('');
+  elements.articleTitle.textContent = metaView.title;
+  elements.sourceLink.textContent = metaView.sourceText;
+  elements.sourceLink.href = metaView.sourceHref;
+  elements.hostBadge.textContent = metaView.hostLabel;
+  elements.siteTypeBadge.textContent = metaView.siteTypeLabel;
+  elements.strategyBadge.textContent = metaView.strategyLabel;
+  elements.modeBadge.textContent = metaView.modeLabel;
+  elements.authorValue.textContent = metaView.authorLabel;
+  elements.publishedValue.textContent = metaView.publishedLabel;
+  elements.lengthValue.textContent = metaView.lengthLabel;
+  elements.chunkValue.textContent = metaView.chunkLabel;
+  elements.warningList.innerHTML = metaView.warnings.map((item) => '<span class="warning-chip">' + escapeHtml(item) + '</span>').join('');
   renderTrustCard(currentArticle);
 }
 
@@ -821,37 +668,20 @@ function composeDiagnostics(article, chunkRuns, finalRun, error) {
 }
 
 function renderDiagnostics() {
-  if (!state.lastDiagnostics) {
-    if (elements.diagnosticsToggle) {
-      elements.diagnosticsToggle.textContent = '运行诊断';
-      elements.diagnosticsToggle.title = '查看本次运行的诊断信息';
-    }
-    elements.diagnosticsPre.textContent = '\u7b49\u5f85\u672c\u6b21\u8fd0\u884c\u7684\u8bca\u65ad\u4fe1\u606f...';
-    return;
-  }
-
-  const { options } = getDiagnosticsUiOptions(state.visibleRecord, state.lastDiagnostics);
-  const summaryText = RunUtils.buildDiagnosticsSummary(state.lastDiagnostics, options);
-  const status = state.lastDiagnostics?.finalRun?.status
-    || (state.lastDiagnostics?.error?.code === Errors.ERROR_CODES.RUN_CANCELLED ? 'cancelled' : state.lastDiagnostics?.error ? 'failed' : 'completed');
+  const diagnosticsView = buildDiagnosticsPanelModel(state.visibleRecord, state.lastDiagnostics, state.summaryMarkdown);
 
   if (elements.diagnosticsToggle) {
-    const label = status === 'failed'
-      ? '错误诊断'
-      : status === 'cancelled'
-        ? '取消诊断'
-        : status === 'running'
-          ? '运行中诊断'
-          : '运行诊断';
-    elements.diagnosticsToggle.textContent = label;
-    elements.diagnosticsToggle.title = label;
+    elements.diagnosticsToggle.textContent = diagnosticsView.toggleLabel;
+    elements.diagnosticsToggle.title = diagnosticsView.toggleLabel;
   }
 
-  if (status === 'cancelled' || status === 'failed') {
+  if (diagnosticsView.shouldAutoOpen) {
     elements.diagnosticsBlock.open = true;
   }
 
-  elements.diagnosticsPre.textContent = summaryText + '\n\n--- \u539f\u59cb\u8bca\u65ad JSON ---\n' + JSON.stringify(state.lastDiagnostics, null, 2);
+  elements.diagnosticsPre.textContent = state.lastDiagnostics
+    ? diagnosticsView.summaryText + '\n\n--- \u539f\u59cb\u8bca\u65ad JSON ---\n' + JSON.stringify(state.lastDiagnostics, null, 2)
+    : diagnosticsView.summaryText;
 }
 
 function createDraftRecord(article, settings, summaryMode, promptProfile, extra) {
@@ -925,7 +755,7 @@ function createDraftRecord(article, settings, summaryMode, promptProfile, extra)
 
 function finalizeRecord(baseRecord, updates) {
   const merged = Object.assign({}, baseRecord, updates || {});
-  merged.summaryPlainText = merged.summaryPlainText || recordStore.markdownToPlainText(merged.summaryMarkdown || '');
+  merged.summaryPlainText = merged.summaryPlainText || markdownToPlainText(merged.summaryMarkdown || '');
   merged.bullets = merged.bullets && merged.bullets.length ? merged.bullets : extractBullets(merged.summaryMarkdown || '');
   merged.updatedAt = new Date().toISOString();
   merged.dedupeKey = merged.dedupeKey || recordStore.buildDedupeKey(merged);
@@ -942,16 +772,6 @@ function ensureArticleReady(article) {
       detail: 'content_length=' + (article?.cleanText?.length || 0)
     });
   }
-}
-
-function updateFavoriteButton() {
-  if (state.visibleRecord?.allowHistory === false) {
-    elements.favoriteBtn.textContent = '不入历史';
-    return;
-  }
-
-  const favorite = !!state.visibleRecord?.favorite;
-  elements.favoriteBtn.textContent = favorite ? '已收藏' : '收藏';
 }
 
 function refreshActionStates() {
@@ -1014,7 +834,7 @@ function bindVisibleRecord(record, options) {
     record?.status === 'failed'
       ? (getRecordUiError(record).message || '\u751f\u6210\u5931\u8d25')
       : record?.status === 'cancelled'
-        ? buildCancelledStatusText(record, state.lastDiagnostics)
+        ? buildCancelledStateModel(record, state.lastDiagnostics, state.summaryMarkdown).statusText
         : '\u5df2\u52a0\u8f7d\u8bb0\u5f55',
     record?.status === 'failed' ? 'error' : record?.status === 'cancelled' ? 'warning' : ''
   );
@@ -1028,8 +848,8 @@ function buildReusableRecordStatus(match) {
   const updatedAtLabel = formatDateTime(
     match?.record?.updatedAt || match?.record?.completedAt || match?.record?.createdAt || ''
   );
-  const suffix = updatedAtLabel !== '-' ? '（' + updatedAtLabel + '）' : '';
-  return '已加载当前页面的历史摘要' + suffix + '，可点击“重新生成”更新当前内容。';
+  const suffix = updatedAtLabel !== '-' ? '\uff08' + updatedAtLabel + '\uff09' : '';
+  return '\u5df2\u52a0\u8f7d\u5f53\u524d\u9875\u9762\u7684\u5386\u53f2\u6458\u8981' + suffix + '\uff0c\u53ef\u70b9\u51fb\u201c\u91cd\u65b0\u751f\u6210\u201d\u66f4\u65b0\u5f53\u524d\u5185\u5bb9\u3002';
 }
 
 async function restoreReusableRecordForCurrentArticle(article) {
@@ -1069,7 +889,7 @@ function renderHistorySiteFilters(buckets, totalCount) {
   elements.historySiteFilters.innerHTML = '';
 
   const allChip = createHistorySiteChip(
-    '全部站点',
+    '\u5168\u90e8\u7ad9\u70b9',
     totalCount,
     !state.selectedSiteHost,
     () => {
@@ -1077,17 +897,17 @@ function renderHistorySiteFilters(buckets, totalCount) {
       state.selectedSiteHost = '';
       refreshHistoryList().catch(console.error);
     },
-    '查看全部站点的总结记录'
+    '\u67e5\u770b\u5168\u90e8\u7ad9\u70b9\u7684\u603b\u7ed3\u8bb0\u5f55'
   );
   elements.historySiteFilters.appendChild(allChip);
 
   buckets.forEach((bucket) => {
     const tip = [
       bucket.host,
-      bucket.count + ' 条记录',
-      bucket.favoriteCount ? bucket.favoriteCount + ' 条收藏' : '',
-      bucket.latestUpdatedAt ? '最近更新：' + formatDateTime(bucket.latestUpdatedAt) : ''
-    ].filter(Boolean).join(' · ');
+      bucket.count + ' \u6761\u8bb0\u5f55',
+      bucket.favoriteCount ? bucket.favoriteCount + ' \u6761\u6536\u85cf' : '',
+      bucket.latestUpdatedAt ? '\u6700\u8fd1\u66f4\u65b0\uff1a' + formatDateTime(bucket.latestUpdatedAt) : ''
+    ].filter(Boolean).join(' \u00b7 ');
 
     const chip = createHistorySiteChip(
       bucket.host,
@@ -1106,6 +926,7 @@ function renderHistorySiteFilters(buckets, totalCount) {
 }
 
 function createHistoryItemElement(item) {
+  const view = buildHistoryItemView(item);
   const container = document.createElement('div');
   container.className = 'history-item';
 
@@ -1114,31 +935,22 @@ function createHistoryItemElement(item) {
 
   const title = document.createElement('div');
   title.className = 'history-item-title';
-  title.textContent = item.titleSnapshot || '未命名页面';
+  title.textContent = view.title;
 
   const meta = document.createElement('div');
   meta.className = 'history-meta';
-  meta.textContent = [
-    formatDateTime(item.updatedAt || item.createdAt),
-    getProviderLabel(item.provider),
-    item.model || ''
-  ].filter(Boolean).join(' · ');
+  meta.textContent = view.meta;
 
   const preview = document.createElement('div');
   preview.className = 'history-preview';
-  preview.textContent = stripMarkdownPreview(item.summaryMarkdown || item.errorMessage || '', 160) || '暂无预览';
+  preview.textContent = view.preview;
 
   const footer = document.createElement('div');
   footer.className = 'history-item-footer';
 
   const tags = document.createElement('div');
   tags.className = 'history-tags';
-  [
-    Strings.SITE_TYPE_LABELS[item.articleSnapshot?.sourceType] || '通用网页',
-    getStrategyLabel(item.articleSnapshot?.sourceStrategy, item.articleSnapshot?.sourceType),
-    getModeLabel(item.summaryMode),
-    getRecordStatusLabel(item.status)
-  ].forEach((value) => {
+  view.badges.forEach((value) => {
     const tag = document.createElement('span');
     tag.className = 'badge';
     tag.textContent = value;
@@ -1147,9 +959,10 @@ function createHistoryItemElement(item) {
 
   const actions = document.createElement('div');
   actions.className = 'history-tags';
+
   const favoriteBtn = document.createElement('button');
   favoriteBtn.className = 'history-mini-btn';
-  favoriteBtn.textContent = item.favorite ? '取消收藏' : '收藏';
+  favoriteBtn.textContent = item.favorite ? '\u53d6\u6d88\u6536\u85cf' : '\u6536\u85cf';
   favoriteBtn.addEventListener('click', async (event) => {
     event.stopPropagation();
     const updated = await recordStore.toggleFavorite(item.recordId);
@@ -1161,7 +974,7 @@ function createHistoryItemElement(item) {
 
   const deleteBtn = document.createElement('button');
   deleteBtn.className = 'history-mini-btn';
-  deleteBtn.textContent = '删除';
+  deleteBtn.textContent = '\u5220\u9664';
   deleteBtn.addEventListener('click', async (event) => {
     event.stopPropagation();
     await recordStore.deleteRecord(item.recordId);
@@ -1169,7 +982,7 @@ function createHistoryItemElement(item) {
       state.visibleRecord = null;
       state.visibleRecordUsesCurrentArticle = false;
       state.summaryMarkdown = '';
-      renderPlaceholder('记录已删除', '可以重新生成当前页面摘要。');
+      renderPlaceholder('\u8bb0\u5f55\u5df2\u5220\u9664', '\u53ef\u4ee5\u91cd\u65b0\u751f\u6210\u5f53\u524d\u9875\u9762\u6458\u8981\u3002');
     }
     await refreshHistoryList();
     refreshActionStates();
@@ -1199,7 +1012,7 @@ async function refreshHistoryList() {
   elements.historyList.innerHTML = '';
 
   if (!items.length) {
-    renderHistoryEmpty('没有找到匹配的总结记录。');
+    renderHistoryEmpty('\u6ca1\u6709\u627e\u5230\u5339\u914d\u7684\u603b\u7ed3\u8bb0\u5f55\u3002');
     return;
   }
 
@@ -1214,6 +1027,7 @@ async function refreshHistoryList() {
   const siteGroups = recordStore.groupRecordsBySite(filteredItems);
 
   siteGroups.forEach((group) => {
+    const groupView = buildHistoryGroupView(group, { selected: !!state.selectedSiteHost });
     const section = document.createElement('section');
     section.className = 'history-site-group';
 
@@ -1224,24 +1038,15 @@ async function refreshHistoryList() {
     titleWrap.className = 'history-site-group-title';
 
     const title = document.createElement('strong');
-    title.textContent = group.host;
+    title.textContent = groupView.title;
 
     const meta = document.createElement('div');
     meta.className = 'history-site-group-meta';
-    meta.textContent = [
-      group.count + ' 条记录',
-      group.favoriteCount ? group.favoriteCount + ' 条收藏' : '',
-      (group.sourceTypes || [])
-        .map((type) => Strings.SITE_TYPE_LABELS[type] || type)
-        .filter(Boolean)
-        .slice(0, 3)
-        .join(' / '),
-      group.latestUpdatedAt ? '最近更新：' + formatDateTime(group.latestUpdatedAt) : ''
-    ].filter(Boolean).join(' · ');
+    meta.textContent = groupView.meta;
 
     const badge = document.createElement('span');
     badge.className = 'badge badge-soft';
-    badge.textContent = state.selectedSiteHost ? '当前站点' : '站点聚合';
+    badge.textContent = groupView.badge;
 
     titleWrap.appendChild(title);
     titleWrap.appendChild(meta);
@@ -1267,7 +1072,7 @@ function openHistoryPanel() {
   elements.historyPanel.classList.remove('hidden');
   refreshHistoryList().catch((error) => {
     elements.historySiteFilters.innerHTML = '';
-    elements.historyList.innerHTML = '<div class="history-empty">历史记录加载失败：' + escapeHtml(String(error?.message || error || 'unknown')) + '</div>';
+    elements.historyList.innerHTML = '<div class="history-empty">\u5386\u53f2\u8bb0\u5f55\u52a0\u8f7d\u5931\u8d25\uff1a' + escapeHtml(String(error?.message || error || 'unknown')) + '</div>';
   });
 }
 
@@ -1295,7 +1100,7 @@ function removeActiveRun(runId) {
 async function cancelGeneration() {
   if (!state.generating || state.cancelRequested) return;
   state.cancelRequested = true;
-  setStatus('正在取消本次生成...', 'warning');
+  setStatus('\u6b63\u5728\u53d6\u6d88\u672c\u6b21\u751f\u6210...', 'warning');
 
   refreshActionStates();
   abortCurrentRun('user_cancelled');
@@ -1312,23 +1117,23 @@ async function cancelGeneration() {
 }
 
 function buildStreamStartStatus(meta) {
-  if (meta?.stage === 'synthesis') return '正在汇总最终结果...';
+  if (meta?.stage === 'synthesis') return '\u6b63\u5728\u6c47\u603b\u6700\u7ec8\u7ed3\u679c...';
   if (meta?.stage === 'chunk') {
     if (typeof meta?.chunkIndex === 'number' && typeof meta?.chunkCount === 'number') {
-      return '正在总结第 ' + (meta.chunkIndex + 1) + '/' + meta.chunkCount + ' 段...';
+      return '\u6b63\u5728\u603b\u7ed3\u7b2c ' + (meta.chunkIndex + 1) + '/' + meta.chunkCount + ' \u6bb5...';
     }
-    return '正在总结当前分段...';
+    return '\u6b63\u5728\u603b\u7ed3\u5f53\u524d\u5206\u6bb5...';
   }
-  return '正在生成总结...';
+  return '\u6b63\u5728\u751f\u6210\u603b\u7ed3...';
 }
 
 function buildStreamRetryStatus(meta, attempt) {
   const prefix = meta?.stage === 'chunk'
     ? buildStreamStartStatus(meta).replace(/\.\.\.$/, '')
     : meta?.stage === 'synthesis'
-      ? '正在汇总最终结果'
-      : '正在生成总结';
-  return prefix + '，接口波动，正在进行第 ' + attempt + ' 次重试...';
+      ? '\u6b63\u5728\u6c47\u603b\u6700\u7ec8\u7ed3\u679c'
+      : '\u6b63\u5728\u751f\u6210\u603b\u7ed3';
+  return prefix + '\uff0c\u63a5\u53e3\u6ce2\u52a8\uff0c\u6b63\u5728\u8fdb\u884c\u7b2c ' + attempt + ' \u6b21\u91cd\u8bd5...';
 }
 
 function runPromptViaStream(settings, prompt, meta, signal, handlers) {
@@ -1489,12 +1294,12 @@ async function startPrimarySummary(summaryMode) {
   renderDiagnostics();
   renderArticleMeta(article, { summaryMode });
   renderInlineNote(
-    simpleModeEnabled ? '简单总结模式' : '准备生成摘要',
+    simpleModeEnabled ? '\u7b80\u5355\u603b\u7ed3\u6a21\u5f0f' : '\u51c6\u5907\u751f\u6210\u6458\u8981',
     simpleModeEnabled && article.chunkCount > 1
-      ? '已启用简单模式，将跳过长文分段以节省 token。'
-      : '正在初始化本次任务，请稍候。'
+      ? '\u5df2\u542f\u7528\u7b80\u5355\u6a21\u5f0f\uff0c\u5c06\u8df3\u8fc7\u957f\u6587\u5206\u6bb5\u4ee5\u8282\u7701 token\u3002'
+      : '\u6b63\u5728\u521d\u59cb\u5316\u672c\u6b21\u4efb\u52a1\uff0c\u8bf7\u7a0d\u5019\u3002'
   );
-  setStatus(trustPolicy.allowHistory ? '正在提取并生成总结...' : '正在生成当前页面摘要，本次不会写入历史...');
+  setStatus(trustPolicy.allowHistory ? '\u6b63\u5728\u63d0\u53d6\u5e76\u751f\u6210\u603b\u7ed3...' : '\u6b63\u5728\u751f\u6210\u5f53\u524d\u9875\u9762\u6458\u8981\uff0c\u672c\u6b21\u4e0d\u4f1a\u5199\u5165\u5386\u53f2...');
   setStats('');
   refreshActionStates();
 
@@ -1509,7 +1314,7 @@ async function startPrimarySummary(summaryMode) {
     const partialSummaries = [];
 
     if (article.chunkCount > 1 && !simpleModeEnabled) {
-      setStatus('正在分段分析长文...');
+      setStatus('\u6b63\u5728\u5206\u6bb5\u5206\u6790\u957f\u6587...');
 
       for (const chunk of article.chunks) {
         if (state.cancelRequested) {
@@ -1570,14 +1375,14 @@ async function startPrimarySummary(summaryMode) {
 
     const completedRecord = finalizeRecord(draftRecord, RunUtils.buildTerminalRecordPatch(draftRecord, diagnostics, 'completed', {
       summaryMarkdown: state.summaryMarkdown,
-      summaryPlainText: recordStore.markdownToPlainText(state.summaryMarkdown),
+      summaryPlainText: markdownToPlainText(state.summaryMarkdown),
       bullets: extractBullets(state.summaryMarkdown),
       usage: finalRun?.usage || null
     }));
 
     const savedRecord = await persistRecord(completedRecord);
     bindVisibleRecord(savedRecord);
-    setStatus(completedRecord.allowHistory === false ? '生成完成，本次未写入历史' : '生成完成', 'success');
+    setStatus(completedRecord.allowHistory === false ? '\u751f\u6210\u5b8c\u6210\uff0c\u672c\u6b21\u672a\u5199\u5165\u5386\u53f2' : '\u751f\u6210\u5b8c\u6210', 'success');
     refreshActionStates();
 
     if (!elements.historyPanel.classList.contains('hidden')) {
@@ -1615,7 +1420,7 @@ async function startSecondarySummary(mode) {
   const settings = await loadRuntimeSettings();
   if (!settings.apiKey) {
     renderErrorBox(Errors.createError(Errors.ERROR_CODES.CONFIG_MISSING_API_KEY));
-    setStatus('请先配置 API Key', 'error');
+    setStatus('\u8bf7\u5148\u914d\u7f6e API Key', 'error');
     return;
   }
 
@@ -1626,7 +1431,7 @@ async function startSecondarySummary(mode) {
   state.cancelRequested = false;
   state.lastDiagnostics = null;
   renderDiagnostics();
-  setStatus(trustPolicy.allowHistory ? '正在生成 ' + getModeLabel(mode) + '...' : '正在生成 ' + getModeLabel(mode) + '，本次不会写入历史...');
+  setStatus(trustPolicy.allowHistory ? '\u6b63\u5728\u751f\u6210 ' + getModeLabel(mode) + '...' : '\u6b63\u5728\u751f\u6210 ' + getModeLabel(mode) + '\uff0c\u672c\u6b21\u4e0d\u4f1a\u5199\u5165\u5386\u53f2...');
   refreshActionStates();
 
   const runSignal = beginRunAbortController();
@@ -1640,7 +1445,7 @@ async function startSecondarySummary(mode) {
   state.visibleRecord = draftRecord;
   state.summaryMarkdown = '';
   renderArticleMeta(article, { summaryMode: mode });
-  renderInlineNote('正在进行二次生成', '基于当前摘要生成 ' + getModeLabel(mode) + '。');
+  renderInlineNote('\u6b63\u5728\u8fdb\u884c\u4e8c\u6b21\u751f\u6210', '\u57fa\u4e8e\u5f53\u524d\u6458\u8981\u751f\u6210 ' + getModeLabel(mode) + '\u3002');
 
   try {
     const prompt = withCustomPrompt(ArticleUtils.buildSecondaryPrompt({
@@ -1662,14 +1467,14 @@ async function startSecondarySummary(mode) {
 
     const completedRecord = finalizeRecord(draftRecord, RunUtils.buildTerminalRecordPatch(draftRecord, diagnostics, 'completed', {
       summaryMarkdown: state.summaryMarkdown,
-      summaryPlainText: recordStore.markdownToPlainText(state.summaryMarkdown),
+      summaryPlainText: markdownToPlainText(state.summaryMarkdown),
       bullets: extractBullets(state.summaryMarkdown),
       usage: streamResult.diagnostics?.usage || null
     }));
 
     const savedRecord = await persistRecord(completedRecord);
     bindVisibleRecord(savedRecord);
-    setStatus(completedRecord.allowHistory === false ? getModeLabel(mode) + ' 生成完成，本次未写入历史' : getModeLabel(mode) + ' 生成完成', 'success');
+    setStatus(completedRecord.allowHistory === false ? getModeLabel(mode) + ' \u751f\u6210\u5b8c\u6210\uff0c\u672c\u6b21\u672a\u5199\u5165\u5386\u53f2' : getModeLabel(mode) + ' \u751f\u6210\u5b8c\u6210', 'success');
   } catch (errorLike) {
     const error = normalizeUiError(errorLike);
     const diagnostics = composeDiagnostics(article, [], null, error);
@@ -1694,10 +1499,11 @@ async function startSecondarySummary(mode) {
     refreshActionStates();
   }
 }
+
 async function toggleFavoriteFromMain() {
   if (!state.visibleRecord) return;
   if (state.visibleRecord.allowHistory === false) {
-    setStatus('本次结果未写入历史，不能收藏。', 'warning');
+    setStatus('\u672c\u6b21\u7ed3\u679c\u672a\u5199\u5165\u5386\u53f2\uff0c\u4e0d\u80fd\u6536\u85cf\u3002', 'warning');
     return;
   }
 
@@ -1718,7 +1524,7 @@ async function copySummary() {
 
   try {
     await navigator.clipboard.writeText(state.summaryMarkdown);
-    setStatus('摘要已复制到剪贴板。', 'success');
+    setStatus('\u6458\u8981\u5df2\u590d\u5236\u5230\u526a\u8d34\u677f\u3002', 'success');
     return;
   } catch {}
 
@@ -1740,7 +1546,7 @@ async function copySummary() {
   }
 
   textarea.remove();
-  setStatus(copied ? '摘要已复制到剪贴板。' : '复制失败，请稍后重试', copied ? 'success' : 'error');
+  setStatus(copied ? '\u6458\u8981\u5df2\u590d\u5236\u5230\u526a\u8d34\u677f\u3002' : '\u590d\u5236\u5931\u8d25\uff0c\u8bf7\u7a0d\u540e\u91cd\u8bd5', copied ? 'success' : 'error');
 }
 
 function sanitizeFilename(name) {
@@ -1773,12 +1579,12 @@ function exportMarkdown() {
   const article = state.article || createArticleFromRecord(state.visibleRecord);
   const record = state.visibleRecord;
   const header = [
-    '# ' + (record?.summaryTitle || article?.title || '未命名页面'),
+    '# ' + (record?.summaryTitle || article?.title || '\u672a\u547d\u540d\u9875\u9762'),
     '',
-    '> 来源：' + (article?.normalizedUrl || article?.sourceUrl || '-'),
-    '> 站点：' + (article?.sourceHost || '-'),
-    '> 模式：' + getModeLabel(record?.summaryMode || elements.summaryModeSelect.value),
-    '> 生成时间：' + formatDateTime(record?.completedAt || new Date().toISOString()),
+    '> \u6765\u6e90\uff1a' + (article?.normalizedUrl || article?.sourceUrl || '-'),
+    '> \u7ad9\u70b9\uff1a' + (article?.sourceHost || '-'),
+    '> \u6a21\u5f0f\uff1a' + getModeLabel(record?.summaryMode || elements.summaryModeSelect.value),
+    '> \u751f\u6210\u65f6\u95f4\uff1a' + formatDateTime(record?.completedAt || new Date().toISOString()),
     '',
     '---',
     ''
@@ -1791,7 +1597,7 @@ function exportMarkdown() {
   link.download = sanitizeFilename(article?.title || 'summary') + '.md';
   link.click();
   URL.revokeObjectURL(url);
-  setStatus('Markdown 已导出。', 'success');
+  setStatus('Markdown \u5df2\u5bfc\u51fa\u3002', 'success');
 }
 
 function createShareCardElement() {
@@ -1850,31 +1656,31 @@ function createShareCardElement() {
     '<div class="share-card">',
     '  <div class="share-top">',
     '    <div class="share-brand">',
-    '      <div class="share-mark">览</div>',
+    '      <div class="share-mark">\u89c8</div>',
     '      <div>',
-    '        <div style="font-size:16px;font-weight:700">一览</div>',
-    '        <div class="share-subtitle">稳定摘要工作台</div>',
+    '        <div style="font-size:16px;font-weight:700">\u4e00\u89c8</div>',
+    '        <div class="share-subtitle">\u7a33\u5b9a\u6458\u8981\u5de5\u4f5c\u53f0</div>',
     '      </div>',
     '    </div>',
     '    <div class="share-subtitle">' + escapeHtml(formatDateTime(record?.completedAt || new Date().toISOString())) + '</div>',
     '  </div>',
     '  <div class="share-badges">',
-    '    <span class="share-badge">' + escapeHtml(article?.sourceHost || '未知来源') + '</span>',
-    '    <span class="share-badge">' + escapeHtml(Strings.SITE_TYPE_LABELS[article?.sourceType] || '通用网页') + '</span>',
+    '    <span class="share-badge">' + escapeHtml(article?.sourceHost || '\u672a\u77e5\u6765\u6e90') + '</span>',
+    '    <span class="share-badge">' + escapeHtml(Strings.SITE_TYPE_LABELS[article?.sourceType] || '\u901a\u7528\u7f51\u9875') + '</span>',
     '    <span class="share-badge">' + escapeHtml(getStrategyLabel(article?.sourceStrategy, article?.sourceType)) + '</span>',
     '    <span class="share-badge">' + escapeHtml(getModeLabel(record?.summaryMode || elements.summaryModeSelect.value)) + '</span>',
     '  </div>',
-    '  <h1 class="share-title">' + escapeHtml(article?.title || '未命名页面') + '</h1>',
+    '  <h1 class="share-title">' + escapeHtml(article?.title || '\u672a\u547d\u540d\u9875\u9762') + '</h1>',
     '  <div class="share-source">',
-    '    <div class="share-source-label">来源链接</div>',
+    '    <div class="share-source-label">\u6765\u6e90\u94fe\u63a5</div>',
     '    <div class="share-source-url">' + escapeHtml(article?.normalizedUrl || article?.sourceUrl || '-') + '</div>',
     '  </div>',
     quoteText
-      ? '  <div class="share-quote"><div class="share-quote-label">原文摘录 · 最多 ' + SHARE_QUOTE_MAX_CHARS + ' 字</div><div class="share-quote-text">' + escapeHtml(quoteText) + '</div></div>'
+      ? '  <div class="share-quote"><div class="share-quote-label">\u539f\u6587\u6458\u5f55 \u00b7 \u6700\u591a ' + SHARE_QUOTE_MAX_CHARS + ' \u5b57</div><div class="share-quote-text">' + escapeHtml(quoteText) + '</div></div>'
       : '',
     '  <div class="share-content">' + sanitizeMarkdownToHtml(state.summaryMarkdown || '') + '</div>',
     '  <div class="share-footer">',
-    '    <span>来源：' + escapeHtml(article?.siteName || article?.sourceHost || '-') + '</span>',
+    '    <span>\u6765\u6e90\uff1a' + escapeHtml(article?.siteName || article?.sourceHost || '-') + '</span>',
     '    <span>' + escapeHtml(getProviderLabel(record?.provider || state.lastDiagnostics?.provider || '')) + '</span>',
     '  </div>',
     '</div>'
@@ -1882,16 +1688,17 @@ function createShareCardElement() {
 
   return host;
 }
+
 async function exportShareImage() {
   if (!state.summaryMarkdown.trim()) return;
   if (state.trustPolicy?.allowShare === false) {
-    setStatus('当前策略已关闭分享卡输出。', 'warning');
+    setStatus('\u5f53\u524d\u7b56\u7565\u5df2\u5173\u95ed\u5206\u4eab\u5361\u8f93\u51fa\u3002', 'warning');
     return;
   }
 
   const host = createShareCardElement();
   document.body.appendChild(host);
-  setStatus('正在生成长截图，请稍候...');
+  setStatus('\u6b63\u5728\u751f\u6210\u957f\u622a\u56fe\uff0c\u8bf7\u7a0d\u5019...');
 
   try {
     await wait(120);
@@ -1917,12 +1724,12 @@ async function exportShareImage() {
 
     const link = document.createElement('a');
     link.href = canvas.toDataURL('image/png');
-    link.download = sanitizeFilename((state.article?.title || 'summary') + '-分享卡') + '.png';
+    link.download = sanitizeFilename((state.article?.title || 'summary') + '-\u5206\u4eab\u5361') + '.png';
     link.click();
-    setStatus('长截图已生成', 'success');
+    setStatus('\u957f\u622a\u56fe\u5df2\u751f\u6210', 'success');
   } catch (error) {
     console.error(error);
-    setStatus('长截图生成失败。', 'error');
+    setStatus('\u957f\u622a\u56fe\u751f\u6210\u5931\u8d25\u3002', 'error');
   } finally {
     host.remove();
   }
@@ -1939,7 +1746,7 @@ async function togglePrivacyMode() {
   );
   renderTrustCard(state.article);
   refreshActionStates();
-  setStatus(nextPrivacyMode ? '无痕模式已开启，下次生成不会写入历史。' : '无痕模式已关闭，下次生成会恢复默认历史策略。', nextPrivacyMode ? 'warning' : 'success');
+  setStatus(nextPrivacyMode ? '\u65e0\u75d5\u6a21\u5f0f\u5df2\u5f00\u542f\uff0c\u4e0b\u6b21\u751f\u6210\u4e0d\u4f1a\u5199\u5165\u5386\u53f2\u3002' : '\u65e0\u75d5\u6a21\u5f0f\u5df2\u5173\u95ed\uff0c\u4e0b\u6b21\u751f\u6210\u4f1a\u6062\u590d\u9ed8\u8ba4\u5386\u53f2\u7b56\u7565\u3002', nextPrivacyMode ? 'warning' : 'success');
 }
 
 function closeSidebar() {
@@ -2095,8 +1902,8 @@ function bindEvents() {
         refreshActionStates();
 
         if (reuseHistory) {
-          renderInlineNote('正在检查历史摘要', '如果当前页面已有已完成摘要，会直接加载最近一次记录。');
-          setStatus('正在检查当前页面的历史摘要...');
+          renderInlineNote('\u6b63\u5728\u68c0\u67e5\u5386\u53f2\u6458\u8981', '\u5982\u679c\u5f53\u524d\u9875\u9762\u5df2\u6709\u5df2\u5b8c\u6210\u6458\u8981\uff0c\u4f1a\u76f4\u63a5\u52a0\u8f7d\u6700\u8fd1\u4e00\u6b21\u8bb0\u5f55\u3002');
+          setStatus('\u6b63\u5728\u68c0\u67e5\u5f53\u524d\u9875\u9762\u7684\u5386\u53f2\u6458\u8981...');
           setStats('');
 
           const restored = await restoreReusableRecordForCurrentArticle(state.article);
@@ -2106,17 +1913,17 @@ function bindEvents() {
         }
 
         if (triggeredByNavigation && !autoStart) {
-          renderPlaceholder('????????', '????????????????????????');
-          setStatus('????????');
+          renderPlaceholder('\u9875\u9762\u5df2\u5c31\u7eea', '\u5df2\u63a5\u6536\u5230\u5f53\u524d\u9875\u9762\u5185\u5bb9\uff0c\u4f46\u5165\u53e3\u8bbe\u7f6e\u4e3a\u624b\u52a8\u542f\u52a8\u3002');
+          setStatus('\u7b49\u5f85\u624b\u52a8\u5f00\u59cb');
           setStats('');
           return;
         }
         if (triggeredByNavigation) {
           renderPlaceholder(
-            '??????????',
+            '\u6b63\u5728\u8bfb\u53d6\u9875\u9762\u5185\u5bb9',
             simpleMode
-              ? '???????????????'
-              : '???????????????????????'
+              ? '\u5df2\u542f\u7528\u7b80\u5355\u603b\u7ed3\uff0c\u9a6c\u4e0a\u5f00\u59cb\u751f\u6210\u3002'
+              : '\u9a6c\u4e0a\u5f00\u59cb\u751f\u6210\u5f53\u524d\u9875\u9762\u7684\u6458\u8981\u3002'
           );
           startPrimarySummary(suggestedMode).catch((error) => {
             const normalized = normalizeUiError(error);
@@ -2128,13 +1935,13 @@ function bindEvents() {
         }
 
         if (!autoStart) {
-          renderPlaceholder('页面已就绪', '点击“重新生成”开始生成摘要，或先切换摘要模式。');
-          setStatus('就绪');
+          renderPlaceholder('\u9875\u9762\u5df2\u5c31\u7eea', '\u70b9\u51fb\u201c\u91cd\u65b0\u751f\u6210\u201d\u5f00\u59cb\u751f\u6210\u6458\u8981\uff0c\u6216\u5148\u5207\u6362\u6458\u8981\u6a21\u5f0f\u3002');
+          setStatus('\u5c31\u7eea');
           setStats('');
           return;
         }
 
-        renderPlaceholder('正在读取页面内容', simpleMode ? '已启用简单总结，马上开始生成。' : '马上开始生成当前页面的摘要。');
+        renderPlaceholder('\u6b63\u5728\u8bfb\u53d6\u9875\u9762\u5185\u5bb9', simpleMode ? '\u5df2\u542f\u7528\u7b80\u5355\u603b\u7ed3\uff0c\u9a6c\u4e0a\u5f00\u59cb\u751f\u6210\u3002' : '\u9a6c\u4e0a\u5f00\u59cb\u751f\u6210\u5f53\u524d\u9875\u9762\u7684\u6458\u8981\u3002');
         startPrimarySummary(suggestedMode).catch((error) => {
           const normalized = normalizeUiError(error);
           renderErrorBox(normalized);
@@ -2143,7 +1950,7 @@ function bindEvents() {
         });
       })().catch((error) => {
         console.error(error);
-        setStatus('处理入口触发失败', 'error');
+        setStatus('\u5904\u7406\u5165\u53e3\u89e6\u53d1\u5931\u8d25', 'error');
       });
     }
   });
@@ -2167,13 +1974,13 @@ function bindEvents() {
 }
 
 function getThemePreferenceDisplayLabel(preference) {
-  if (preference === 'dark') return '深色';
-  if (preference === 'light') return '浅色';
-  return '跟随系统';
+  if (preference === 'dark') return '\u6df1\u8272';
+  if (preference === 'light') return '\u6d45\u8272';
+  return '\u8ddf\u968f\u7cfb\u7edf';
 }
 
 function getThemeModeDisplayLabel(theme) {
-  return theme === 'dark' ? '深色' : '浅色';
+  return theme === 'dark' ? '\u6df1\u8272' : '\u6d45\u8272';
 }
 
 function renderThemeToggleState() {
@@ -2181,15 +1988,15 @@ function renderThemeToggleState() {
   const theme = Theme.getCurrentTheme();
   const nextPreference = Theme.getNextPreference(preference);
   const currentLabel = preference === 'system'
-    ? '跟随系统（当前' + getThemeModeDisplayLabel(theme) + '）'
+    ? '\u8ddf\u968f\u7cfb\u7edf\uff08\u5f53\u524d' + getThemeModeDisplayLabel(theme) + '\uff09'
     : getThemePreferenceDisplayLabel(preference);
   const nextLabel = getThemePreferenceDisplayLabel(nextPreference);
 
-  elements.themeBtn.textContent = '配色：' + getThemePreferenceDisplayLabel(preference);
+  elements.themeBtn.textContent = '\u914d\u8272\uff1a' + getThemePreferenceDisplayLabel(preference);
   elements.themeBtn.dataset.preference = preference;
   elements.themeBtn.dataset.theme = theme;
 
-  const title = '当前配色为' + currentLabel + '；点击切换到' + nextLabel;
+  const title = '\u5f53\u524d\u914d\u8272\u4e3a' + currentLabel + '\uff1b\u70b9\u51fb\u5207\u6362\u5230' + nextLabel;
   elements.themeBtn.title = title;
   elements.themeBtn.setAttribute('aria-label', title);
 }
@@ -2202,8 +2009,8 @@ async function cycleThemePreference() {
 
   setStatus(
     result.preference === 'system'
-      ? '配色已改为跟随系统，当前生效：' + themeLabel + '。'
-      : '配色已切换为固定' + themeLabel + '。',
+      ? '\u914d\u8272\u5df2\u6539\u4e3a\u8ddf\u968f\u7cfb\u7edf\uff0c\u5f53\u524d\u751f\u6548\uff1a' + themeLabel + '\u3002'
+      : '\u914d\u8272\u5df2\u5207\u6362\u4e3a\u56fa\u5b9a' + themeLabel + '\u3002',
     'success'
   );
 }
@@ -2211,16 +2018,16 @@ async function cycleThemePreference() {
 function updateFavoriteButton() {
   if (!elements.favoriteBtn) return;
 
-  let text = '加入收藏';
-  let title = '把这条总结加入收藏';
+  let text = '\u52a0\u5165\u6536\u85cf';
+  let title = '\u628a\u8fd9\u6761\u603b\u7ed3\u52a0\u5165\u6536\u85cf';
   let active = false;
 
   if (state.visibleRecord?.allowHistory === false) {
-    text = '未写入历史';
-    title = '本次结果没有写入历史，因此不能收藏';
+    text = '\u672a\u5199\u5165\u5386\u53f2';
+    title = '\u672c\u6b21\u7ed3\u679c\u6ca1\u6709\u5199\u5165\u5386\u53f2\uff0c\u56e0\u6b64\u4e0d\u80fd\u6536\u85cf';
   } else if (state.visibleRecord?.favorite) {
-    text = '取消收藏';
-    title = '把这条总结从收藏中移除';
+    text = '\u53d6\u6d88\u6536\u85cf';
+    title = '\u628a\u8fd9\u6761\u603b\u7ed3\u4ece\u6536\u85cf\u4e2d\u79fb\u9664';
     active = true;
   }
 
@@ -2233,40 +2040,20 @@ function updateFavoriteButton() {
 function createReaderSnapshot() {
   const article = state.article || createArticleFromRecord(state.visibleRecord);
   const record = state.visibleRecord || {};
-  const summaryMarkdown = String(state.summaryMarkdown || record.summaryMarkdown || '').trim();
-  if (!summaryMarkdown) return null;
-
-  return {
-    recordId: record.recordId || '',
-    title: article?.title || record.summaryTitle || '未命名页面',
-    sourceUrl: article?.normalizedUrl || article?.sourceUrl || record.normalizedUrl || record.sourceUrl || '',
-    sourceHost: article?.sourceHost || record.sourceHost || '',
-    author: article?.author || '',
-    publishedAt: article?.publishedAt || '',
-    publishedLabel: formatDateTime(article?.publishedAt),
-    sourceTypeLabel: Strings.SITE_TYPE_LABELS[article?.sourceType] || '通用网页',
-    strategyLabel: getStrategyLabel(article?.sourceStrategy, article?.sourceType),
-    summaryMode: record.summaryMode || elements.summaryModeSelect.value || 'medium',
-    summaryModeLabel: getModeLabel(record.summaryMode || elements.summaryModeSelect.value),
-    provider: record.provider || '',
-    providerLabel: getProviderLabel(record.provider),
-    model: record.model || '',
-    status: record.status || (state.generating ? 'running' : 'completed'),
-    completedAt: record.completedAt || '',
-    completedAtLabel: formatDateTime(record.completedAt || record.createdAt || ''),
-    favorite: !!record.favorite,
-    allowHistory: record.allowHistory !== false,
-    privacyMode: !!record.privacyMode,
-    summaryMarkdown,
-    summaryPlainText: recordStore.markdownToPlainText(summaryMarkdown),
-    diagnostics: state.lastDiagnostics || record.diagnostics || null
-  };
+  return buildReaderSnapshot({
+    article,
+    record,
+    summaryMarkdown: state.summaryMarkdown,
+    currentSummaryMode: elements.summaryModeSelect.value,
+    generating: state.generating,
+    diagnostics: state.lastDiagnostics
+  });
 }
 
 async function openReaderTab() {
   const snapshot = createReaderSnapshot();
   if (!snapshot) {
-    setStatus('当前还没有可阅读的摘要内容。', 'warning');
+    setStatus('\u5f53\u524d\u8fd8\u6ca1\u6709\u53ef\u9605\u8bfb\u7684\u6458\u8981\u5185\u5bb9\u3002', 'warning');
     return;
   }
 
@@ -2276,17 +2063,17 @@ async function openReaderTab() {
   });
 
   if (response.success) {
-    setStatus('已在新标签页打开专注阅读。', 'success');
+    setStatus('\u5df2\u5728\u65b0\u6807\u7b7e\u9875\u6253\u5f00\u4e13\u6ce8\u9605\u8bfb\u3002', 'success');
     return;
   }
 
-  setStatus(response.error || '打开阅读页失败。', 'error');
+  setStatus(response.error || '\u6253\u5f00\u9605\u8bfb\u9875\u5931\u8d25\u3002', 'error');
 }
 
 function init() {
   initializeModeOptions();
-  renderPlaceholder('准备开始总结', '右键当前页面选择“用一览总结此页”，或使用快捷键 Alt + S。');
-  setStatus('就绪');
+  renderPlaceholder('\u51c6\u5907\u5f00\u59cb\u603b\u7ed3', '\u53f3\u952e\u5f53\u524d\u9875\u9762\u9009\u62e9\u201c\u7528\u4e00\u89c8\u603b\u7ed3\u6b64\u9875\u201d\uff0c\u6216\u4f7f\u7528\u5feb\u6377\u952e Alt + S\u3002');
+  setStatus('\u5c31\u7eea');
   setStats('');
   renderThemeToggleState();
   renderDiagnostics();
@@ -2304,10 +2091,8 @@ function init() {
       refreshActionStates();
     })
     .catch((error) => {
-      setStatus(String(error?.message || error || '设置加载失败。'), 'error');
+      setStatus(String(error?.message || error || '\u8bbe\u7f6e\u52a0\u8f7d\u5931\u8d25\u3002'), 'error');
     });
 }
 
 init();
-
-

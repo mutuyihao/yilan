@@ -59,7 +59,14 @@ async function launchExtensionContext() {
     serviceWorker,
     extensionId,
     async close() {
-      await context.close();
+      try {
+        await context.close();
+      } catch (error) {
+        const message = String(error && error.message ? error.message : error || '');
+        if (!message.includes('Target page, context or browser has been closed')) {
+          throw error;
+        }
+      }
       await fs.rm(userDataDir, { recursive: true, force: true });
     }
   };

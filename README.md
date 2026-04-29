@@ -91,7 +91,7 @@ node tests/run-tests.js
 ```text
 .
 ├─ adapters/                  # Provider 适配层
-├─ docs/                      # 文档索引、用户/架构/测试/开发/升级设计
+├─ docs/                      # 文档索引、用户/架构/测试/开发/规划草案
 ├─ e2e/                       # Playwright 浏览器端测试与扩展 harness
 ├─ icon/                      # 扩展图标
 ├─ landing-page/              # 官网静态页
@@ -123,6 +123,7 @@ node tests/run-tests.js
 - [测试体系](docs/TESTING.md)
 - [开发者指南](docs/DEVELOPER_GUIDE.md)
 - [升级设计（draft）](docs/UPGRADE_DESIGN.md)
+- [TypeScript + Preact 迁移设计（draft）](docs/TS_PREACT_MIGRATION.md)
 - [协作与贡献](CONTRIBUTING.md)
 
 ## License
