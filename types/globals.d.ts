@@ -41,6 +41,7 @@ interface Window {
   YilanRunState: any;
   YilanReaderSessions: any;
   YilanSidebarExport: any;
+  YilanSidebarGeneration: any;
   YilanSidebarHistory: any;
   YilanSidebarReaderSession: any;
   YilanSidebar: any;

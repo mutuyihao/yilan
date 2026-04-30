@@ -60,6 +60,7 @@ test('first-party JavaScript files pass syntax checks', 'quality.syntax', () => 
   assert.ok(files.includes('background/reader-sessions.js'));
   assert.ok(files.includes('sidebar/export.js'));
   assert.ok(files.includes('sidebar/reader-session.js'));
+  assert.ok(files.includes('sidebar/generation.js'));
   assert.ok(files.includes('sidebar.js'));
   assert.ok(files.includes('tests/run-tests.js'));
 
@@ -123,6 +124,7 @@ test('manifest declares MV3 shell, entrypoints, permissions, and accessible reso
     'sidebar/history.js',
     'sidebar/export.js',
     'sidebar/reader-session.js',
+    'sidebar/generation.js',
     'sidebar.js',
     'shared/theme.js',
     'shared/ui-format.js',
@@ -191,6 +193,7 @@ test('sidebar page DOM, scripts, actions, history, export, share, and reader con
   const historyJs = readText('sidebar/history.js');
   const exportJs = readText('sidebar/export.js');
   const readerSessionJs = readText('sidebar/reader-session.js');
+  const generationJs = readText('sidebar/generation.js');
   const ids = extractHtmlIds(html);
   const jsIds = extractQuotedCalls(js, /getElementById\('([^']+)'\)/g);
   assertAllIdsExist('sidebar.html', jsIds, ids);
@@ -217,6 +220,7 @@ test('sidebar page DOM, scripts, actions, history, export, share, and reader con
     'sidebar/history.js',
     'sidebar/export.js',
     'sidebar/reader-session.js',
+    'sidebar/generation.js',
     'sidebar.js'
   ]);
 
@@ -240,6 +244,21 @@ test('sidebar page DOM, scripts, actions, history, export, share, and reader con
   assert.ok(readerSessionJs.includes("action: 'openReaderTab'"));
   assert.strictEqual(countMatches(js, /function createReaderSnapshot\(/g), 0);
   assert.strictEqual(countMatches(js, /async function openReaderTab\(/g), 0);
+  assert.ok(js.includes('const SidebarGeneration = window.YilanSidebarGeneration'));
+  assert.ok(js.includes('SidebarGeneration.createGenerationController'));
+  assert.ok(js.includes('generationController.startPrimarySummary'));
+  assert.ok(js.includes('generationController.startSecondarySummary'));
+  assert.ok(js.includes('generationController.cancelGeneration'));
+  assert.ok(generationJs.includes('global.YilanSidebarGeneration = api'));
+  assert.ok(generationJs.includes('function runPromptViaStream('));
+  assert.ok(generationJs.includes("action: 'startStream'"));
+  assert.ok(generationJs.includes("action: 'cancelRun'"));
+  assert.strictEqual(countMatches(js, /async function cancelGeneration\(/g), 0);
+  assert.strictEqual(countMatches(js, /async function startPrimarySummary\(/g), 0);
+  assert.strictEqual(countMatches(js, /async function startSecondarySummary\(/g), 0);
+  assert.strictEqual(countMatches(js, /function runPromptViaStream\(/g), 0);
+  assert.strictEqual(countMatches(js, /function streamPrompt\(/g), 0);
+  assert.strictEqual(countMatches(js, /function runChunkPrompt\(/g), 0);
   assert.ok(historyJs.includes('YilanSidebarHistory'));
   assert.ok(historyJs.includes('createHistoryController'));
   assert.ok(historyJs.includes('recordStore.searchRecords'));
@@ -248,7 +267,7 @@ test('sidebar page DOM, scripts, actions, history, export, share, and reader con
   assert.strictEqual(countMatches(js, /function renderHistoryEmpty\(/g), 0);
   assert.strictEqual(countMatches(js, /function refreshHistoryList\(/g), 0);
   assert.strictEqual(countMatches(js, /function openHistoryPanel\(/g), 0);
-  assert.ok(js.includes('readRuntimeLastErrorMessage'));
+  assert.ok(generationJs.includes('readRuntimeLastErrorMessage'));
   assert.ok(js.includes('recordStore.findReusableRecordForArticle'));
   assert.ok(js.includes('Trust.buildTrustPolicy'));
   assert.ok(js.includes('AISummaryTheme'));
