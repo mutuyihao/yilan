@@ -40,6 +40,7 @@ interface Window {
   YilanEntrypoints: any;
   YilanRunState: any;
   YilanReaderSessions: any;
+  YilanSidebarExport: any;
   YilanSidebarHistory: any;
   YilanSidebar: any;
   db: any;

@@ -40,6 +40,7 @@ function listFirstPartyJsFiles() {
   const roots = [
     '.',
     'background',
+    'sidebar',
     'shared',
     'adapters',
     'tests',

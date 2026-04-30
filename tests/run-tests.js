@@ -6,6 +6,7 @@ require('./unit-adapters-transport.test');
 require('./unit-background-entrypoints.test');
 require('./unit-background-run-state.test');
 require('./unit-background-reader-sessions.test');
+require('./unit-sidebar-export.test');
 require('./unit-record-store.test');
 require('./static-contracts.test');
 

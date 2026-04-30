@@ -58,6 +58,7 @@ test('first-party JavaScript files pass syntax checks', 'quality.syntax', () => 
   assert.ok(files.includes('background/entrypoints.js'));
   assert.ok(files.includes('background/run-state.js'));
   assert.ok(files.includes('background/reader-sessions.js'));
+  assert.ok(files.includes('sidebar/export.js'));
   assert.ok(files.includes('sidebar.js'));
   assert.ok(files.includes('tests/run-tests.js'));
 
@@ -119,6 +120,7 @@ test('manifest declares MV3 shell, entrypoints, permissions, and accessible reso
     'style.css',
     'db.js',
     'sidebar/history.js',
+    'sidebar/export.js',
     'sidebar.js',
     'shared/theme.js',
     'shared/ui-format.js',
@@ -185,6 +187,7 @@ test('sidebar page DOM, scripts, actions, history, export, share, and reader con
   const html = readText('sidebar.html');
   const js = readText('sidebar.js');
   const historyJs = readText('sidebar/history.js');
+  const exportJs = readText('sidebar/export.js');
   const ids = extractHtmlIds(html);
   const jsIds = extractQuotedCalls(js, /getElementById\('([^']+)'\)/g);
   assertAllIdsExist('sidebar.html', jsIds, ids);
@@ -209,16 +212,23 @@ test('sidebar page DOM, scripts, actions, history, export, share, and reader con
     'libs/html2canvas.min.js',
     'db.js',
     'sidebar/history.js',
+    'sidebar/export.js',
     'sidebar.js'
   ]);
 
   ['action_items', 'glossary', 'qa'].forEach((mode) => {
     assert.ok(html.includes('data-mode="' + mode + '"'), 'Missing secondary mode button: ' + mode);
   });
-  assert.ok(js.includes('function exportMarkdown()'));
-  assert.ok(js.includes("new Blob([header + state.summaryMarkdown]"));
-  assert.ok(js.includes('function exportShareImage()'));
-  assert.ok(js.includes('html2canvas(card'));
+  assert.ok(js.includes('const SidebarExport = window.YilanSidebarExport'));
+  assert.ok(js.includes('SidebarExport.createExportController'));
+  assert.ok(js.includes('exportController.exportMarkdown'));
+  assert.ok(js.includes('exportController.exportShareImage'));
+  assert.ok(exportJs.includes('global.YilanSidebarExport = api'));
+  assert.ok(exportJs.includes('function exportMarkdown()'));
+  assert.ok(exportJs.includes('function exportShareImage()'));
+  assert.ok(exportJs.includes('html2canvasImpl(card'));
+  assert.strictEqual(countMatches(js, /function exportMarkdown\(/g), 0);
+  assert.strictEqual(countMatches(js, /function exportShareImage\(/g), 0);
   assert.ok(js.includes("action: 'openReaderTab'"));
   assert.ok(historyJs.includes('YilanSidebarHistory'));
   assert.ok(historyJs.includes('createHistoryController'));
