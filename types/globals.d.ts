@@ -42,6 +42,7 @@ interface Window {
   YilanReaderSessions: any;
   YilanSidebarExport: any;
   YilanSidebarHistory: any;
+  YilanSidebarReaderSession: any;
   YilanSidebar: any;
   db: any;
   marked: any;

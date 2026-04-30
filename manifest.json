@@ -39,6 +39,7 @@
         "db.js",
         "sidebar/history.js",
         "sidebar/export.js",
+        "sidebar/reader-session.js",
         "sidebar.js",
         "shared/theme.js",
         "shared/ui-format.js",

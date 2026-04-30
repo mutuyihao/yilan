@@ -15,6 +15,7 @@ const ReaderView = window.AISummaryReaderView;
 const HistoryView = window.AISummaryHistoryView;
 const SidebarHistory = window.YilanSidebarHistory;
 const SidebarExport = window.YilanSidebarExport;
+const SidebarReaderSession = window.YilanSidebarReaderSession;
 const recordStore = window.db;
 
 const SETTINGS_KEYS = [
@@ -1751,38 +1752,17 @@ function updateFavoriteButton() {
   elements.favoriteBtn.classList.toggle('action-btn-favorite-active', active);
 }
 
-function createReaderSnapshot() {
-  const article = state.article || createArticleFromRecord(state.visibleRecord);
-  const record = state.visibleRecord || {};
-  return buildReaderSnapshot({
-    article,
-    record,
-    summaryMarkdown: state.summaryMarkdown,
-    currentSummaryMode: elements.summaryModeSelect.value,
-    generating: state.generating,
-    diagnostics: state.lastDiagnostics
-  });
-}
-
-async function openReaderTab() {
-  const snapshot = createReaderSnapshot();
-  if (!snapshot) {
-    setStatus('\u5f53\u524d\u8fd8\u6ca1\u6709\u53ef\u9605\u8bfb\u7684\u6458\u8981\u5185\u5bb9\u3002', 'warning');
-    return;
-  }
-
-  const response = await runtimeSendMessage({
-    action: 'openReaderTab',
-    snapshot
-  });
-
-  if (response.success) {
-    setStatus('\u5df2\u5728\u65b0\u6807\u7b7e\u9875\u6253\u5f00\u4e13\u6ce8\u9605\u8bfb\u3002', 'success');
-    return;
-  }
-
-  setStatus(response.error || '\u6253\u5f00\u9605\u8bfb\u9875\u5931\u8d25\u3002', 'error');
-}
+const readerSessionController = SidebarReaderSession.createReaderSessionController({
+  getState: () => state,
+  getElements: () => elements,
+  getCurrentArticle: () => state.article,
+  getCurrentRecord: () => state.visibleRecord,
+  createArticleFromRecord,
+  buildReaderSnapshot,
+  runtimeSendMessage,
+  setStatus
+});
+const openReaderTab = readerSessionController.openReaderTab;
 
 function init() {
   initializeModeOptions();

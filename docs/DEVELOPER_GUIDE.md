@@ -153,11 +153,12 @@ node tests/run-tests.js
 - `sidebar.html`
 - `sidebar.js`
 - `sidebar/export.js`
+- `sidebar/reader-session.js`
 - `style.css`
 - `reader.html`
 - `reader.js`
 
-原则：历史面板归 `sidebar/history.js`，Markdown 导出和分享卡归 `sidebar/export.js`；继续拆侧栏时优先通过依赖注入创建控制器，不让新模块直接读取 `sidebar.js` 的局部状态。
+原则：历史面板归 `sidebar/history.js`，Markdown 导出和分享卡归 `sidebar/export.js`，阅读页打开归 `sidebar/reader-session.js`；继续拆侧栏时优先通过依赖注入创建控制器，不让新模块直接读取 `sidebar.js` 的局部状态。
 
 ### 设置页与自动保存
 

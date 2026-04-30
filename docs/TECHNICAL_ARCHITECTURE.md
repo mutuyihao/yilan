@@ -12,7 +12,7 @@ Last updated: 2026-04-29
 2. `content.js` 在网页中抽取正文和元信息，并注入侧栏容器。
 3. `shared/article-utils.js` 把抽取结果标准化为文章快照，并根据长度决定是否分段。
 4. `shared/page-strategy.js` 基于页面类型给出页面策略和推荐摘要模式。
-5. `sidebar.js` 负责主摘要、二次生成、收藏、阅读页入口和诊断展示；历史面板由 `sidebar/history.js` 管理，Markdown 导出和分享卡由 `sidebar/export.js` 管理。
+5. `sidebar.js` 负责主摘要、二次生成、收藏和诊断展示；历史面板由 `sidebar/history.js` 管理，Markdown 导出和分享卡由 `sidebar/export.js` 管理，阅读页快照和打开由 `sidebar/reader-session.js` 管理。
 6. `background.js` 通过 `adapters/` 执行请求，统一处理流式、取消、重试和错误；右键菜单、快捷键和入口状态由 `background/entrypoints.js` 管理，运行状态表和 port-run 映射由 `background/run-state.js` 管理，阅读页临时会话由 `background/reader-sessions.js` 管理。
 7. `db.js` 把结构化结果保存到 IndexedDB，并提供搜索、收藏、删除和站点聚合能力。
 8. `reader.html / reader.js` 从临时阅读会话中恢复当前摘要，在新标签页提供专注阅读体验。
@@ -145,6 +145,12 @@ SPA 路由切换的当前默认策略：
 - Markdown 文件导出和安全文件名清理。
 - 分享卡摘录、分享卡 DOM 构建和 `html2canvas` 长图生成。
 - 通过 `createExportController(deps)` 接收 `sidebar.js` 注入的状态、元素、格式化、Markdown 净化和状态提示能力。
+
+`sidebar/reader-session.js` 负责侧栏阅读页会话边界：
+
+- 基于当前文章、可见记录、摘要、模式和诊断构建 reader snapshot。
+- 通过既有 `openReaderTab` runtime message 打开独立阅读页。
+- 通过 `createReaderSessionController(deps)` 接收 `sidebar.js` 注入的状态、元素、snapshot builder、runtime message 和状态提示能力。
 
 ### `reader.html / reader.js`
 

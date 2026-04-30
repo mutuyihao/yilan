@@ -59,6 +59,7 @@ test('first-party JavaScript files pass syntax checks', 'quality.syntax', () => 
   assert.ok(files.includes('background/run-state.js'));
   assert.ok(files.includes('background/reader-sessions.js'));
   assert.ok(files.includes('sidebar/export.js'));
+  assert.ok(files.includes('sidebar/reader-session.js'));
   assert.ok(files.includes('sidebar.js'));
   assert.ok(files.includes('tests/run-tests.js'));
 
@@ -121,6 +122,7 @@ test('manifest declares MV3 shell, entrypoints, permissions, and accessible reso
     'db.js',
     'sidebar/history.js',
     'sidebar/export.js',
+    'sidebar/reader-session.js',
     'sidebar.js',
     'shared/theme.js',
     'shared/ui-format.js',
@@ -188,6 +190,7 @@ test('sidebar page DOM, scripts, actions, history, export, share, and reader con
   const js = readText('sidebar.js');
   const historyJs = readText('sidebar/history.js');
   const exportJs = readText('sidebar/export.js');
+  const readerSessionJs = readText('sidebar/reader-session.js');
   const ids = extractHtmlIds(html);
   const jsIds = extractQuotedCalls(js, /getElementById\('([^']+)'\)/g);
   assertAllIdsExist('sidebar.html', jsIds, ids);
@@ -213,6 +216,7 @@ test('sidebar page DOM, scripts, actions, history, export, share, and reader con
     'db.js',
     'sidebar/history.js',
     'sidebar/export.js',
+    'sidebar/reader-session.js',
     'sidebar.js'
   ]);
 
@@ -229,7 +233,13 @@ test('sidebar page DOM, scripts, actions, history, export, share, and reader con
   assert.ok(exportJs.includes('html2canvasImpl(card'));
   assert.strictEqual(countMatches(js, /function exportMarkdown\(/g), 0);
   assert.strictEqual(countMatches(js, /function exportShareImage\(/g), 0);
-  assert.ok(js.includes("action: 'openReaderTab'"));
+  assert.ok(js.includes('const SidebarReaderSession = window.YilanSidebarReaderSession'));
+  assert.ok(js.includes('SidebarReaderSession.createReaderSessionController'));
+  assert.ok(js.includes('readerSessionController.openReaderTab'));
+  assert.ok(readerSessionJs.includes('global.YilanSidebarReaderSession = api'));
+  assert.ok(readerSessionJs.includes("action: 'openReaderTab'"));
+  assert.strictEqual(countMatches(js, /function createReaderSnapshot\(/g), 0);
+  assert.strictEqual(countMatches(js, /async function openReaderTab\(/g), 0);
   assert.ok(historyJs.includes('YilanSidebarHistory'));
   assert.ok(historyJs.includes('createHistoryController'));
   assert.ok(historyJs.includes('recordStore.searchRecords'));
