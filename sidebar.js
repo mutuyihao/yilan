@@ -17,6 +17,7 @@ const SidebarHistory = window.YilanSidebarHistory;
 const SidebarExport = window.YilanSidebarExport;
 const SidebarReaderSession = window.YilanSidebarReaderSession;
 const SidebarGeneration = window.YilanSidebarGeneration;
+const SidebarModeControl = window.YilanSidebarModeControl;
 const recordStore = window.db;
 
 const SETTINGS_KEYS = [
@@ -216,45 +217,14 @@ function getModeLabel(mode) {
   return UiLabels.getSummaryModeLabel(mode, { fallback: '\u6807\u51c6\u603b\u7ed3' });
 }
 
-function getSummaryModeOptions() {
-  return ArticleUtils.getSummaryModeOptions();
-}
-
-function getSafeSummaryMode(mode) {
-  const options = getSummaryModeOptions();
-  const matched = options.find((item) => item.value === mode);
-  return matched?.value || options[0]?.value || 'medium';
-}
-
-function setSummaryModeMenuOpen(open) {
-  state.summaryModeMenuOpen = !!open;
-  elements.summaryModeMenu.classList.toggle('hidden', !state.summaryModeMenuOpen);
-  elements.summaryModeTrigger.classList.toggle('open', state.summaryModeMenuOpen);
-  elements.summaryModeTrigger.setAttribute('aria-expanded', state.summaryModeMenuOpen ? 'true' : 'false');
-}
-
-function syncSummaryModeControl() {
-  const value = getSafeSummaryMode(elements.summaryModeSelect.value);
-  elements.summaryModeCurrentLabel.textContent = getModeLabel(value);
-
-  elements.summaryModeMenu.querySelectorAll('.mode-option').forEach((button) => {
-    const active = button.dataset.value === value;
-    button.classList.toggle('active', active);
-    button.setAttribute('aria-selected', active ? 'true' : 'false');
-  });
-}
-
-function setSummaryModeControlValue(mode) {
-  const nextMode = getSafeSummaryMode(mode);
-  elements.summaryModeSelect.value = nextMode;
-  syncSummaryModeControl();
-  return nextMode;
-}
-
-function focusActiveSummaryModeOption() {
-  const activeOption = elements.summaryModeMenu.querySelector('.mode-option.active') || elements.summaryModeMenu.querySelector('.mode-option');
-  activeOption?.focus();
-}
+const summaryModeController = SidebarModeControl.createModeControlController({
+  state,
+  elements,
+  articleUtils: ArticleUtils,
+  getModeLabel,
+  escapeHtml,
+  document
+});
 
 function getProviderLabel(provider) {
   return UiLabels.getProviderLabel(provider, { fallback: '\u672a\u77e5' });
@@ -596,7 +566,7 @@ function renderTrustCard(article) {
 function renderArticleMeta(article, record) {
   const currentArticle = article || createArticleFromRecord(record);
   const modeKey = record?.summaryMode || elements.summaryModeSelect.value || 'medium';
-  const safeModeKey = getSafeSummaryMode(modeKey);
+  const safeModeKey = summaryModeController.getSafeMode(modeKey);
   const metaView = buildArticleMetaView(currentArticle, {
     summaryMode: modeKey,
     simpleModeEnabled: !!state.settings?.entrypointSimpleMode && safeModeKey === 'short'
@@ -852,8 +822,8 @@ function bindVisibleRecord(record, options) {
     record?.status === 'failed' ? 'error' : record?.status === 'cancelled' ? 'warning' : ''
   );
 
-  setSummaryModeControlValue(record?.summaryMode || 'medium');
-  setSummaryModeMenuOpen(false);
+  summaryModeController.setValue(record?.summaryMode || 'medium');
+  summaryModeController.setOpen(false);
   refreshActionStates();
 }
 
@@ -929,8 +899,8 @@ async function applyArticleDataPayload(message) {
   const reuseHistory = settings.entrypointReuseHistory !== false;
   const initialMode = simpleMode ? 'short' : (state.article?.preferredSummaryMode || 'medium');
 
-  const suggestedMode = setSummaryModeControlValue(initialMode);
-  setSummaryModeMenuOpen(false);
+  const suggestedMode = summaryModeController.setValue(initialMode);
+  summaryModeController.setOpen(false);
   renderArticleMeta(state.article, { summaryMode: suggestedMode });
   refreshActionStates();
 
@@ -1133,22 +1103,6 @@ function closeSidebar() {
   window.parent.postMessage({ type: 'closeSidebar' }, '*');
 }
 
-function initializeModeOptions() {
-  const options = getSummaryModeOptions();
-  elements.summaryModeSelect.innerHTML = options
-    .map((item) => '<option value="' + escapeHtml(item.value) + '">' + escapeHtml(item.label) + '</option>')
-    .join('');
-  elements.summaryModeMenu.innerHTML = options
-    .map((item) => (
-      '<button class="mode-option" type="button" role="option" data-value="' + escapeHtml(item.value) + '">' +
-        escapeHtml(item.label) +
-      '</button>'
-    ))
-    .join('');
-  setSummaryModeControlValue('medium');
-  setSummaryModeMenuOpen(false);
-}
-
 function bindEvents() {
   elements.summaryRoot.addEventListener('scroll', () => {
     const distance = elements.summaryRoot.scrollHeight - elements.summaryRoot.scrollTop - elements.summaryRoot.clientHeight;
@@ -1175,40 +1129,7 @@ function bindEvents() {
       setStatus(normalized.message, 'error');
     });
   });
-  elements.summaryModeTrigger.addEventListener('click', () => {
-    const nextOpen = !state.summaryModeMenuOpen;
-    setSummaryModeMenuOpen(nextOpen);
-    if (nextOpen) {
-      focusActiveSummaryModeOption();
-    }
-  });
-  elements.summaryModeTrigger.addEventListener('keydown', (event) => {
-    if (event.key === 'ArrowDown' || event.key === 'Enter' || event.key === ' ') {
-      event.preventDefault();
-      setSummaryModeMenuOpen(true);
-      focusActiveSummaryModeOption();
-    }
-
-    if (event.key === 'Escape' && state.summaryModeMenuOpen) {
-      event.preventDefault();
-      setSummaryModeMenuOpen(false);
-    }
-  });
-  elements.summaryModeMenu.addEventListener('click', (event) => {
-    const option = event.target.closest('.mode-option');
-    if (!option) return;
-    setSummaryModeControlValue(option.dataset.value);
-    setSummaryModeMenuOpen(false);
-    elements.summaryModeTrigger.focus();
-  });
-  elements.summaryModeMenu.addEventListener('keydown', (event) => {
-    if (event.key === 'Escape') {
-      event.preventDefault();
-      setSummaryModeMenuOpen(false);
-      elements.summaryModeTrigger.focus();
-    }
-  });
-  elements.summaryModeSelect.addEventListener('change', syncSummaryModeControl);
+  summaryModeController.bindEvents();
   elements.regenerateBtn.addEventListener('click', () => {
     startPrimarySummary(elements.summaryModeSelect.value).catch((error) => {
       const normalized = normalizeUiError(error);
@@ -1235,12 +1156,6 @@ function bindEvents() {
     });
   });
 
-  document.addEventListener('click', (event) => {
-    if (!state.summaryModeMenuOpen) return;
-    if (elements.summaryModeTrigger.contains(event.target) || elements.summaryModeMenu.contains(event.target)) return;
-    setSummaryModeMenuOpen(false);
-  });
-
   window.addEventListener('message', (event) => {
     if (event.data?.type === 'historyData') {
       getHistoryController().open();
@@ -1256,8 +1171,7 @@ function bindEvents() {
   });
 
   document.addEventListener('keydown', (event) => {
-    if (event.key === 'Escape' && state.summaryModeMenuOpen) {
-      setSummaryModeMenuOpen(false);
+    if (event.key === 'Escape' && summaryModeController.closeIfOpen()) {
       return;
     }
     if (event.key !== 'Escape') return;
@@ -1350,7 +1264,7 @@ const readerSessionController = SidebarReaderSession.createReaderSessionControll
 const openReaderTab = readerSessionController.openReaderTab;
 
 function init() {
-  initializeModeOptions();
+  summaryModeController.initialize();
   getHistoryController();
   renderPlaceholder('\u51c6\u5907\u5f00\u59cb\u603b\u7ed3', '\u53f3\u952e\u5f53\u524d\u9875\u9762\u9009\u62e9\u201c\u7528\u4e00\u89c8\u603b\u7ed3\u6b64\u9875\u201d\uff0c\u6216\u4f7f\u7528\u5feb\u6377\u952e Alt + S\u3002');
   setStatus('\u5c31\u7eea');

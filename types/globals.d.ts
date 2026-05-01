@@ -43,6 +43,7 @@ interface Window {
   YilanSidebarExport: any;
   YilanSidebarGeneration: any;
   YilanSidebarHistory: any;
+  YilanSidebarModeControl: any;
   YilanSidebarReaderSession: any;
   YilanSidebar: any;
   db: any;

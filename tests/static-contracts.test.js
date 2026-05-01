@@ -61,6 +61,7 @@ test('first-party JavaScript files pass syntax checks', 'quality.syntax', () => 
   assert.ok(files.includes('sidebar/export.js'));
   assert.ok(files.includes('sidebar/reader-session.js'));
   assert.ok(files.includes('sidebar/generation.js'));
+  assert.ok(files.includes('sidebar/mode-control.js'));
   assert.ok(files.includes('sidebar.js'));
   assert.ok(files.includes('tests/run-tests.js'));
 
@@ -125,6 +126,7 @@ test('manifest declares MV3 shell, entrypoints, permissions, and accessible reso
     'sidebar/export.js',
     'sidebar/reader-session.js',
     'sidebar/generation.js',
+    'sidebar/mode-control.js',
     'sidebar.js',
     'shared/theme.js',
     'shared/ui-format.js',
@@ -194,6 +196,7 @@ test('sidebar page DOM, scripts, actions, history, export, share, and reader con
   const exportJs = readText('sidebar/export.js');
   const readerSessionJs = readText('sidebar/reader-session.js');
   const generationJs = readText('sidebar/generation.js');
+  const modeControlJs = readText('sidebar/mode-control.js');
   const ids = extractHtmlIds(html);
   const jsIds = extractQuotedCalls(js, /getElementById\('([^']+)'\)/g);
   assertAllIdsExist('sidebar.html', jsIds, ids);
@@ -221,6 +224,7 @@ test('sidebar page DOM, scripts, actions, history, export, share, and reader con
     'sidebar/export.js',
     'sidebar/reader-session.js',
     'sidebar/generation.js',
+    'sidebar/mode-control.js',
     'sidebar.js'
   ]);
 
@@ -259,6 +263,21 @@ test('sidebar page DOM, scripts, actions, history, export, share, and reader con
   assert.strictEqual(countMatches(js, /function runPromptViaStream\(/g), 0);
   assert.strictEqual(countMatches(js, /function streamPrompt\(/g), 0);
   assert.strictEqual(countMatches(js, /function runChunkPrompt\(/g), 0);
+  assert.ok(js.includes('const SidebarModeControl = window.YilanSidebarModeControl'));
+  assert.ok(js.includes('SidebarModeControl.createModeControlController'));
+  assert.ok(js.includes('summaryModeController.initialize'));
+  assert.ok(js.includes('summaryModeController.bindEvents'));
+  assert.ok(js.includes('summaryModeController.setValue'));
+  assert.ok(js.includes('summaryModeController.closeIfOpen'));
+  assert.ok(modeControlJs.includes('global.YilanSidebarModeControl = api'));
+  assert.ok(modeControlJs.includes('function createModeControlController('));
+  assert.strictEqual(countMatches(js, /function getSummaryModeOptions\(/g), 0);
+  assert.strictEqual(countMatches(js, /function getSafeSummaryMode\(/g), 0);
+  assert.strictEqual(countMatches(js, /function setSummaryModeMenuOpen\(/g), 0);
+  assert.strictEqual(countMatches(js, /function syncSummaryModeControl\(/g), 0);
+  assert.strictEqual(countMatches(js, /function setSummaryModeControlValue\(/g), 0);
+  assert.strictEqual(countMatches(js, /function focusActiveSummaryModeOption\(/g), 0);
+  assert.strictEqual(countMatches(js, /function initializeModeOptions\(/g), 0);
   assert.ok(historyJs.includes('YilanSidebarHistory'));
   assert.ok(historyJs.includes('createHistoryController'));
   assert.ok(historyJs.includes('recordStore.searchRecords'));
