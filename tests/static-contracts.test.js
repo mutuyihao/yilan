@@ -474,6 +474,38 @@ test('content script extraction, sidebar injection, and SPA navigation contracts
   assert.ok(sidebar.includes('navigationPolicy.autoStartOnNavigation'));
 });
 
+test('technical architecture docs capture diagrams, runtime loading, and module boundaries', 'quality.docs_upgrade_design', () => {
+  const manifest = readJson('manifest.json');
+  const index = readText('docs/README.md');
+  const architectureDoc = readText('docs/TECHNICAL_ARCHITECTURE.md');
+
+  assert.ok(index.includes('Mermaid'));
+  assert.strictEqual(countMatches(architectureDoc, /```mermaid/g), 3);
+  assert.ok(architectureDoc.includes('flowchart LR'));
+  assert.ok(architectureDoc.includes('flowchart TB'));
+  assert.ok(architectureDoc.includes('sidebar.html + sidebar.js'));
+  assert.ok(architectureDoc.includes('adapters -> provider'));
+  assert.ok(architectureDoc.includes('storage.sync / storage.local / IndexedDB'));
+  assert.ok(architectureDoc.includes('reader.html'));
+
+  assert.strictEqual(manifest.background.service_worker, 'background.js');
+  assert.strictEqual(manifest.content_scripts, undefined);
+  assert.ok(architectureDoc.includes('classic service worker'));
+  assert.ok(architectureDoc.includes('importScripts'));
+  assert.ok(architectureDoc.includes('chrome.scripting.executeScript'));
+  assert.ok(architectureDoc.includes('CONTENT_SCRIPT_FILES'));
+
+  [
+    '`adapters/`',
+    '`background/entrypoints.js`',
+    '`background/run-state.js`',
+    '`background/reader-sessions.js`',
+    '`db.js`'
+  ].forEach((needle) => {
+    assert.ok(architectureDoc.includes(needle), 'Architecture doc missing boundary: ' + needle);
+  });
+});
+
 test('planning docs record upgrade direction and TS/Preact migration guardrails', 'quality.docs_upgrade_design', () => {
   const index = readText('docs/README.md');
   const upgradeDoc = readText('docs/UPGRADE_DESIGN.md');
