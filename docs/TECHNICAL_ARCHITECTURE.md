@@ -17,6 +17,92 @@ Last updated: 2026-05-01
 7. `db.js` 把结构化结果保存到 IndexedDB，并提供搜索、收藏、删除和站点聚合能力。
 8. `reader.html / reader.js` 从临时阅读会话中恢复当前摘要，在新标签页提供专注阅读体验。
 
+## 架构与依赖图
+
+这三张图按阅读目的拆开：第一张看整体，第二张看代码依赖边界，第三张看启动和一次摘要的顺序。
+
+### 1. 一眼看懂版
+
+```mermaid
+flowchart LR
+  U((用户))
+  Entry["入口层<br/>popup / 右键 / 快捷键"]
+  BG["后台调度<br/>background.js<br/>入口状态 / 流式 / 取消 / reader session"]
+  Page["网页注入层<br/>content.js<br/>抽正文 / 创建 iframe"]
+  Side["侧栏工作台<br/>sidebar.html + sidebar.js<br/>生成 / 历史 / 导出 / 阅读"]
+  AI["模型接口<br/>adapters -> provider"]
+  Store[("本地状态<br/>storage.sync / storage.local / IndexedDB")]
+  Reader["专注阅读页<br/>reader.html"]
+
+  U --> Entry --> BG
+  BG -- 动态注入 --> Page --> Side
+  Side -- startStream / cancelRun --> BG --> AI
+  Side <--> Store
+  BG <--> Store
+  Side -- openReaderTab --> BG --> Reader
+  Reader <--> Store
+```
+
+核心心智模型：入口只负责触发，`content.js` 只负责拿网页内容和挂侧栏，侧栏负责用户可见工作流，后台负责模型请求、取消和跨页面状态，存储负责设置、历史和阅读会话。
+
+### 2. 代码依赖边界
+
+```mermaid
+flowchart TB
+  Shared["shared/*<br/>公共算法、文案、视图模型、错误、运行工具"]
+  Libs["libs/*<br/>Readability / Markdown 渲染 / 截图"]
+  DB["db.js<br/>IndexedDB 封装"]
+  Adapters["adapters/*<br/>OpenAI / Anthropic 兼容协议"]
+
+  BG["background.js<br/>后台主流程"]
+  BGParts["background/*<br/>entrypoints / run-state / reader-sessions"]
+  Content["content.js<br/>网页抽取和侧栏注入"]
+  Popup["popup.js<br/>设置和入口状态"]
+  Sidebar["sidebar.js + sidebar/*<br/>侧栏 UI 和工作流"]
+  Reader["reader.js<br/>阅读页恢复和渲染"]
+
+  BG --> Shared
+  BG --> Adapters
+  BG --> BGParts
+  Content --> Shared
+  Content --> Libs
+  Popup --> Shared
+  Sidebar --> Shared
+  Sidebar --> Libs
+  Sidebar --> DB
+  Reader --> Shared
+  Reader --> Libs
+  Reader --> DB
+```
+
+依赖约束：provider 逻辑只进 `adapters/`；右键、快捷键和入口状态只进 `background/entrypoints.js`；运行取消和 port-run 映射只进 `background/run-state.js`；历史记录读写统一走 `db.js`。
+
+### 3. 启动和一次摘要顺序
+
+```mermaid
+flowchart TB
+  A["1. manifest.json 唤起 background.js"]
+  B["2. background.js importScripts 两批依赖"]
+  C["3. Entrypoints.bindEntrypoints()<br/>注册右键菜单、快捷键、入口状态"]
+  D{"4. 用户从哪里进入？"}
+  E["popup<br/>读写设置 / 测试连接 / 检查入口 / 打开历史"]
+  F["右键或快捷键<br/>触发 extractAndSummarize"]
+  G["5. 后台 ping 当前 tab<br/>必要时动态注入 CONTENT_SCRIPT_FILES"]
+  H["6. content.js 抽取文章<br/>创建 sidebar.html iframe"]
+  I{"7. 侧栏是否命中当前页历史？"}
+  J["直接展示历史摘要"]
+  K["8. 侧栏通过 ai-stream 请求后台"]
+  L["9. adapters 调用模型接口<br/>token 流式返回侧栏"]
+  M["10. 完成后写 IndexedDB<br/>可创建 readerSession 打开阅读页"]
+
+  A --> B --> C --> D
+  D --> E
+  D --> F --> G --> H --> I
+  E -- triggerHistory 时也会注入 content --> G
+  I -->|命中| J
+  I -->|未命中或重新生成| K --> L --> M
+```
+
 ## 工程验证边界
 
 运行时代码之外，当前仓库已经有两层验证护栏：
@@ -75,14 +161,14 @@ Last updated: 2026-05-01
 定义扩展形态和权限边界：
 
 - `manifest_version: 3`
-- service worker: `background.js`
+- service worker: `background.js`，保持 classic service worker，并通过 `importScripts` 显式加载依赖
 - popup: `popup.html`
-- content script: `content.js` 及其依赖
+- content script: 当前不在 Manifest 中声明 `content_scripts`；右键菜单、快捷键或 popup 历史入口触发时，`background.js` 通过 `chrome.scripting.executeScript` 动态注入 `CONTENT_SCRIPT_FILES`
 - 权限：`contextMenus`、`storage`、`activeTab`、`scripting`、`clipboardWrite`
 - `host_permissions: <all_urls>`
 - `web_accessible_resources` 暴露侧栏运行所需的 HTML、样式、共享脚本和第三方库
 
-当前 Manifest 仍直接引用根目录脚本和 HTML。未来如果引入 `dist/` 构建产物，需要同步更新 Playwright 加载目录、静态契约测试和文档入口。
+当前 Manifest 仍直接引用根目录 service worker、popup HTML 和 web accessible resources；动态 content 注入列表维护在 `background.js` 的 `CONTENT_SCRIPT_FILES`。未来如果引入 `dist/` 构建产物，需要同步更新 Playwright 加载目录、静态契约测试和文档入口。
 
 ### `popup.html / popup.js`
 
