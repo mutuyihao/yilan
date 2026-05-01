@@ -4,7 +4,8 @@ const {
   assert,
   readText,
   readJson,
-  listFirstPartyJsFiles
+  listFirstPartyJsFiles,
+  freshRequire
 } = require('./harness');
 
 function extractHtmlIds(html) {
@@ -58,6 +59,7 @@ test('first-party JavaScript files pass syntax checks', 'quality.syntax', () => 
   assert.ok(files.includes('background/entrypoints.js'));
   assert.ok(files.includes('background/run-state.js'));
   assert.ok(files.includes('background/reader-sessions.js'));
+  assert.ok(files.includes('sidebar/state.js'));
   assert.ok(files.includes('sidebar/export.js'));
   assert.ok(files.includes('sidebar/reader-session.js'));
   assert.ok(files.includes('sidebar/generation.js'));
@@ -123,6 +125,7 @@ test('manifest declares MV3 shell, entrypoints, permissions, and accessible reso
     'sidebar.html',
     'style.css',
     'db.js',
+    'sidebar/state.js',
     'sidebar/history.js',
     'sidebar/export.js',
     'sidebar/reader-session.js',
@@ -194,15 +197,18 @@ test('sidebar page DOM, scripts, actions, history, export, share, and reader con
 ], () => {
   const html = readText('sidebar.html');
   const js = readText('sidebar.js');
+  const stateJs = readText('sidebar/state.js');
   const historyJs = readText('sidebar/history.js');
   const exportJs = readText('sidebar/export.js');
   const readerSessionJs = readText('sidebar/reader-session.js');
   const generationJs = readText('sidebar/generation.js');
   const modeControlJs = readText('sidebar/mode-control.js');
   const eventsJs = readText('sidebar/events.js');
+  const SidebarState = freshRequire('sidebar/state.js');
   const ids = extractHtmlIds(html);
   const jsIds = extractQuotedCalls(js, /getElementById\('([^']+)'\)/g);
   assertAllIdsExist('sidebar.html', jsIds, ids);
+  assertAllIdsExist('sidebar.html', new Set(Object.values(SidebarState.ELEMENT_IDS)), ids);
 
   assertInOrder(extractScriptSources(html), [
     'shared/domain.js',
@@ -223,6 +229,7 @@ test('sidebar page DOM, scripts, actions, history, export, share, and reader con
     'libs/highlight.min.js',
     'libs/html2canvas.min.js',
     'db.js',
+    'sidebar/state.js',
     'sidebar/history.js',
     'sidebar/export.js',
     'sidebar/reader-session.js',
@@ -235,6 +242,15 @@ test('sidebar page DOM, scripts, actions, history, export, share, and reader con
   ['action_items', 'glossary', 'qa'].forEach((mode) => {
     assert.ok(html.includes('data-mode="' + mode + '"'), 'Missing secondary mode button: ' + mode);
   });
+  assert.ok(js.includes('const SidebarState = window.YilanSidebarState'));
+  assert.ok(js.includes('SidebarState.createInitialState'));
+  assert.ok(js.includes('SidebarState.resolveElements'));
+  assert.ok(stateJs.includes('global.YilanSidebarState = api'));
+  assert.ok(stateJs.includes('function createInitialState('));
+  assert.ok(stateJs.includes('function resolveElements('));
+  assert.strictEqual(countMatches(js, /document\.getElementById\(/g), 0);
+  assert.strictEqual(countMatches(js, /const state = \{/g), 0);
+  assert.strictEqual(countMatches(js, /const elements = \{/g), 0);
   assert.ok(js.includes('const SidebarExport = window.YilanSidebarExport'));
   assert.ok(js.includes('SidebarExport.createExportController'));
   assert.ok(js.includes('exportController.exportMarkdown'));
@@ -451,6 +467,7 @@ test('content script extraction, sidebar injection, and SPA navigation contracts
 ], () => {
   const js = readText('content.js');
   const sidebar = readText('sidebar.js');
+  const sidebarState = readText('sidebar/state.js');
   assert.ok(js.includes('new Readability'));
   assert.ok(js.includes('ArticleUtils.buildArticleSnapshot'));
   assert.ok(js.includes('createSidebarFrame'));
@@ -466,9 +483,9 @@ test('content script extraction, sidebar injection, and SPA navigation contracts
   assert.ok(js.includes("event.data?.type === 'closeSidebar'"));
   assert.ok(sidebar.includes('DEFAULT_NAVIGATION_POLICY'));
   assert.ok(sidebar.includes('NAVIGATION_DURING_GENERATION'));
-  assert.ok(sidebar.includes("DEFER: 'defer'"));
-  assert.ok(sidebar.includes("REPLACE: 'replace'"));
-  assert.ok(sidebar.includes("IGNORE: 'ignore'"));
+  assert.ok(sidebarState.includes("DEFER: 'defer'"));
+  assert.ok(sidebarState.includes("REPLACE: 'replace'"));
+  assert.ok(sidebarState.includes("IGNORE: 'ignore'"));
   assert.ok(sidebar.includes('pendingNavigationPayload'));
   assert.ok(sidebar.includes('applyPendingNavigationPayload'));
   assert.ok(sidebar.includes('navigationPolicy.autoStartOnNavigation'));
@@ -497,6 +514,7 @@ test('technical architecture docs capture diagrams, runtime loading, and module 
 
   [
     '`adapters/`',
+    '`sidebar/state.js`',
     '`background/entrypoints.js`',
     '`background/run-state.js`',
     '`background/reader-sessions.js`',

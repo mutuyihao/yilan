@@ -19,37 +19,12 @@ const SidebarReaderSession = window.YilanSidebarReaderSession;
 const SidebarGeneration = window.YilanSidebarGeneration;
 const SidebarModeControl = window.YilanSidebarModeControl;
 const SidebarEvents = window.YilanSidebarEvents;
+const SidebarState = window.YilanSidebarState;
 const recordStore = window.db;
 
-const SETTINGS_KEYS = [
-  'providerPreset',
-  'aiProvider',
-  'endpointMode',
-  'apiKey',
-  'aiBaseURL',
-  'modelName',
-  'systemPrompt',
-  'autoTranslate',
-  'defaultLanguage',
-  'themePreference',
-  'privacyMode',
-  'defaultAllowHistory',
-  'defaultAllowShare',
-  'entrypointAutoStart',
-  'entrypointSimpleMode',
-  'entrypointReuseHistory'
-];
-
-const NAVIGATION_DURING_GENERATION = {
-  DEFER: 'defer',
-  REPLACE: 'replace',
-  IGNORE: 'ignore'
-};
-
-const DEFAULT_NAVIGATION_POLICY = {
-  autoStartOnNavigation: false,
-  duringGeneration: NAVIGATION_DURING_GENERATION.DEFER
-};
+const SETTINGS_KEYS = SidebarState.SETTINGS_KEYS;
+const NAVIGATION_DURING_GENERATION = SidebarState.NAVIGATION_DURING_GENERATION;
+const DEFAULT_NAVIGATION_POLICY = SidebarState.DEFAULT_NAVIGATION_POLICY;
 
 const markdownToPlainText = SummaryText.markdownToPlainText;
 const stripMarkdownPreview = SummaryText.stripMarkdownPreview;
@@ -63,80 +38,8 @@ const buildArticleMetaView = SidebarMetaView.buildArticleMetaView;
 const buildTrustCardView = SidebarMetaView.buildTrustCardView;
 let historyController = null;
 
-const state = {
-  article: null,
-  visibleRecord: null,
-  visibleRecordUsesCurrentArticle: false,
-  summaryMarkdown: '',
-  generating: false,
-  cancelRequested: false,
-  runAbortController: null,
-  activeRunIds: new Set(),
-  activePort: null,
-  activeStreamRunId: '',
-  lastDiagnostics: null,
-  historyQuery: '',
-  favoritesOnly: false,
-  selectedSiteHost: '',
-  summaryModeMenuOpen: false,
-  autoScroll: true,
-  pendingNavigationPayload: null,
-  settings: Object.assign({}, Trust.DEFAULT_SETTINGS),
-  trustPolicy: Trust.buildTrustPolicy(null, Trust.DEFAULT_SETTINGS)
-};
-
-const elements = {
-  articleTitle: document.getElementById('articleTitle'),
-  sourceLink: document.getElementById('sourceLink'),
-  hostBadge: document.getElementById('hostBadge'),
-  siteTypeBadge: document.getElementById('siteTypeBadge'),
-  strategyBadge: document.getElementById('strategyBadge'),
-  modeBadge: document.getElementById('modeBadge'),
-  authorValue: document.getElementById('authorValue'),
-  publishedValue: document.getElementById('publishedValue'),
-  lengthValue: document.getElementById('lengthValue'),
-  chunkValue: document.getElementById('chunkValue'),
-  warningList: document.getElementById('warningList'),
-  trustTitle: document.getElementById('trustTitle'),
-  trustSummary: document.getElementById('trustSummary'),
-  trustModeBadge: document.getElementById('trustModeBadge'),
-  trustHistoryBadge: document.getElementById('trustHistoryBadge'),
-  trustShareBadge: document.getElementById('trustShareBadge'),
-  trustSendValue: document.getElementById('trustSendValue'),
-  trustSendNote: document.getElementById('trustSendNote'),
-  trustHistoryValue: document.getElementById('trustHistoryValue'),
-  trustHistoryNote: document.getElementById('trustHistoryNote'),
-  trustShareValue: document.getElementById('trustShareValue'),
-  trustShareNote: document.getElementById('trustShareNote'),
-  privacyToggleBtn: document.getElementById('privacyToggleBtn'),
-  summaryModeTrigger: document.getElementById('summaryModeTrigger'),
-  summaryModeCurrentLabel: document.getElementById('summaryModeCurrentLabel'),
-  summaryModeMenu: document.getElementById('summaryModeMenu'),
-  summaryModeSelect: document.getElementById('summaryModeSelect'),
-  regenerateBtn: document.getElementById('regenerateBtn'),
-  cancelBtn: document.getElementById('cancelBtn'),
-  favoriteBtn: document.getElementById('favoriteBtn'),
-  copyBtn: document.getElementById('copyBtn'),
-  shareBtn: document.getElementById('shareBtn'),
-  exportBtn: document.getElementById('exportBtn'),
-  contentPanel: document.getElementById('content'),
-  summaryRoot: document.getElementById('summaryRoot'),
-  diagnosticsBlock: document.getElementById('diagnosticsBlock'),
-  diagnosticsToggle: document.getElementById('diagnosticsToggle'),
-  diagnosticsPre: document.getElementById('diagnosticsPre'),
-  statusText: document.getElementById('statusText'),
-  statsText: document.getElementById('statsText'),
-  historyPanel: document.getElementById('historyPanel'),
-  readerBtn: document.getElementById('readerBtn'),
-  historyBtn: document.getElementById('historyBtn'),
-  themeBtn: document.getElementById('themeBtn'),
-  historyCloseBtn: document.getElementById('historyCloseBtn'),
-  historySearch: document.getElementById('historySearch'),
-  favoritesOnly: document.getElementById('favoritesOnly'),
-  historySiteFilters: document.getElementById('historySiteFilters'),
-  historyList: document.getElementById('historyList'),
-  closeBtn: document.getElementById('closeBtn')
-};
+const state = SidebarState.createInitialState({ trust: Trust });
+const elements = SidebarState.resolveElements(document);
 
 marked.setOptions({
   breaks: true,

@@ -37,6 +37,7 @@
         "sidebar.html",
         "style.css",
         "db.js",
+        "sidebar/state.js",
         "sidebar/history.js",
         "sidebar/export.js",
         "sidebar/reader-session.js",

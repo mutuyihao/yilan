@@ -11,6 +11,7 @@ require('./unit-sidebar-reader-session.test');
 require('./unit-sidebar-generation.test');
 require('./unit-sidebar-mode-control.test');
 require('./unit-sidebar-events.test');
+require('./unit-sidebar-state.test');
 require('./unit-record-store.test');
 require('./static-contracts.test');
 
