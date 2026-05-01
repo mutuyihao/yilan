@@ -42,6 +42,7 @@
         "sidebar/reader-session.js",
         "sidebar/generation.js",
         "sidebar/mode-control.js",
+        "sidebar/events.js",
         "sidebar.js",
         "shared/theme.js",
         "shared/ui-format.js",

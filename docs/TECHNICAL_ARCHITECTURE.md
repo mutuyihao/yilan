@@ -12,7 +12,7 @@ Last updated: 2026-05-01
 2. `content.js` 在网页中抽取正文和元信息，并注入侧栏容器。
 3. `shared/article-utils.js` 把抽取结果标准化为文章快照，并根据长度决定是否分段。
 4. `shared/page-strategy.js` 基于页面类型给出页面策略和推荐摘要模式。
-5. `sidebar.js` 负责侧栏状态、入口消息、收藏和诊断展示；历史面板由 `sidebar/history.js` 管理，Markdown 导出和分享卡由 `sidebar/export.js` 管理，阅读页快照和打开由 `sidebar/reader-session.js` 管理，主摘要、二次生成、取消和流式连接由 `sidebar/generation.js` 管理，摘要模式控件由 `sidebar/mode-control.js` 管理。
+5. `sidebar.js` 负责侧栏状态、收藏和诊断展示；历史面板由 `sidebar/history.js` 管理，Markdown 导出和分享卡由 `sidebar/export.js` 管理，阅读页快照和打开由 `sidebar/reader-session.js` 管理，主摘要、二次生成、取消和流式连接由 `sidebar/generation.js` 管理，摘要模式控件由 `sidebar/mode-control.js` 管理，按钮、键盘和入口消息事件由 `sidebar/events.js` 管理。
 6. `background.js` 通过 `adapters/` 执行请求，统一处理流式、取消、重试和错误；右键菜单、快捷键和入口状态由 `background/entrypoints.js` 管理，运行状态表和 port-run 映射由 `background/run-state.js` 管理，阅读页临时会话由 `background/reader-sessions.js` 管理。
 7. `db.js` 把结构化结果保存到 IndexedDB，并提供搜索、收藏、删除和站点聚合能力。
 8. `reader.html / reader.js` 从临时阅读会话中恢复当前摘要，在新标签页提供专注阅读体验。
@@ -162,6 +162,11 @@ SPA 路由切换的当前默认策略：
 
 - 摘要模式选项初始化、合法值兜底、菜单开关、active 状态同步和控件内事件绑定。
 - 保持原生 `<select>` 与自定义菜单同步，`sidebar.js` 只读取当前 `summaryModeSelect.value` 并通过 controller 设置值或关闭菜单。
+
+`sidebar/events.js` 负责侧栏事件绑定边界：
+
+- 绑定主要按钮、二次生成按钮、summary 滚动、`window.message` 入口和全局 `Escape` 关闭顺序。
+- 通过 `createEventsController(deps)` 接收 `sidebar.js` 注入的业务动作，事件模块不直接拥有生成、历史、导出、阅读或设置逻辑。
 
 ### `reader.html / reader.js`
 

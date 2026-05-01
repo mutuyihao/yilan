@@ -18,6 +18,7 @@ const SidebarExport = window.YilanSidebarExport;
 const SidebarReaderSession = window.YilanSidebarReaderSession;
 const SidebarGeneration = window.YilanSidebarGeneration;
 const SidebarModeControl = window.YilanSidebarModeControl;
+const SidebarEvents = window.YilanSidebarEvents;
 const recordStore = window.db;
 
 const SETTINGS_KEYS = [
@@ -1103,90 +1104,6 @@ function closeSidebar() {
   window.parent.postMessage({ type: 'closeSidebar' }, '*');
 }
 
-function bindEvents() {
-  elements.summaryRoot.addEventListener('scroll', () => {
-    const distance = elements.summaryRoot.scrollHeight - elements.summaryRoot.scrollTop - elements.summaryRoot.clientHeight;
-    state.autoScroll = distance <= 24;
-  });
-
-  elements.readerBtn.addEventListener('click', () => {
-    openReaderTab().catch((error) => {
-      const normalized = normalizeUiError(error);
-      setStatus(normalized.message, 'error');
-    });
-  });
-  elements.historyBtn.addEventListener('click', () => getHistoryController().open());
-  elements.themeBtn.addEventListener('click', () => {
-    cycleThemePreference().catch((error) => {
-      const normalized = normalizeUiError(error);
-      setStatus(normalized.message, 'error');
-    });
-  });
-  elements.closeBtn.addEventListener('click', closeSidebar);
-  elements.privacyToggleBtn.addEventListener('click', () => {
-    togglePrivacyMode().catch((error) => {
-      const normalized = normalizeUiError(error);
-      setStatus(normalized.message, 'error');
-    });
-  });
-  summaryModeController.bindEvents();
-  elements.regenerateBtn.addEventListener('click', () => {
-    startPrimarySummary(elements.summaryModeSelect.value).catch((error) => {
-      const normalized = normalizeUiError(error);
-      renderErrorBox(normalized);
-      setStatus(normalized.message, 'error');
-      refreshActionStates();
-    });
-  });
-  elements.cancelBtn.addEventListener('click', cancelGeneration);
-  elements.favoriteBtn.addEventListener('click', () => {
-    toggleFavoriteFromMain().catch(console.error);
-  });
-  elements.copyBtn.addEventListener('click', copySummary);
-  elements.exportBtn.addEventListener('click', exportMarkdown);
-  elements.shareBtn.addEventListener('click', exportShareImage);
-  document.querySelectorAll('.secondary-btn').forEach((button) => {
-    button.addEventListener('click', () => {
-      startSecondarySummary(button.dataset.mode).catch((error) => {
-        const normalized = normalizeUiError(error);
-        renderErrorBox(normalized);
-        setStatus(normalized.message, 'error');
-        refreshActionStates();
-      });
-    });
-  });
-
-  window.addEventListener('message', (event) => {
-    if (event.data?.type === 'historyData') {
-      getHistoryController().open();
-      return;
-    }
-
-    if (event.data?.type === 'articleData' && event.data.article) {
-      handleArticleDataPayload(event.data).catch((error) => {
-        console.error(error);
-        setStatus('\u5904\u7406\u5165\u53e3\u89e6\u53d1\u5931\u8d25', 'error');
-      });
-    }
-  });
-
-  document.addEventListener('keydown', (event) => {
-    if (event.key === 'Escape' && summaryModeController.closeIfOpen()) {
-      return;
-    }
-    if (event.key !== 'Escape') return;
-    if (getHistoryController().isOpen()) {
-      getHistoryController().close();
-      return;
-    }
-    if (elements.diagnosticsBlock?.open) {
-      closeDiagnostics();
-      return;
-    }
-    closeSidebar();
-  });
-}
-
 function getThemePreferenceDisplayLabel(preference) {
   if (preference === 'dark') return '\u6df1\u8272';
   if (preference === 'light') return '\u6d45\u8272';
@@ -1263,6 +1180,33 @@ const readerSessionController = SidebarReaderSession.createReaderSessionControll
 });
 const openReaderTab = readerSessionController.openReaderTab;
 
+const eventsController = SidebarEvents.createEventsController({
+  state,
+  elements,
+  summaryModeController,
+  getHistoryController,
+  normalizeUiError,
+  renderErrorBox,
+  setStatus,
+  refreshActionStates,
+  closeDiagnostics,
+  closeSidebar,
+  openReaderTab,
+  cycleThemePreference,
+  togglePrivacyMode,
+  startPrimarySummary,
+  cancelGeneration,
+  toggleFavoriteFromMain,
+  copySummary,
+  exportMarkdown,
+  exportShareImage,
+  startSecondarySummary,
+  handleArticleDataPayload,
+  document,
+  window,
+  console
+});
+
 function init() {
   summaryModeController.initialize();
   getHistoryController();
@@ -1273,7 +1217,7 @@ function init() {
   renderDiagnostics();
   renderTrustCard(null);
   refreshActionStates();
-  bindEvents();
+  eventsController.bind();
 
   Theme.onChange(() => {
     renderThemeToggleState();
