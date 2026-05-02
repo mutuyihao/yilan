@@ -1,6 +1,6 @@
 # 技术架构
 
-Last updated: 2026-05-01
+Last updated: 2026-05-02
 
 这份文档描述当前仓库已经落地并仍然有效的运行时边界、数据模型，以及支撑重构的工程验证边界。TypeScript、构建链和 Preact 迁移属于规划草案，见 [TypeScript + Preact 迁移设计](TS_PREACT_MIGRATION.md)。
 
@@ -12,7 +12,7 @@ Last updated: 2026-05-01
 2. `content.js` 在网页中抽取正文和元信息，并注入侧栏容器。
 3. `shared/article-utils.js` 把抽取结果标准化为文章快照，并根据长度决定是否分段。
 4. `shared/page-strategy.js` 基于页面类型给出页面策略和推荐摘要模式。
-5. `sidebar/state.js` 负责侧栏初始状态、导航策略常量和 DOM 元素绑定；`sidebar.js` 负责侧栏编排、收藏和诊断展示；历史面板由 `sidebar/history.js` 管理，Markdown 导出和分享卡由 `sidebar/export.js` 管理，阅读页快照和打开由 `sidebar/reader-session.js` 管理，主摘要、二次生成、取消和流式连接由 `sidebar/generation.js` 管理，摘要模式控件由 `sidebar/mode-control.js` 管理，按钮、键盘和入口消息事件由 `sidebar/events.js` 管理。
+5. `sidebar/state.js` 负责侧栏初始状态、导航策略常量和 DOM 元素绑定；`sidebar.js` 负责侧栏编排和收藏；侧栏摘要渲染、来源/信任卡、状态提示和诊断展示由 `sidebar/render.js` 管理；历史面板由 `sidebar/history.js` 管理，Markdown 导出和分享卡由 `sidebar/export.js` 管理，阅读页快照和打开由 `sidebar/reader-session.js` 管理，主摘要、二次生成、取消和流式连接由 `sidebar/generation.js` 管理，摘要模式控件由 `sidebar/mode-control.js` 管理，按钮、键盘和入口消息事件由 `sidebar/events.js` 管理。
 6. `background.js` 通过 `adapters/` 执行请求，统一处理流式、取消、重试和错误；右键菜单、快捷键和入口状态由 `background/entrypoints.js` 管理，运行状态表和 port-run 映射由 `background/run-state.js` 管理，阅读页临时会话由 `background/reader-sessions.js` 管理。
 7. `db.js` 把结构化结果保存到 IndexedDB，并提供搜索、收藏、删除和站点聚合能力。
 8. `reader.html / reader.js` 从临时阅读会话中恢复当前摘要，在新标签页提供专注阅读体验。
@@ -231,6 +231,12 @@ SPA 路由切换的当前默认策略：
 - `SETTINGS_KEYS`、`NAVIGATION_DURING_GENERATION` 和 `DEFAULT_NAVIGATION_POLICY` 集中在该模块，避免 `sidebar.js` 顶部继续膨胀。
 - `createInitialState({ trust })` 每次创建新的状态对象、`Set`、设置快照和 trust policy。
 - `resolveElements(documentRef)` 维护侧栏 DOM id 到元素键名的映射，`sidebar.js` 只持有返回后的 `elements`。
+
+`sidebar/render.js` 负责侧栏渲染边界：
+
+- Markdown 渲染、DOMPurify 净化、流式渲染节流、代码高亮和自动滚动。
+- 占位态、内联提示、错误态、取消态、分段进度、状态栏和统计栏。
+- 来源信息、trust card 和运行诊断的 DOM 写入；展示数据仍来自 `shared/sidebar-meta-view.js` 和 `shared/diagnostics-view.js`。
 
 `sidebar/export.js` 负责侧栏导出边界：
 

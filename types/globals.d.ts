@@ -45,6 +45,7 @@ interface Window {
   YilanSidebarGeneration: any;
   YilanSidebarHistory: any;
   YilanSidebarModeControl: any;
+  YilanSidebarRender: any;
   YilanSidebarReaderSession: any;
   YilanSidebarState: any;
   YilanSidebar: any;

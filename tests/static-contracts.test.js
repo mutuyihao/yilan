@@ -64,6 +64,7 @@ test('first-party JavaScript files pass syntax checks', 'quality.syntax', () => 
   assert.ok(files.includes('sidebar/reader-session.js'));
   assert.ok(files.includes('sidebar/generation.js'));
   assert.ok(files.includes('sidebar/mode-control.js'));
+  assert.ok(files.includes('sidebar/render.js'));
   assert.ok(files.includes('sidebar/events.js'));
   assert.ok(files.includes('sidebar.js'));
   assert.ok(files.includes('tests/run-tests.js'));
@@ -131,6 +132,7 @@ test('manifest declares MV3 shell, entrypoints, permissions, and accessible reso
     'sidebar/reader-session.js',
     'sidebar/generation.js',
     'sidebar/mode-control.js',
+    'sidebar/render.js',
     'sidebar/events.js',
     'sidebar.js',
     'shared/theme.js',
@@ -203,6 +205,7 @@ test('sidebar page DOM, scripts, actions, history, export, share, and reader con
   const readerSessionJs = readText('sidebar/reader-session.js');
   const generationJs = readText('sidebar/generation.js');
   const modeControlJs = readText('sidebar/mode-control.js');
+  const renderJs = readText('sidebar/render.js');
   const eventsJs = readText('sidebar/events.js');
   const SidebarState = freshRequire('sidebar/state.js');
   const ids = extractHtmlIds(html);
@@ -235,6 +238,7 @@ test('sidebar page DOM, scripts, actions, history, export, share, and reader con
     'sidebar/reader-session.js',
     'sidebar/generation.js',
     'sidebar/mode-control.js',
+    'sidebar/render.js',
     'sidebar/events.js',
     'sidebar.js'
   ]);
@@ -296,6 +300,32 @@ test('sidebar page DOM, scripts, actions, history, export, share, and reader con
   assert.strictEqual(countMatches(js, /function setSummaryModeControlValue\(/g), 0);
   assert.strictEqual(countMatches(js, /function focusActiveSummaryModeOption\(/g), 0);
   assert.strictEqual(countMatches(js, /function initializeModeOptions\(/g), 0);
+  assert.ok(js.includes('const SidebarRender = window.YilanSidebarRender'));
+  assert.ok(js.includes('SidebarRender.createRenderController'));
+  assert.ok(js.includes('renderController.renderPlaceholder'));
+  assert.ok(js.includes('renderController.renderDiagnostics'));
+  assert.ok(renderJs.includes('globalAny.YilanSidebarRender = api'));
+  assert.ok(renderJs.includes('function createRenderController('));
+  assert.ok(renderJs.includes('MARKDOWN_SANITIZE_OPTIONS'));
+  assert.ok(renderJs.includes('function renderMarkdown('));
+  assert.ok(renderJs.includes('function renderArticleMeta('));
+  assert.strictEqual(countMatches(js, /function sanitizeMarkdownToHtml\(/g), 0);
+  assert.strictEqual(countMatches(js, /function renderMarkdown\(/g), 0);
+  assert.strictEqual(countMatches(js, /function renderPlaceholder\(/g), 0);
+  assert.strictEqual(countMatches(js, /function renderInlineNote\(/g), 0);
+  assert.strictEqual(countMatches(js, /function renderErrorBox\(/g), 0);
+  assert.strictEqual(countMatches(js, /function renderCancelledState\(/g), 0);
+  assert.strictEqual(countMatches(js, /function renderChunkProgress\(/g), 0);
+  assert.strictEqual(countMatches(js, /function renderArticleMeta\(/g), 0);
+  assert.strictEqual(countMatches(js, /function renderTrustCard\(/g), 0);
+  assert.strictEqual(countMatches(js, /function renderDiagnostics\(/g), 0);
+  assert.strictEqual(countMatches(js, /function setStatus\(/g), 0);
+  assert.strictEqual(countMatches(js, /function setStats\(/g), 0);
+  assert.strictEqual(countMatches(js, /function updateStatsFromMarkdown\(/g), 0);
+  assert.strictEqual(countMatches(js, /function scheduleMarkdownRender\(/g), 0);
+  assert.strictEqual(countMatches(js, /function cancelScheduledMarkdownRender\(/g), 0);
+  assert.strictEqual(countMatches(js, /function setBadgeTone\(/g), 0);
+  assert.strictEqual(countMatches(js, /function highlightBlocks\(/g), 0);
   assert.ok(js.includes('const SidebarEvents = window.YilanSidebarEvents'));
   assert.ok(js.includes('SidebarEvents.createEventsController'));
   assert.ok(js.includes('eventsController.bind'));
@@ -515,6 +545,7 @@ test('technical architecture docs capture diagrams, runtime loading, and module 
   [
     '`adapters/`',
     '`sidebar/state.js`',
+    '`sidebar/render.js`',
     '`background/entrypoints.js`',
     '`background/run-state.js`',
     '`background/reader-sessions.js`',
