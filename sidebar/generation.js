@@ -106,7 +106,9 @@
       if (!state.activePort) return;
       try {
         state.activePort.disconnect();
-      } catch {}
+      } catch (error) {
+        console.warn('[Sidebar] Failed to disconnect port:', error);
+      }
       state.activePort = null;
       state.activeStreamRunId = '';
     }
