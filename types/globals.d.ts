@@ -11,6 +11,10 @@ declare const marked: any;
 declare const hljs: any;
 declare const html2canvas: any;
 
+// These globals are attached at runtime by shared modules in browser contexts.
+declare var AISummaryConstants: any;
+declare var AISummaryAdapterUtils: any;
+
 interface Window {
   __aiSummaryInjected?: boolean;
   chrome: any;
@@ -25,6 +29,8 @@ interface Window {
   AISummaryProviderPresets: any;
   AISummaryReaderView: any;
   AISummaryRunUtils: any;
+  AISummaryAdapterUtils: any;
+  AISummaryConstants: any;
   AISummarySidebarHistory: any;
   AISummarySidebarMetaView: any;
   AISummaryStrings: any;

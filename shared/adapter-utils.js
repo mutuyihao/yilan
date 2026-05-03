@@ -15,6 +15,6 @@
   if (typeof module !== 'undefined' && module.exports) {
     module.exports = AdapterUtils;
   } else {
-    global.AISummaryAdapterUtils = AdapterUtils;
+    (/** @type {any} */ (global)).AISummaryAdapterUtils = AdapterUtils;
   }
-})(typeof globalThis !== 'undefined' ? globalThis : typeof self !== 'undefined' ? self : this);
+})(typeof globalThis !== 'undefined' ? globalThis : typeof self !== 'undefined' ? self : {});

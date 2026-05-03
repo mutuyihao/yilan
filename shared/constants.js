@@ -21,6 +21,6 @@
   if (typeof module !== 'undefined' && module.exports) {
     module.exports = Constants;
   } else {
-    global.AISummaryConstants = Constants;
+    (/** @type {any} */ (global)).AISummaryConstants = Constants;
   }
-})(typeof globalThis !== 'undefined' ? globalThis : typeof self !== 'undefined' ? self : this);
+})(typeof globalThis !== 'undefined' ? globalThis : typeof self !== 'undefined' ? self : {});
