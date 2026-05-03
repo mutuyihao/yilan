@@ -1,19 +1,16 @@
 ﻿(function (global) {
   const ProviderPresets = global.AISummaryProviderPresets || (typeof require === 'function' ? require('../shared/provider-presets.js') : null);
+  const AdapterUtils = global.AISummaryAdapterUtils || (typeof require === 'function' ? require('../shared/adapter-utils.js') : null);
   const DEFAULT_BASE_ROOT = 'https://api.anthropic.com';
 
-  function trimTrailingSlash(value) {
-    return String(value || '').replace(/\/+$/, '');
-  }
-
   function stripMessagesSuffix(value) {
-    return trimTrailingSlash(value)
+    return AdapterUtils.trimTrailingSlash(value)
       .replace(/\/v1\/messages$/i, '')
       .replace(/\/messages$/i, '');
   }
 
   function appendMessagesEndpoint(baseRoot) {
-    const root = trimTrailingSlash(stripMessagesSuffix(baseRoot || DEFAULT_BASE_ROOT));
+    const root = AdapterUtils.trimTrailingSlash(stripMessagesSuffix(baseRoot || DEFAULT_BASE_ROOT));
     if (/\/v1$/i.test(root)) {
       return root + '/messages';
     }
@@ -40,9 +37,9 @@
 
     if (!customUrl) {
       baseUrl = appendMessagesEndpoint(DEFAULT_BASE_ROOT);
-    } else if (/\/v1\/messages$/i.test(trimTrailingSlash(customUrl))) {
-      baseUrl = trimTrailingSlash(customUrl);
-    } else if (settings?.endpointMode === 'messages' || shouldApplyPresetRoot || /\/v1$/i.test(trimTrailingSlash(customUrl))) {
+    } else if (/\/v1\/messages$/i.test(AdapterUtils.trimTrailingSlash(customUrl))) {
+      baseUrl = AdapterUtils.trimTrailingSlash(customUrl);
+    } else if (settings?.endpointMode === 'messages' || shouldApplyPresetRoot || /\/v1$/i.test(AdapterUtils.trimTrailingSlash(customUrl))) {
       baseUrl = appendMessagesEndpoint(customUrl);
     } else {
       baseUrl = appendMessagesEndpoint(customUrl);

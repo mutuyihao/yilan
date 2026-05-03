@@ -1,5 +1,6 @@
 ﻿(function (global) {
   const ProviderPresets = global.AISummaryProviderPresets || (typeof require === 'function' ? require('../shared/provider-presets.js') : null);
+  const AdapterUtils = global.AISummaryAdapterUtils || (typeof require === 'function' ? require('../shared/adapter-utils.js') : null);
   const DEFAULT_BASE_ROOT = 'https://api.openai.com/v1';
   const ENDPOINT_PATHS = {
     responses: '/responses',
@@ -7,17 +8,13 @@
     legacy_completions: '/completions'
   };
 
-  function trimTrailingSlash(value) {
-    return String(value || '').replace(/\/+$/, '');
-  }
-
   function normalizeEndpointMode(value) {
     const mode = String(value || '').trim();
     return Object.prototype.hasOwnProperty.call(ENDPOINT_PATHS, mode) ? mode : '';
   }
 
   function detectEndpointModeFromUrl(value) {
-    const lowerValue = trimTrailingSlash(value).toLowerCase();
+    const lowerValue = AdapterUtils.trimTrailingSlash(value).toLowerCase();
     if (lowerValue.endsWith('/chat/completions')) return 'chat_completions';
     if (lowerValue.endsWith('/responses')) return 'responses';
     if (lowerValue.endsWith('/completions')) return 'legacy_completions';
@@ -25,7 +22,7 @@
   }
 
   function stripKnownEndpointSuffix(value) {
-    return trimTrailingSlash(value)
+    return AdapterUtils.trimTrailingSlash(value)
       .replace(/\/chat\/completions$/i, '')
       .replace(/\/responses$/i, '')
       .replace(/\/completions$/i, '');
@@ -33,7 +30,7 @@
 
   function appendEndpoint(baseRoot, endpointMode) {
     const safeMode = normalizeEndpointMode(endpointMode) || 'responses';
-    return trimTrailingSlash(stripKnownEndpointSuffix(baseRoot || DEFAULT_BASE_ROOT)) + ENDPOINT_PATHS[safeMode];
+    return AdapterUtils.trimTrailingSlash(stripKnownEndpointSuffix(baseRoot || DEFAULT_BASE_ROOT)) + ENDPOINT_PATHS[safeMode];
   }
 
   function flattenTextParts(value) {
@@ -72,12 +69,12 @@
       baseUrl = appendEndpoint(customUrl, explicitMode);
       endpointMode = explicitMode;
     } else if (detectedMode) {
-      baseUrl = trimTrailingSlash(customUrl);
+      baseUrl = AdapterUtils.trimTrailingSlash(customUrl);
       endpointMode = detectedMode;
     } else if (presetId && presetId !== 'custom') {
       baseUrl = appendEndpoint(customUrl, endpointMode);
     } else {
-      const normalized = trimTrailingSlash(customUrl);
+      const normalized = AdapterUtils.trimTrailingSlash(customUrl);
       if (/\/v1$/i.test(normalized)) {
         baseUrl = normalized + '/responses';
         endpointMode = 'responses';

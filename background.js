@@ -2,6 +2,7 @@ importScripts(
   'shared/domain.js',
   'shared/errors.js',
   'shared/provider-presets.js',
+  'shared/adapter-utils.js',
   'adapters/openai-adapter.js',
   'adapters/anthropic-adapter.js',
   'adapters/registry.js'
