@@ -37,6 +37,15 @@ const CONTENT_SCRIPT_FILES = [
   'content.js'
 ];
 
+function createErrorResponse(error, fallbackMessage, additionalFields = {}) {
+  const normalized = Errors.normalizeError(error, error?.code, error);
+  return {
+    success: false,
+    error: normalized.message || String(error?.message || error || fallbackMessage),
+    ...additionalFields
+  };
+}
+
 function createTab(url) {
   return new Promise((resolve) => {
     chrome.tabs.create({ url }, (tab) => {
@@ -247,6 +256,7 @@ async function consumeNonStreamResponse(response, adapter, runtime, signal) {
     if (AbortUtils.isAbortError(error)) {
       throw error;
     }
+    console.error('[Yilan] Failed to read response body, using empty string.', error);
     return '';
   });
   AbortUtils.throwIfAborted(signal);
@@ -421,7 +431,10 @@ async function executeRun(options) {
       diagnostics.requestId = response.headers.get('x-request-id') || '';
 
       if (!response.ok) {
-        const errorText = await response.text().catch(() => '');
+        const errorText = await response.text().catch((error) => {
+          console.error('[Yilan] Failed to read error response body, using empty string.', error);
+          return '';
+        });
         if (TransportUtils.isLikelyResponsesCompatibilityFailure(response.status, errorText, runtime)) {
           throw TransportUtils.createEndpointCompatibilityError(response.status, errorText, runtime, meta.stage);
         }
@@ -608,12 +621,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     }).then((result) => {
       sendResponse({ success: true, diagnostics: result.diagnostics, text: result.text });
     }).catch((error) => {
-      const normalized = Errors.normalizeError(error, error?.code, error);
-      sendResponse({
-        success: false,
-        error: normalized,
+      sendResponse(createErrorResponse(error, '连接测试失败。', {
         diagnostics: error?.diagnostics || null
-      });
+      }));
     });
     return true;
   }
@@ -628,13 +638,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     }).then((result) => {
       sendResponse(result);
     }).catch((error) => {
-      const normalized = Errors.normalizeError(error, error?.code, error);
-      sendResponse({
-        success: false,
+      sendResponse(createErrorResponse(error, '生成摘要失败。', {
         runId: message.runId,
-        error: normalized,
         diagnostics: error?.diagnostics || null
-      });
+      }));
     });
     return true;
   }
@@ -653,7 +660,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       }
       sendResponse({ success: true });
     }).catch((error) => {
-      sendResponse({ success: false, error: String(error?.message || error || '') });
+      console.error('[Yilan] Failed to show history.', error);
+      sendResponse(createErrorResponse(error, '打开历史记录失败。'));
     });
     return true;
   }
@@ -662,10 +670,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     Entrypoints.getEntrypointStatus().then((entrypoints) => {
       sendResponse({ success: true, entrypoints });
     }).catch((error) => {
-      sendResponse({
-        success: false,
-        error: String(error?.message || error || '获取入口状态失败。')
-      });
+      console.error('[Yilan] Failed to get entrypoint status.', error);
+      sendResponse(createErrorResponse(error, '获取入口状态失败。'));
     });
     return true;
   }
@@ -674,11 +680,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     Entrypoints.openShortcutSettings().then((result) => {
       sendResponse(result);
     }).catch((error) => {
-      sendResponse({
-        success: false,
-        error: String(error?.message || error || '打开快捷键设置失败。'),
+      console.error('[Yilan] Failed to open shortcut settings.', error);
+      sendResponse(createErrorResponse(error, '打开快捷键设置失败。', {
         url: Entrypoints.SHORTCUT_SETTINGS_URL
-      });
+      }));
     });
     return true;
   }
@@ -695,10 +700,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     }).then((result) => {
       sendResponse(result);
     }).catch((error) => {
-      sendResponse({
-        success: false,
-        error: String(error?.message || error || '打开阅读页失败。')
-      });
+      console.error('[Yilan] Failed to open reader tab.', error);
+      sendResponse(createErrorResponse(error, '打开阅读页失败。'));
     });
     return true;
   }
