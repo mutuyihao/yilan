@@ -271,7 +271,9 @@ async function consumeStreamResponse(response, adapter, runtime, onToken, signal
     abortError = AbortUtils.toAbortError(signal);
     try {
       reader.cancel(abortError);
-    } catch {}
+    } catch (error) {
+      console.warn('[Background] Failed to cancel stream reader:', error);
+    }
   }
 
   if (signal?.aborted) {
