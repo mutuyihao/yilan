@@ -78,7 +78,9 @@
       if (!state.runAbortController || state.runAbortController.signal.aborted) return;
       try {
         state.runAbortController.abort(reason || 'user');
-      } catch {}
+      } catch (error) {
+        console.warn('[Sidebar] Failed to abort current run:', error);
+      }
     }
 
     function clearRunAbortController() {
