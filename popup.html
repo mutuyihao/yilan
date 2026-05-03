@@ -393,6 +393,101 @@
       grid-template-columns: 1fr;
     }
 
+    .inline-row {
+      display: flex;
+      align-items: stretch;
+      gap: 0;
+    }
+
+    .inline-row select,
+    .inline-row input {
+      flex: 1 1 auto;
+      min-width: 0;
+    }
+
+    .inline-row button {
+      flex: 0 0 auto;
+      width: auto;
+      padding: 10px 12px;
+      white-space: nowrap;
+    }
+
+    .inline-row > * {
+      border-radius: 0;
+    }
+
+    .inline-row > :first-child {
+      border-top-left-radius: 12px;
+      border-bottom-left-radius: 12px;
+    }
+
+    .inline-row > :last-child {
+      border-top-right-radius: 12px;
+      border-bottom-right-radius: 12px;
+    }
+
+    /* Prevent double borders when controls are attached */
+    .inline-row > * + * {
+      margin-left: -1px;
+    }
+
+    .inline-row > *:focus {
+      position: relative;
+      z-index: 2;
+    }
+
+    .inline-row > button:hover {
+      position: relative;
+      z-index: 1;
+      transform: none;
+    }
+
+    .icon-btn {
+      width: 42px;
+      padding: 0;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .icon-btn svg {
+      width: 18px;
+      height: 18px;
+    }
+
+    .icon-btn[aria-expanded="true"] {
+      border-color: var(--focus-border);
+      box-shadow: 0 0 0 3px var(--focus-ring);
+    }
+
+    .profile-actions-menu {
+      margin-top: 8px;
+      padding: 8px;
+      border-radius: 12px;
+      border: 1px solid var(--surface-outline);
+      background: var(--surface-soft);
+      display: grid;
+      gap: 8px;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .profile-actions-menu button {
+      width: 100%;
+      text-align: left;
+      padding: 10px 10px;
+      background: color-mix(in srgb, var(--surface-strong) 78%, transparent);
+    }
+
+    .profile-actions-menu button:hover {
+      transform: none;
+    }
+
+    button.danger {
+      border-color: color-mix(in srgb, var(--danger) 40%, transparent);
+      background: color-mix(in srgb, var(--danger) 12%, transparent);
+      color: var(--danger);
+    }
+
     button {
       border: 1px solid var(--line);
       border-radius: 12px;
@@ -401,6 +496,16 @@
       color: var(--text);
       cursor: pointer;
       transition: transform 0.18s ease, border-color 0.18s ease, background 0.18s ease, color 0.18s ease;
+    }
+
+    button:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+    }
+
+    button:disabled:hover {
+      transform: none;
+      border-color: var(--line);
     }
 
     button:hover {
@@ -427,6 +532,36 @@
     .status.success { color: var(--success); }
     .status.warning { color: var(--warning); }
     .status.error { color: var(--danger); }
+
+    .status-details {
+      margin-top: 10px;
+      padding: 10px 12px;
+      border-radius: 12px;
+      border: 1px solid var(--surface-outline);
+      background: var(--surface-soft);
+      color: var(--text-soft);
+      font-size: 12px;
+    }
+
+    .status-details summary {
+      cursor: pointer;
+      color: var(--text);
+      font-size: 12px;
+      user-select: none;
+    }
+
+    .status-details pre {
+      margin: 10px 0 0;
+      white-space: pre-wrap;
+      word-break: break-word;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      color: var(--text-soft);
+    }
+
+    /* Ensure the HTML `hidden` attribute always works even when display is customized. */
+    [hidden] {
+      display: none !important;
+    }
   </style>
 </head>
 <body>
@@ -481,6 +616,34 @@
       <div class="card">
         <div class="card-title">模型连接</div>
         <div class="field">
+          <label for="profileSelect">配置方案</label>
+          <div class="inline-row">
+            <select id="profileSelect"></select>
+            <button
+              type="button"
+              id="profileActionsBtn"
+              class="icon-btn"
+              title="管理配置方案"
+              aria-label="管理配置方案"
+              aria-expanded="false"
+              aria-controls="profileActionsMenu"
+            >
+              <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                <circle cx="12" cy="5" r="1.8"></circle>
+                <circle cx="12" cy="12" r="1.8"></circle>
+                <circle cx="12" cy="19" r="1.8"></circle>
+              </svg>
+            </button>
+          </div>
+          <div id="profileActionsMenu" class="profile-actions-menu" hidden>
+            <button type="button" id="profileNewBtn">新建配置方案</button>
+            <button type="button" id="profileSaveAsBtn">另存为…</button>
+            <button type="button" id="profileRenameBtn">重命名…</button>
+            <button type="button" id="profileDeleteBtn" class="danger">删除</button>
+          </div>
+          <div id="profileHint" class="hint"></div>
+        </div>
+        <div class="field">
           <label for="providerPreset">厂商预设</label>
           <select id="providerPreset">
           </select>
@@ -507,11 +670,17 @@
           <label for="baseURL">Base URL</label>
           <input id="baseURL" type="text" placeholder="留空使用默认地址" data-autosave="debounced">
           <div id="baseURLHint" class="hint"></div>
+          <div id="endpointPreview" class="hint"></div>
         </div>
         <div class="field">
           <label for="modelName">模型名称</label>
-          <input id="modelName" type="text" placeholder="gpt-4o-mini" data-autosave="debounced">
+          <div class="inline-row">
+            <input id="modelName" type="text" placeholder="gpt-4o-mini" data-autosave="debounced" list="modelNameOptions">
+            <button type="button" id="refreshModelsBtn">刷新</button>
+          </div>
+          <datalist id="modelNameOptions"></datalist>
           <div id="modelHint" class="hint"></div>
+          <div id="modelListHint" class="hint"></div>
         </div>
       </div>
 
@@ -665,12 +834,17 @@
     </section>
 
     <div id="status" class="status">设置修改后会自动保存。</div>
+    <details id="statusDetails" class="status-details" hidden>
+      <summary>错误详情</summary>
+      <pre id="statusDetailsText"></pre>
+    </details>
   </form>
 
   <script src="shared/errors.js"></script>
   <script src="shared/trust-policy.js"></script>
   <script src="shared/provider-presets.js"></script>
   <script src="shared/constants.js"></script>
+  <script src="shared/url-utils.js"></script>
   <script src="popup.js"></script>
 </body>
 </html>

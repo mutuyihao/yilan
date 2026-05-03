@@ -1,4 +1,25 @@
 (function initYilanSidebarReaderSession(global) {
+  const Errors = global.AISummaryErrors;
+
+  function getRuntimeErrorMessage(errorLike) {
+    if (!errorLike) {
+      return typeof Errors?.getUserMessage === 'function' ? Errors.getUserMessage(null) : 'Unknown error.';
+    }
+    if (typeof errorLike === 'string') {
+      return errorLike || (typeof Errors?.getUserMessage === 'function' ? Errors.getUserMessage(null) : 'Unknown error.');
+    }
+
+    const hasMessage = typeof errorLike?.message === 'string' && errorLike.message.trim();
+    const hasCode = typeof errorLike?.code === 'string' && errorLike.code.trim();
+    if (hasMessage && !hasCode) return errorLike.message.trim();
+
+    if (typeof Errors?.getUserMessage === 'function') {
+      return Errors.getUserMessage(errorLike);
+    }
+    if (hasMessage) return errorLike.message.trim();
+    return String(errorLike);
+  }
+
   function createReaderSessionController(deps) {
     const getState = deps.getState;
     const getElements = deps.getElements;
@@ -41,7 +62,7 @@
         return;
       }
 
-      setStatus(response.error || '\u6253\u5f00\u9605\u8bfb\u9875\u5931\u8d25\u3002', 'error');
+      setStatus(getRuntimeErrorMessage(response.error) || '\u6253\u5f00\u9605\u8bfb\u9875\u5931\u8d25\u3002', 'error');
     }
 
     return {

@@ -5,6 +5,7 @@ const Theme = window.AISummaryTheme;
 const UiFormat = window.AISummaryUiFormat;
 const UiLabels = window.AISummaryUiLabels;
 const Constants = window.AISummaryConstants;
+const UrlUtils = window.AISummaryUrlUtils;
 
 const SETTINGS_KEYS = [
   'providerPreset',
@@ -24,6 +25,12 @@ const SETTINGS_KEYS = [
   'entrypointSimpleMode',
   'entrypointReuseHistory'
 ];
+
+const PROFILES_INDEX_KEY = 'yilanProfilesIndexV1';
+const ACTIVE_PROFILE_ID_KEY = 'yilanActiveProfileIdV1';
+const PROFILE_KEY_PREFIX = 'yilanProfileV1:';
+
+const MODELS_CACHE_STORAGE_KEY = 'yilanModelsCacheV1';
 
 const ACTIVE_TAB_STORAGE_KEY = 'popupActiveTab';
 const IDLE_STATUS_TEXT = '设置修改后会自动保存。';
@@ -56,7 +63,64 @@ const saveState = {
   requestId: 0
 };
 
+const profileState = {
+  activeId: '',
+  index: []
+};
+
 const $ = (id) => document.getElementById(id);
+
+function getRuntimeErrorMessage(errorLike) {
+  if (!errorLike) {
+    return typeof Errors?.getUserMessage === 'function' ? Errors.getUserMessage(null) : 'Unknown error.';
+  }
+  if (typeof errorLike === 'string') {
+    return errorLike || (typeof Errors?.getUserMessage === 'function' ? Errors.getUserMessage(null) : 'Unknown error.');
+  }
+
+  const hasMessage = typeof errorLike?.message === 'string' && errorLike.message.trim();
+  const hasCode = typeof errorLike?.code === 'string' && errorLike.code.trim();
+
+  // Prefer raw messages for plain `{ message: string }` objects (e.g. chrome.runtime.lastError),
+  // otherwise Errors.getUserMessage() will fall back to a generic "Unknown error" catalog message.
+  if (hasMessage && !hasCode) return errorLike.message.trim();
+
+  if (typeof Errors?.getUserMessage === 'function') {
+    return Errors.getUserMessage(errorLike);
+  }
+  if (hasMessage) return errorLike.message.trim();
+  return String(errorLike);
+}
+
+function buildErrorDetailsText(errorLike, diagnostics) {
+  if (!errorLike && !diagnostics) return '';
+
+  const error = errorLike && typeof errorLike === 'object' ? errorLike : null;
+  const diag = diagnostics || (errorLike && typeof errorLike === 'object' ? errorLike.diagnostics : null);
+  const lines = [];
+
+  if (error?.code) lines.push(`code: ${error.code}`);
+  if (typeof error?.httpStatus === 'number' && error.httpStatus) lines.push(`httpStatus: ${error.httpStatus}`);
+  if (error?.endpointHost) lines.push(`endpointHost: ${error.endpointHost}`);
+  if (error?.provider) lines.push(`provider: ${error.provider}`);
+  if (error?.endpointMode) lines.push(`endpointMode: ${error.endpointMode}`);
+  if (error?.stage) lines.push(`stage: ${error.stage}`);
+  if (error?.detail) lines.push(`detail: ${String(error.detail).trim()}`);
+
+  if (diag?.baseUrl) lines.push(`requestUrl: ${diag.baseUrl}`);
+  if (diag?.adapterId) lines.push(`adapterId: ${diag.adapterId}`);
+  if (diag?.model) lines.push(`model: ${diag.model}`);
+  if (diag?.requestedEndpointMode) lines.push(`requestedEndpointMode: ${diag.requestedEndpointMode}`);
+  if (diag?.autoEndpointSelected) lines.push(`autoEndpointSelected: ${diag.autoEndpointSelected}`);
+  if (Array.isArray(diag?.autoEndpointTried) && diag.autoEndpointTried.length) {
+    lines.push(`autoEndpointTried: ${diag.autoEndpointTried.join(' -> ')}`);
+  }
+  if (diag?.autoBaseUrlAdjusted) {
+    lines.push(`autoBaseUrlAdjusted: true (appliedV1: ${diag.autoBaseUrlAppliedV1 ? 'yes' : 'no'})`);
+  }
+
+  return lines.join('\n').trim();
+}
 
 function storageGet(keys) {
   return new Promise((resolve, reject) => {
@@ -73,6 +137,42 @@ function storageGet(keys) {
 function storageSet(payload) {
   return new Promise((resolve, reject) => {
     chrome.storage.sync.set(payload, () => {
+      if (chrome.runtime.lastError) {
+        reject(new Error(chrome.runtime.lastError.message));
+        return;
+      }
+      resolve();
+    });
+  });
+}
+
+function storageRemove(keys) {
+  return new Promise((resolve, reject) => {
+    chrome.storage.sync.remove(keys, () => {
+      if (chrome.runtime.lastError) {
+        reject(new Error(chrome.runtime.lastError.message));
+        return;
+      }
+      resolve();
+    });
+  });
+}
+
+function storageLocalGet(keys) {
+  return new Promise((resolve, reject) => {
+    chrome.storage.local.get(keys, (items) => {
+      if (chrome.runtime.lastError) {
+        reject(new Error(chrome.runtime.lastError.message));
+        return;
+      }
+      resolve(items || {});
+    });
+  });
+}
+
+function storageLocalSet(payload) {
+  return new Promise((resolve, reject) => {
+    chrome.storage.local.set(payload, () => {
       if (chrome.runtime.lastError) {
         reject(new Error(chrome.runtime.lastError.message));
         return;
@@ -99,6 +199,23 @@ function setStatus(text, tone) {
   if (!node) return;
   node.textContent = text;
   node.className = 'status' + (tone ? ' ' + tone : '');
+}
+
+function setStatusDetails(text) {
+  const detailsNode = $('statusDetails');
+  const textNode = $('statusDetailsText');
+  if (!detailsNode || !textNode) return;
+
+  const value = String(text || '').trim();
+  if (!value) {
+    detailsNode.hidden = true;
+    detailsNode.open = false;
+    textNode.textContent = '';
+    return;
+  }
+
+  textNode.textContent = value;
+  detailsNode.hidden = false;
 }
 
 const formatDateTime = (value) => UiFormat.formatDateTime(value, { emptyText: '未记录', includeYear: false });
@@ -172,6 +289,61 @@ function buildEndpointPreview(provider, endpointMode) {
   if (endpointMode === 'chat_completions') return '/chat/completions';
   if (endpointMode === 'legacy_completions') return '/completions';
   return '按 Base URL 自动判断';
+}
+
+function pickEffectiveBaseURLInput(rawInput, fallbackBaseUrl) {
+  const normalized = normalizeBaseURLInput(rawInput);
+  if (normalized) return normalized;
+  return String(fallbackBaseUrl || '').trim();
+}
+
+function renderEndpointPreview() {
+  const previewNode = $('endpointPreview');
+  if (!previewNode) return;
+
+  const { provider, endpointMode, profile } = getCurrentSelection();
+  const rawInput = $('baseURL')?.value || '';
+
+  const defaultBaseUrl = provider === 'anthropic' ? 'https://api.anthropic.com' : 'https://api.openai.com/v1';
+  const baseRoot = pickEffectiveBaseURLInput(rawInput, profile?.baseUrl || defaultBaseUrl);
+  if (!baseRoot) {
+    previewNode.textContent = '';
+    return;
+  }
+
+  const openaiDetected = UrlUtils?.detectOpenAiEndpointModeFromUrl?.(baseRoot) || '';
+  const anthropicDetected = UrlUtils?.detectAnthropicEndpointModeFromUrl?.(baseRoot) || '';
+  const isFullEndpoint = !!(openaiDetected || anthropicDetected);
+
+  if (isFullEndpoint) {
+    const detectedLabel = openaiDetected
+      ? (ProviderPresets?.ENDPOINT_MODE_META?.[openaiDetected]?.label || openaiDetected)
+      : (ProviderPresets?.ENDPOINT_MODE_META?.[anthropicDetected]?.label || anthropicDetected);
+    previewNode.textContent = `将请求：${baseRoot}。已识别为完整 endpoint（${detectedLabel}），将以 URL 为准，忽略 endpointMode 拼接。`;
+    return;
+  }
+
+  if (provider === 'anthropic') {
+    const root = UrlUtils?.stripAnthropicMessagesSuffix?.(baseRoot) || baseRoot;
+    previewNode.textContent = `将请求：${root}/v1/messages。`;
+    return;
+  }
+
+  const root = UrlUtils?.stripOpenAiEndpointSuffix?.(baseRoot) || baseRoot;
+  const hasV1 = /\/v1$/i.test(root);
+
+  if (endpointMode === 'auto') {
+    previewNode.textContent = `将依次尝试：${root}/responses -> ${root}/chat/completions -> ${root}/completions。${hasV1 ? '当前 Base URL 包含 /v1。' : '当前 Base URL 不包含 /v1（如接口要求 /v1，可通过连接测试自动修正）。'}`;
+    return;
+  }
+
+  const path = buildEndpointPreview(provider, endpointMode);
+  if (path && path.startsWith('/')) {
+    previewNode.textContent = `将请求：${root}${path}。${hasV1 ? '当前 Base URL 包含 /v1。' : '当前 Base URL 不包含 /v1（如接口要求 /v1，可通过连接测试自动修正）。'}`;
+    return;
+  }
+
+  previewNode.textContent = '';
 }
 
 function inferPresetId(settings) {
@@ -291,6 +463,7 @@ function updateHints() {
 
   $('baseURL').placeholder = profile?.baseUrl || '留空使用默认地址';
   $('modelName').placeholder = profile?.defaultModel || (provider === 'anthropic' ? 'claude-sonnet-4-20250514' : 'gpt-4o-mini');
+  renderEndpointPreview();
 }
 
 function syncSelectionState(options = {}) {
@@ -327,6 +500,31 @@ function validateBaseURL(url) {
   }
 }
 
+function normalizeBaseURLInput(value) {
+  if (UrlUtils?.normalizeBaseURLInput) return UrlUtils.normalizeBaseURLInput(value);
+
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+
+  let normalized = raw;
+  if (!/^https?:\/\//i.test(normalized)) {
+    // Treat bare domains/hosts as HTTPS by default for convenience.
+    if (/^[a-z0-9.-]+(?::\d+)?(?:\/|$)/i.test(normalized)) {
+      normalized = 'https://' + normalized;
+    }
+  }
+
+  try {
+    const parsed = new URL(normalized);
+    parsed.hash = '';
+    parsed.search = '';
+    parsed.pathname = String(parsed.pathname || '').replace(/\/+$/, '') || '/';
+    return parsed.toString().replace(/\/$/, '');
+  } catch {
+    return String(normalized).replace(/\/+$/, '');
+  }
+}
+
 function collectSettings() {
   const presetId = $('providerPreset').value || 'custom';
   const provider = ProviderPresets.normalizeProvider($('aiProvider').value, presetId);
@@ -337,7 +535,7 @@ function collectSettings() {
     aiProvider: provider,
     endpointMode,
     apiKey: $('apiKey').value.trim(),
-    aiBaseURL: $('baseURL').value.trim(),
+    aiBaseURL: normalizeBaseURLInput($('baseURL').value.trim()),
     modelName: $('modelName').value.trim(),
     systemPrompt: $('systemPrompt').value.trim(),
     autoTranslate: $('autoTranslate').checked,
@@ -354,6 +552,307 @@ function collectSettings() {
 
 function createSettingsSignature(settings) {
   return JSON.stringify(settings);
+}
+
+function createProfileId() {
+  try {
+    if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+      return 'prof_' + crypto.randomUUID();
+    }
+  } catch {}
+
+  return 'prof_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
+}
+
+function getProfileStorageKey(id) {
+  const safeId = String(id || '').trim();
+  return safeId ? PROFILE_KEY_PREFIX + safeId : '';
+}
+
+function normalizeProfilesIndex(value) {
+  if (!Array.isArray(value)) return [];
+
+  const output = [];
+  const seen = new Set();
+  value.forEach((item) => {
+    if (!item || typeof item !== 'object') return;
+    const id = String(item.id || '').trim();
+    if (!id || seen.has(id)) return;
+    seen.add(id);
+
+    const name = String(item.name || '').trim() || '未命名';
+    output.push({
+      id,
+      name,
+      updatedAt: String(item.updatedAt || ''),
+      lastUsedAt: String(item.lastUsedAt || ''),
+      providerPreset: String(item.providerPreset || ''),
+      aiProvider: String(item.aiProvider || '')
+    });
+  });
+
+  return output;
+}
+
+function upsertProfilesIndexEntry(index, entry, options = {}) {
+  const next = [];
+  const id = String(entry?.id || '').trim();
+  if (!id) return normalizeProfilesIndex(index);
+
+  const allowReorder = options.prepend === true;
+  let replaced = false;
+
+  (index || []).forEach((item) => {
+    if (!item || typeof item !== 'object') return;
+    const itemId = String(item.id || '').trim();
+    if (!itemId) return;
+    if (itemId === id) {
+      next.push(Object.assign({}, item, entry));
+      replaced = true;
+    } else {
+      next.push(item);
+    }
+  });
+
+  if (!replaced) {
+    if (allowReorder) next.unshift(entry);
+    else next.push(entry);
+  }
+
+  return normalizeProfilesIndex(next);
+}
+
+function removeProfilesIndexEntry(index, id) {
+  const targetId = String(id || '').trim();
+  if (!targetId) return normalizeProfilesIndex(index);
+  return normalizeProfilesIndex((index || []).filter((item) => String(item?.id || '').trim() !== targetId));
+}
+
+function findProfileIndexEntry(id) {
+  const safeId = String(id || '').trim();
+  if (!safeId) return null;
+  return (profileState.index || []).find((entry) => entry && entry.id === safeId) || null;
+}
+
+function renderProfileSelector() {
+  const select = $('profileSelect');
+  if (!select) return;
+
+  const activeId = profileState.activeId || '';
+  select.innerHTML = '';
+
+  const unboundOption = document.createElement('option');
+  unboundOption.value = '';
+  unboundOption.textContent = '当前配置（未绑定）';
+  select.appendChild(unboundOption);
+
+  (profileState.index || []).forEach((entry) => {
+    const option = document.createElement('option');
+    option.value = entry.id;
+
+    const presetLabel = ProviderPresets?.getPreset?.(entry.providerPreset)?.label || entry.providerPreset || 'custom';
+    option.textContent = entry.name + ' · ' + presetLabel;
+
+    select.appendChild(option);
+  });
+
+  select.value = activeId;
+  renderProfileHint();
+}
+
+function renderProfileHint() {
+  const hint = $('profileHint');
+  if (!hint) return;
+
+  const activeId = profileState.activeId || '';
+  const activeEntry = findProfileIndexEntry(activeId);
+
+  hint.textContent = activeId && activeEntry
+    ? `已绑定：${activeEntry.name}。后续修改会自动更新该配置。`
+    : '未绑定：可以选择配置方案，或点击“另存为”创建一个可快速切换的配置。';
+
+  const renameBtn = $('profileRenameBtn');
+  const deleteBtn = $('profileDeleteBtn');
+  if (renameBtn) renameBtn.disabled = !activeId;
+  if (deleteBtn) deleteBtn.disabled = !activeId;
+}
+
+async function updateProfilesStorage(index, activeId) {
+  const payload = {
+    [PROFILES_INDEX_KEY]: normalizeProfilesIndex(index)
+  };
+  if (typeof activeId !== 'undefined') {
+    payload[ACTIVE_PROFILE_ID_KEY] = String(activeId || '').trim();
+  }
+  await storageSet(payload);
+}
+
+async function activateProfile(profileId) {
+  const id = String(profileId || '').trim();
+  const select = $('profileSelect');
+
+  if (!id) {
+    profileState.activeId = '';
+    await updateProfilesStorage(profileState.index, '');
+    renderProfileSelector();
+    setStatus('已切换到当前配置（未绑定）。', 'success');
+    setStatusDetails('');
+    return;
+  }
+
+  const key = getProfileStorageKey(id);
+  if (!key) return;
+
+  const items = await storageGet([key]);
+  const profileSettings = items?.[key] && typeof items[key] === 'object' ? items[key] : null;
+  if (!profileSettings) {
+    if (select) select.value = profileState.activeId || '';
+    setStatus('未找到该配置方案的数据，可能已被删除。', 'error');
+    return;
+  }
+
+  applySettingsToForm(profileSettings);
+  await persistSettings({ force: true, silentStatus: true, skipSuccessStatus: true });
+
+  profileState.activeId = id;
+  const now = new Date().toISOString();
+  profileState.index = upsertProfilesIndexEntry(profileState.index, Object.assign({}, findProfileIndexEntry(id) || { id, name: '未命名' }, {
+    id,
+    lastUsedAt: now,
+    providerPreset: profileSettings.providerPreset || '',
+    aiProvider: profileSettings.aiProvider || ''
+  }));
+
+  await updateProfilesStorage(profileState.index, id);
+  renderProfileSelector();
+  setStatus('已切换配置方案。', 'success');
+  setStatusDetails('');
+}
+
+async function createOrCloneProfile(name, settings, options = {}) {
+  const safeName = String(name || '').trim();
+  if (!safeName) return null;
+
+  const payloadSettings = Object.assign({}, settings || {});
+  const id = createProfileId();
+  const now = new Date().toISOString();
+  const key = getProfileStorageKey(id);
+  if (!key) return null;
+
+  const entry = {
+    id,
+    name: safeName,
+    updatedAt: now,
+    lastUsedAt: now,
+    providerPreset: payloadSettings.providerPreset || '',
+    aiProvider: payloadSettings.aiProvider || ''
+  };
+
+  const nextIndex = upsertProfilesIndexEntry(profileState.index, entry, { prepend: true });
+  const nextActiveId = options.activate === false ? (profileState.activeId || '') : id;
+
+  await storageSet(Object.assign({
+    [key]: payloadSettings,
+    [PROFILES_INDEX_KEY]: nextIndex,
+    [ACTIVE_PROFILE_ID_KEY]: nextActiveId
+  }, options.writeSettings !== false ? payloadSettings : {}));
+
+  profileState.index = nextIndex;
+  profileState.activeId = nextActiveId;
+  renderProfileSelector();
+  return id;
+}
+
+function getModelsCacheKeyFromSettings(settings) {
+  const provider = String(settings?.aiProvider || '').trim().toLowerCase();
+  if (!provider) return '';
+
+  const baseUrl = normalizeBaseURLInput(settings?.aiBaseURL || '');
+  if (!baseUrl) return provider;
+
+  if (provider === 'openai') {
+    const root = UrlUtils?.stripOpenAiEndpointSuffix?.(baseUrl) || baseUrl;
+    return provider + '|' + String(root || '').toLowerCase();
+  }
+
+  if (provider === 'anthropic') {
+    const root = UrlUtils?.stripAnthropicMessagesSuffix?.(baseUrl) || baseUrl;
+    return provider + '|' + String(root || '').toLowerCase();
+  }
+
+  return provider + '|' + String(baseUrl || '').toLowerCase();
+}
+
+function renderModelOptions(models, meta = {}) {
+  const datalist = $('modelNameOptions');
+  if (!datalist) return;
+
+  datalist.innerHTML = '';
+  const ids = Array.isArray(models) ? models.map((item) => (typeof item === 'string' ? item : item?.id)).filter(Boolean) : [];
+  ids.forEach((id) => {
+    const option = document.createElement('option');
+    option.value = String(id);
+    datalist.appendChild(option);
+  });
+
+  const hint = $('modelListHint');
+  if (!hint) return;
+
+  if (!ids.length) {
+    hint.textContent = meta.message || '';
+    return;
+  }
+
+  const fetchedAt = meta.fetchedAt ? formatDateTime(meta.fetchedAt) : '';
+  hint.textContent = fetchedAt ? `已加载 ${ids.length} 个模型（${fetchedAt}）。` : `已加载 ${ids.length} 个模型。`;
+}
+
+async function loadCachedModelOptions(settings) {
+  try {
+    const cacheKey = getModelsCacheKeyFromSettings(settings);
+    if (!cacheKey) return;
+
+    const items = await storageLocalGet([MODELS_CACHE_STORAGE_KEY]);
+    const cache = items?.[MODELS_CACHE_STORAGE_KEY];
+    const entry = cache && typeof cache === 'object' ? cache?.[cacheKey] : null;
+    const models = Array.isArray(entry?.models) ? entry.models : [];
+    if (!models.length) return;
+
+    renderModelOptions(models, { fetchedAt: entry?.fetchedAt || '' });
+  } catch {
+    // Ignore local cache failures.
+  }
+}
+
+async function refreshModelOptions(options = {}) {
+  const button = $('refreshModelsBtn');
+  if (button) {
+    button.disabled = true;
+    button.textContent = '刷新中...';
+  }
+
+  try {
+    await persistSettings({ skipSuccessStatus: true, silentStatus: true });
+    const settings = collectSettings();
+
+    if (!settings.apiKey) {
+      renderModelOptions([], { message: '请先填写 API Key 后再刷新模型列表。' });
+      return;
+    }
+
+    const response = await runtimeSendMessage({ action: 'listModels', settings });
+    if (!response.success) {
+      renderModelOptions([], { message: '模型列表获取失败：' + getRuntimeErrorMessage(response.error) });
+      return;
+    }
+
+    renderModelOptions(response.models || [], { fetchedAt: response.fetchedAt || '' });
+  } finally {
+    if (button) {
+      button.disabled = false;
+      button.textContent = '刷新';
+    }
+  }
 }
 
 function clearAutoSaveTimer() {
@@ -379,19 +878,43 @@ async function persistSettings(options = {}) {
   }
 
   try {
-    await storageSet(settings);
+    const activeProfileId = String(profileState.activeId || '').trim();
+    const payload = Object.assign({}, settings);
+
+    if (activeProfileId) {
+      const profileKey = getProfileStorageKey(activeProfileId);
+      if (profileKey) {
+        payload[profileKey] = Object.assign({}, settings);
+      }
+
+      const now = new Date().toISOString();
+      const existingEntry = findProfileIndexEntry(activeProfileId) || { id: activeProfileId, name: '未命名' };
+      profileState.index = upsertProfilesIndexEntry(profileState.index, Object.assign({}, existingEntry, {
+        updatedAt: now,
+        providerPreset: settings.providerPreset || '',
+        aiProvider: settings.aiProvider || ''
+      }));
+
+      payload[PROFILES_INDEX_KEY] = profileState.index;
+      payload[ACTIVE_PROFILE_ID_KEY] = activeProfileId;
+    }
+
+    await storageSet(payload);
     saveState.lastSavedSignature = signature;
+    renderProfileHint();
     if (requestId === saveState.requestId && !options.skipSuccessStatus) {
       if (settings.aiBaseURL && !validateBaseURL(settings.aiBaseURL)) {
         setStatus('已保存，但 Base URL 格式可能不正确。', 'warning');
       } else {
         setStatus(getSaveSuccessText(settings), 'success');
       }
+      setStatusDetails('');
     }
     return true;
   } catch (error) {
     if (requestId === saveState.requestId) {
       setStatus(`保存失败：${String(error?.message || error || '未知错误')}`, 'error');
+      setStatusDetails('');
     }
     return false;
   }
@@ -472,37 +995,72 @@ function bindAutoSaveControls() {
       persistSettings();
     });
   });
+
+  const baseUrlField = $('baseURL');
+  if (baseUrlField) {
+    baseUrlField.addEventListener('input', () => {
+      renderEndpointPreview();
+    });
+    baseUrlField.addEventListener('blur', () => {
+      const normalized = normalizeBaseURLInput(baseUrlField.value);
+      if (normalized !== baseUrlField.value) {
+        baseUrlField.value = normalized;
+        persistSettings();
+      }
+      loadCachedModelOptions(collectSettings());
+    });
+  }
 }
 
-async function loadSettings() {
-  const settings = await storageGet(SETTINGS_KEYS);
-  const trustSettings = Trust.normalizeSettings(settings);
-  const presetId = inferPresetId(settings);
-  const provider = ProviderPresets.normalizeProvider(settings.aiProvider || '', presetId);
-  const endpointMode = inferEndpointMode(settings, presetId, provider);
-  const themePreference = Theme.normalizePreference(settings.themePreference);
+function applySettingsToForm(settings) {
+  const safeSettings = settings || {};
+  const trustSettings = Trust.normalizeSettings(safeSettings);
+  const presetId = inferPresetId(safeSettings);
+  const provider = ProviderPresets.normalizeProvider(safeSettings.aiProvider || '', presetId);
+  const endpointMode = inferEndpointMode(safeSettings, presetId, provider);
+  const themePreference = Theme.normalizePreference(safeSettings.themePreference);
 
   $('providerPreset').value = presetId;
   $('aiProvider').value = provider;
-  $('apiKey').value = settings.apiKey || '';
-  $('baseURL').value = settings.aiBaseURL || '';
-  $('modelName').value = settings.modelName || '';
-  $('systemPrompt').value = settings.systemPrompt || '';
-  $('autoTranslate').checked = !!settings.autoTranslate;
-  $('defaultLanguage').value = settings.defaultLanguage || 'zh';
+  $('apiKey').value = safeSettings.apiKey || '';
+  $('baseURL').value = safeSettings.aiBaseURL || '';
+  $('modelName').value = safeSettings.modelName || '';
+  $('systemPrompt').value = safeSettings.systemPrompt || '';
+  $('autoTranslate').checked = !!safeSettings.autoTranslate;
+  $('defaultLanguage').value = safeSettings.defaultLanguage || 'zh';
   $('themePreference').value = themePreference;
   $('privacyMode').checked = trustSettings.privacyMode;
   $('defaultAllowHistory').checked = trustSettings.defaultAllowHistory;
   $('defaultAllowShare').checked = trustSettings.defaultAllowShare;
-  $('entrypointAutoStart').checked = settings.entrypointAutoStart !== false;
-  $('entrypointSimpleMode').checked = !!settings.entrypointSimpleMode;
-  $('entrypointReuseHistory').checked = settings.entrypointReuseHistory !== false;
+  $('entrypointAutoStart').checked = safeSettings.entrypointAutoStart !== false;
+  $('entrypointSimpleMode').checked = !!safeSettings.entrypointSimpleMode;
+  $('entrypointReuseHistory').checked = safeSettings.entrypointReuseHistory !== false;
 
   syncSelectionState({ preferredEndpointMode: endpointMode });
   syncThemePreferenceControl(themePreference);
 
   saveState.lastSavedSignature = createSettingsSignature(collectSettings());
+  renderEndpointPreview();
+}
+
+async function loadSettings() {
+  const keys = SETTINGS_KEYS.concat([PROFILES_INDEX_KEY, ACTIVE_PROFILE_ID_KEY]);
+  const items = await storageGet(keys);
+
+  profileState.index = normalizeProfilesIndex(items?.[PROFILES_INDEX_KEY]);
+  profileState.activeId = String(items?.[ACTIVE_PROFILE_ID_KEY] || '').trim();
+
+  if (profileState.activeId && !findProfileIndexEntry(profileState.activeId)) {
+    profileState.activeId = '';
+    await updateProfilesStorage(profileState.index, '');
+  }
+
+  renderProfileSelector();
+  applySettingsToForm(items);
   setStatus(IDLE_STATUS_TEXT);
+  setStatusDetails('');
+
+  await loadCachedModelOptions(collectSettings());
 }
 
 function handleSave(event) {
@@ -540,13 +1098,27 @@ async function handleTestConnection() {
   button.textContent = '测试连接';
 
   if (response.success) {
-    const model = response.diagnostics?.model || settings.modelName || '默认模型';
-    setStatus(`连接成功，当前模型：${model}`, 'success');
+    const diag = response.diagnostics || {};
+    const model = diag?.model || settings.modelName || '默认模型';
+    const extras = [];
+
+    if (diag?.requestedEndpointMode === 'auto' && diag?.autoEndpointSelected) {
+      extras.push(`endpoint=${diag.autoEndpointSelected}`);
+    }
+    if (diag?.autoBaseUrlSaved && typeof diag?.autoBaseUrlAppliedV1 === 'boolean') {
+      extras.push(diag.autoBaseUrlAppliedV1 ? '已自动补齐 /v1' : '已自动去除 /v1');
+    }
+
+    setStatus(`连接成功，当前模型：${model}${extras.length ? `（${extras.join('，')}）` : ''}`, 'success');
+    setStatusDetails('');
+
+    // Best-effort: refresh model list after a successful connection test.
+    refreshModelOptions({ reason: 'after_test' }).catch(() => {});
     return;
   }
 
-  const error = Errors.normalizeError(response.error, response.error?.code, response.error);
-  setStatus(error.message, 'error');
+  setStatus(getRuntimeErrorMessage(response.error), 'error');
+  setStatusDetails(buildErrorDetailsText(response.error, response.diagnostics));
 }
 
 async function openHistory() {
@@ -556,7 +1128,8 @@ async function openHistory() {
     setStatus('已在当前页面打开历史记录。', 'success');
     return;
   }
-  setStatus(response.error || '打开历史记录失败。', 'error');
+  setStatus(getRuntimeErrorMessage(response.error) || '打开历史记录失败。', 'error');
+  setStatusDetails('');
 }
 
 async function loadEntrypointStatus(options = {}) {
@@ -568,7 +1141,8 @@ async function loadEntrypointStatus(options = {}) {
   const response = await runtimeSendMessage({ action: 'getEntrypointStatus' });
   if (!response.success) {
     if (!silent) {
-      setStatus(response.error?.message || response.error || '入口状态检查失败。', 'error');
+      setStatus(getRuntimeErrorMessage(response.error) || '入口状态检查失败。', 'error');
+      setStatusDetails('');
     }
     $('contextMenuDesc').textContent = '右键菜单状态获取失败。';
     $('shortcutDesc').textContent = '快捷键状态获取失败。';
@@ -591,7 +1165,8 @@ async function openShortcutSettings() {
     setStatus('已打开快捷键设置页。', 'success');
     return;
   }
-  setStatus(response.error || '打开快捷键设置页失败。', 'error');
+  setStatus(getRuntimeErrorMessage(response.error) || '打开快捷键设置页失败。', 'error');
+  setStatusDetails('');
 }
 
 function bindSelectionListeners() {
@@ -606,6 +1181,7 @@ function bindSelectionListeners() {
       forceSuggestedValues: true
     });
     persistSettings();
+    loadCachedModelOptions(collectSettings());
   });
 
   $('aiProvider').addEventListener('change', () => {
@@ -614,11 +1190,13 @@ function bindSelectionListeners() {
       syncSuggestedValues: true
     });
     persistSettings();
+    loadCachedModelOptions(collectSettings());
   });
 
   $('endpointMode').addEventListener('change', () => {
     syncSelectionState({ preferredEndpointMode: $('endpointMode').value });
     persistSettings();
+    loadCachedModelOptions(collectSettings());
   });
 
   $('themePreference').addEventListener('change', () => {
@@ -627,11 +1205,190 @@ function bindSelectionListeners() {
   });
 }
 
+function bindProfileControls() {
+  const select = $('profileSelect');
+  const actionsBtn = $('profileActionsBtn');
+  const actionsMenu = $('profileActionsMenu');
+  let actionsMenuOpen = false;
+
+  function setActionsMenuOpen(nextOpen) {
+    if (!actionsBtn || !actionsMenu) return;
+    actionsMenuOpen = !!nextOpen;
+    actionsMenu.hidden = !actionsMenuOpen;
+    actionsBtn.setAttribute('aria-expanded', actionsMenuOpen ? 'true' : 'false');
+  }
+
+  if (actionsBtn && actionsMenu) {
+    setActionsMenuOpen(false);
+
+    actionsBtn.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      setActionsMenuOpen(!actionsMenuOpen);
+    });
+
+    actionsMenu.addEventListener('click', (event) => {
+      const target = event.target;
+      if (!(target instanceof Element)) return;
+      if (!target.closest('button')) return;
+      setActionsMenuOpen(false);
+    });
+
+    document.addEventListener('click', (event) => {
+      if (!actionsMenuOpen) return;
+      const target = event.target;
+      if (!(target instanceof Element)) return;
+      if (actionsBtn.contains(target) || actionsMenu.contains(target)) return;
+      setActionsMenuOpen(false);
+    });
+
+    document.addEventListener('keydown', (event) => {
+      if (event.key !== 'Escape') return;
+      if (!actionsMenuOpen) return;
+      setActionsMenuOpen(false);
+      actionsBtn.focus();
+    });
+  }
+
+  if (select) {
+    select.addEventListener('change', () => {
+      setActionsMenuOpen(false);
+      activateProfile(select.value).catch((error) => {
+        setStatus(`切换配置失败：${String(error?.message || error || '未知错误')}`, 'error');
+        setStatusDetails('');
+      });
+    });
+  }
+
+  const newBtn = $('profileNewBtn');
+  if (newBtn) {
+    newBtn.addEventListener('click', () => {
+      setActionsMenuOpen(false);
+      const name = String(window.prompt('新建配置方案名称', '') || '').trim();
+      if (!name) return;
+      createOrCloneProfile(name, collectSettings(), { activate: true, writeSettings: true })
+        .then(() => {
+          setStatus(`已创建并切换到配置方案：${name}`, 'success');
+          setStatusDetails('');
+        })
+        .catch((error) => {
+          setStatus(`新建配置失败：${String(error?.message || error || '未知错误')}`, 'error');
+          setStatusDetails('');
+        });
+    });
+  }
+
+  const saveAsBtn = $('profileSaveAsBtn');
+  if (saveAsBtn) {
+    saveAsBtn.addEventListener('click', () => {
+      setActionsMenuOpen(false);
+      const baseName = findProfileIndexEntry(profileState.activeId)?.name || '配置方案';
+      const name = String(window.prompt('另存为配置方案名称', baseName + ' 副本') || '').trim();
+      if (!name) return;
+      createOrCloneProfile(name, collectSettings(), { activate: true, writeSettings: true })
+        .then(() => {
+          setStatus(`已另存为并切换到配置方案：${name}`, 'success');
+          setStatusDetails('');
+        })
+        .catch((error) => {
+          setStatus(`另存为失败：${String(error?.message || error || '未知错误')}`, 'error');
+          setStatusDetails('');
+        });
+    });
+  }
+
+  const renameBtn = $('profileRenameBtn');
+  if (renameBtn) {
+    renameBtn.addEventListener('click', () => {
+      setActionsMenuOpen(false);
+      const activeId = profileState.activeId || '';
+      const entry = findProfileIndexEntry(activeId);
+      if (!activeId || !entry) return;
+
+      const nextName = String(window.prompt('重命名配置方案', entry.name) || '').trim();
+      if (!nextName || nextName === entry.name) return;
+
+      const nextIndex = upsertProfilesIndexEntry(profileState.index, Object.assign({}, entry, { name: nextName }));
+      updateProfilesStorage(nextIndex, activeId)
+        .then(() => {
+          profileState.index = nextIndex;
+          renderProfileSelector();
+          setStatus('已重命名配置方案。', 'success');
+          setStatusDetails('');
+        })
+        .catch((error) => {
+          setStatus(`重命名失败：${String(error?.message || error || '未知错误')}`, 'error');
+          setStatusDetails('');
+        });
+    });
+  }
+
+  const deleteBtn = $('profileDeleteBtn');
+  if (deleteBtn) {
+    deleteBtn.addEventListener('click', () => {
+      setActionsMenuOpen(false);
+      const activeId = profileState.activeId || '';
+      const entry = findProfileIndexEntry(activeId);
+      if (!activeId || !entry) return;
+      if (!window.confirm(`确定删除配置方案「${entry.name}」吗？`)) return;
+
+      const key = getProfileStorageKey(activeId);
+      const nextIndex = removeProfilesIndexEntry(profileState.index, activeId);
+
+      Promise.resolve()
+        .then(() => (key ? storageRemove([key]) : null))
+        .then(() => updateProfilesStorage(nextIndex, ''))
+        .then(() => {
+          profileState.index = nextIndex;
+          profileState.activeId = '';
+          renderProfileSelector();
+          setStatus('已删除配置方案，当前配置已解除绑定。', 'success');
+          setStatusDetails('');
+        })
+        .catch((error) => {
+          setStatus(`删除失败：${String(error?.message || error || '未知错误')}`, 'error');
+          setStatusDetails('');
+        });
+    });
+  }
+}
+
+function bindModelControls() {
+  const refreshBtn = $('refreshModelsBtn');
+  if (refreshBtn) {
+    refreshBtn.addEventListener('click', () => {
+      refreshModelOptions().catch((error) => {
+        renderModelOptions([], { message: '模型列表获取失败：' + String(error?.message || error || '未知错误') });
+      });
+    });
+  }
+}
+
 window.addEventListener('DOMContentLoaded', () => {
   renderPresetOptions();
   setupTabs();
   bindAutoSaveControls();
   bindSelectionListeners();
+  bindProfileControls();
+  bindModelControls();
+
+  // Keep the form in sync when background logic auto-fixes settings (e.g. toggling `/v1` on testConnection).
+  if (typeof chrome !== 'undefined' && chrome.storage?.onChanged && typeof chrome.storage.onChanged.addListener === 'function') {
+    chrome.storage.onChanged.addListener((changes, areaName) => {
+      if (areaName !== 'sync') return;
+
+      const baseUrlChange = changes?.aiBaseURL;
+      if (baseUrlChange && typeof baseUrlChange.newValue !== 'undefined') {
+        const baseUrlField = $('baseURL');
+        if (baseUrlField && document.activeElement !== baseUrlField) {
+          baseUrlField.value = String(baseUrlChange.newValue || '');
+          saveState.lastSavedSignature = createSettingsSignature(collectSettings());
+          renderEndpointPreview();
+          loadCachedModelOptions(collectSettings());
+        }
+      }
+    });
+  }
 
   syncThemePreferenceControl(Theme.getCurrentPreference() || Theme.DEFAULT_PREFERENCE, { force: false });
   Theme.onChange(({ preference, theme }) => {

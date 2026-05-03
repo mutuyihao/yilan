@@ -1,6 +1,6 @@
 # 一览
 
-Last updated: 2026-04-29
+Last updated: 2026-05-04
 
 语言：中文 | [English](README.md)
 
@@ -44,15 +44,18 @@ GitHub：<https://github.com/mutuyihao/yilan>
 ### 2. 配置模型
 
 1. 点击扩展图标打开设置页。
-2. 在 `连接` 标签中选择厂商预设、Provider 和 Endpoint Mode。
-3. 填写 `API Key`，按需覆盖 `Base URL` 和 `模型名称`。
-4. 等待自动保存完成后点击“测试连接”。
+2.（可选）创建 `配置方案`，保存多套连接配置并快速切换。
+3. 在 `连接` 标签中选择厂商预设、Provider 和 Endpoint Mode。
+4. 填写 `API Key`，按需覆盖 `Base URL` 和 `模型名称`。
+5. 等待自动保存完成后点击“测试连接”。
 
 说明：
 
 - 设置页默认自动保存，不需要先手动点击保存。
 - 文本输入项会在停顿后保存，`blur` 时也会立即保存。
 - 下拉框和开关会立即保存。
+- `Base URL` 既可以填根地址（例如 `https://api.openai.com/v1`），也可以直接填完整 endpoint；设置页会显示请求预览。
+- 可在设置页刷新模型列表（需要先填写 `API Key`）。
 - 内置厂商预设目前包含 OpenAI、Anthropic、DeepSeek、Gemini、xAI、Qwen、GLM、MiniMax、Doubao、Hunyuan。
 
 ### 3. 使用扩展

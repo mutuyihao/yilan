@@ -1,6 +1,6 @@
 # Yilan
 
-Last updated: 2026-04-29
+Last updated: 2026-05-04
 
 Language: English | [中文](README.zh-CN.md)
 
@@ -44,15 +44,18 @@ The current version is no longer just a summarizer. It is a local-first web read
 ### 2. Configure a model
 
 1. Click the extension icon to open the settings page.
-2. In the `Connection` tab, choose a provider preset, Provider, and Endpoint Mode.
-3. Enter your `API Key`, and override `Base URL` or `Model` if needed.
-4. Wait for auto-save to finish, then click `Test Connection`.
+2. (Optional) Create a `Profile` to save multiple connection configs and quickly switch between them.
+3. In the `Connection` tab, choose a provider preset, Provider, and Endpoint Mode.
+4. Enter your `API Key`, and override `Base URL` or `Model` if needed.
+5. Wait for auto-save to finish, then click `Test Connection`.
 
 Notes:
 
 - The settings page auto-saves by default; you do not need to click Save first.
 - Text inputs are saved after a short pause, and also save immediately on `blur`.
 - Select boxes and switches save immediately.
+- `Base URL` accepts either a root URL (e.g. `https://api.openai.com/v1`) or a full endpoint; the UI shows an endpoint preview.
+- You can refresh model options from the settings page (requires `API Key`).
 - Built-in provider presets currently include OpenAI, Anthropic, DeepSeek, Gemini, xAI, Qwen, GLM, MiniMax, Doubao, and Hunyuan.
 
 ### 3. Use the extension

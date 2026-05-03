@@ -4,6 +4,7 @@ importScripts(
   'shared/provider-presets.js',
   'shared/constants.js',
   'shared/adapter-utils.js',
+  'shared/url-utils.js',
   'adapters/openai-adapter.js',
   'adapters/anthropic-adapter.js',
   'adapters/registry.js'
@@ -37,11 +38,150 @@ const CONTENT_SCRIPT_FILES = [
   'content.js'
 ];
 
+const AUTO_ENDPOINT_CACHE_STORAGE_KEY = 'yilanAutoEndpointModeCacheV1';
+let autoEndpointModeCache = null;
+let autoEndpointModeCacheLoad = null;
+
+const MODELS_CACHE_STORAGE_KEY = 'yilanModelsCacheV1';
+let modelsCache = null;
+let modelsCacheLoad = null;
+
+function loadAutoEndpointModeCache() {
+  if (autoEndpointModeCache) return Promise.resolve(autoEndpointModeCache);
+  if (autoEndpointModeCacheLoad) return autoEndpointModeCacheLoad;
+
+  autoEndpointModeCacheLoad = new Promise((resolve) => {
+    chrome.storage.local.get([AUTO_ENDPOINT_CACHE_STORAGE_KEY], (items) => {
+      const raw = items?.[AUTO_ENDPOINT_CACHE_STORAGE_KEY];
+      autoEndpointModeCache = raw && typeof raw === 'object' ? raw : {};
+      resolve(autoEndpointModeCache);
+    });
+  });
+
+  return autoEndpointModeCacheLoad;
+}
+
+function normalizeOpenAiBaseRootForCache(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+
+  // Normalize by stripping common endpoint suffixes and removing hash/search.
+  try {
+    const parsed = new URL(raw);
+    parsed.hash = '';
+    parsed.search = '';
+    let path = String(parsed.pathname || '').replace(/\/+$/g, '');
+    path = path
+      .replace(/\/chat\/completions$/i, '')
+      .replace(/\/responses$/i, '')
+      .replace(/\/completions$/i, '');
+    parsed.pathname = path || '/';
+    return parsed.toString().replace(/\/$/g, '');
+  } catch {
+    return raw
+      .replace(/\/+$/g, '')
+      .replace(/\/chat\/completions$/i, '')
+      .replace(/\/responses$/i, '')
+      .replace(/\/completions$/i, '')
+      .toLowerCase();
+  }
+}
+
+function getAutoEndpointModeCacheKey(settings) {
+  const provider = String(settings?.aiProvider || '').toLowerCase();
+  if (provider !== 'openai') return '';
+
+  const baseUrl = String(settings?.aiBaseURL || '').trim() || 'https://api.openai.com/v1';
+  const baseRoot = normalizeOpenAiBaseRootForCache(baseUrl);
+  return baseRoot ? provider + '|' + baseRoot : '';
+}
+
+async function getCachedAutoEndpointMode(cacheKey) {
+  if (!cacheKey) return '';
+  const cache = await loadAutoEndpointModeCache();
+  const value = cache?.[cacheKey];
+  return typeof value === 'string' ? value : '';
+}
+
+async function setCachedAutoEndpointMode(cacheKey, mode) {
+  if (!cacheKey || !mode) return;
+  const cache = await loadAutoEndpointModeCache();
+  if (cache?.[cacheKey] === mode) return;
+  cache[cacheKey] = mode;
+
+  await new Promise((resolve) => {
+    chrome.storage.local.set({ [AUTO_ENDPOINT_CACHE_STORAGE_KEY]: cache }, () => resolve());
+  });
+}
+
+function loadModelsCache() {
+  if (modelsCache) return Promise.resolve(modelsCache);
+  if (modelsCacheLoad) return modelsCacheLoad;
+
+  modelsCacheLoad = new Promise((resolve) => {
+    chrome.storage.local.get([MODELS_CACHE_STORAGE_KEY], (items) => {
+      const raw = items?.[MODELS_CACHE_STORAGE_KEY];
+      modelsCache = raw && typeof raw === 'object' ? raw : {};
+      resolve(modelsCache);
+    });
+  });
+
+  return modelsCacheLoad;
+}
+
+function getModelsCacheKey(settings, runtime) {
+  const provider = String(settings?.aiProvider || '').toLowerCase();
+  if (!provider) return '';
+
+  const baseUrl = String(runtime?.baseUrl || settings?.aiBaseURL || '').trim() || (provider === 'openai' ? 'https://api.openai.com/v1' : '');
+  if (!baseUrl) return provider;
+
+  const baseRoot = normalizeOpenAiBaseRootForCache(baseUrl);
+  return baseRoot ? provider + '|' + baseRoot.toLowerCase() : provider;
+}
+
+function normalizeModelsCacheEntry(entry) {
+  if (!entry || typeof entry !== 'object') return null;
+  const models = Array.isArray(entry.models) ? entry.models.filter((id) => typeof id === 'string' && id.trim()) : [];
+  if (!models.length) return null;
+
+  return {
+    fetchedAt: String(entry.fetchedAt || ''),
+    models
+  };
+}
+
+async function setCachedModels(cacheKey, entry) {
+  if (!cacheKey) return;
+
+  const cache = await loadModelsCache();
+  const normalized = normalizeModelsCacheEntry(entry);
+  if (!normalized) return;
+
+  cache[cacheKey] = normalized;
+
+  const entries = Object.entries(cache);
+  if (entries.length > 20) {
+    entries
+      .sort((a, b) => String(b?.[1]?.fetchedAt || '').localeCompare(String(a?.[1]?.fetchedAt || '')))
+      .slice(20)
+      .forEach(([key]) => {
+        try {
+          delete cache[key];
+        } catch {}
+      });
+  }
+
+  await new Promise((resolve) => {
+    chrome.storage.local.set({ [MODELS_CACHE_STORAGE_KEY]: cache }, () => resolve());
+  });
+}
+
 function createErrorResponse(error, fallbackMessage, additionalFields = {}) {
   const normalized = Errors.normalizeError(error, error?.code, error);
   return {
     success: false,
-    error: normalized.message || String(error?.message || error || fallbackMessage),
+    error: normalized,
     ...additionalFields
   };
 }
@@ -251,6 +391,55 @@ function normalizeRuntimeError(error, runtime, stage, runId, options) {
   }, options || {}));
 }
 
+function isAutoEndpointNotSupportedError(errorLike) {
+  const code = String(errorLike?.code || '');
+  if (code === Errors.ERROR_CODES.ENDPOINT_NOT_SUPPORTED) return true;
+  if (code === Errors.ERROR_CODES.UNSUPPORTED_RESPONSE_FORMAT) return true;
+  if (code === Errors.ERROR_CODES.HTTP_ERROR) {
+    const status = Number(errorLike?.httpStatus || errorLike?.status || 0);
+    if (status === 404) return true;
+
+    // Some gateways return 400/405 with a "route/path not found" style payload instead of 404.
+    if (status === 400 || status === 405) {
+      const detail = String(errorLike?.detail || errorLike?.message || '').toLowerCase();
+      return [
+        'unknown url',
+        'unknown path',
+        'no route matched',
+        'route not found',
+        'cannot post',
+        'cannot get',
+        'page not found'
+      ].some((needle) => detail.includes(needle));
+    }
+
+    return false;
+  }
+  return false;
+}
+
+function normalizeUrlNoTrailingSlash(value) {
+  return String(value || '').trim().replace(/\/+$/, '');
+}
+
+function looksLikeOpenAiEndpointUrl(value) {
+  const lowerValue = normalizeUrlNoTrailingSlash(value).toLowerCase();
+  return (
+    lowerValue.endsWith('/chat/completions') ||
+    lowerValue.endsWith('/responses') ||
+    lowerValue.endsWith('/completions')
+  );
+}
+
+function toggleTrailingV1(value) {
+  const normalized = normalizeUrlNoTrailingSlash(value);
+  if (!normalized) return normalized;
+  if (/\/v1$/i.test(normalized)) {
+    return normalized.replace(/\/v1$/i, '');
+  }
+  return normalized + '/v1';
+}
+
 async function consumeNonStreamResponse(response, adapter, runtime, signal) {
   const rawBody = await AbortUtils.raceWithAbort(response.text(), signal).catch((error) => {
     if (AbortUtils.isAbortError(error)) {
@@ -380,15 +569,45 @@ async function executeRun(options) {
     throw Errors.createError(Errors.ERROR_CODES.CONFIG_MISSING_API_KEY, { stage: meta.stage || '' });
   }
 
-  const resolution = AdapterRegistry.resolve(settings);
+  const isOpenAiProvider = String(settings?.aiProvider || 'openai').toLowerCase() === 'openai';
+  const wantsAutoEndpointMode = isOpenAiProvider && String(settings?.endpointMode || '').trim() === 'auto';
+  const autoEndpointCacheKey = wantsAutoEndpointMode ? getAutoEndpointModeCacheKey(settings) : '';
+  const cachedEndpointMode = wantsAutoEndpointMode ? await getCachedAutoEndpointMode(autoEndpointCacheKey) : '';
+  let effectiveSettings = settings;
+  if (wantsAutoEndpointMode && cachedEndpointMode) {
+    effectiveSettings = Object.assign({}, settings, { endpointMode: cachedEndpointMode });
+  }
+
+  const normalizedBaseUrlInput = normalizeUrlNoTrailingSlash(effectiveSettings?.aiBaseURL || '');
+  const canTryV1Toggle = isOpenAiProvider && !!normalizedBaseUrlInput && !looksLikeOpenAiEndpointUrl(normalizedBaseUrlInput);
+  const autoBaseUrlTried = canTryV1Toggle ? new Set([normalizedBaseUrlInput]) : null;
+
+  const autoEndpointCandidates = wantsAutoEndpointMode
+    ? ['responses', 'chat_completions', 'legacy_completions']
+    : [];
+  const autoEndpointTried = wantsAutoEndpointMode ? new Set() : null;
+
+  let resolution = AdapterRegistry.resolve(effectiveSettings);
   if (!resolution) {
     throw Errors.createError(Errors.ERROR_CODES.ADAPTER_NOT_FOUND, { stage: meta.stage || '' });
   }
 
-  const adapter = resolution.adapter;
-  const runtime = resolution.snapshot;
+  let adapter = resolution.adapter;
+  let runtime = resolution.snapshot;
+  if (autoEndpointTried) autoEndpointTried.add(runtime?.endpointMode || '');
   const diagnostics = createDiagnostics(runId, runtime, meta);
   diagnostics.transportMode = stream ? 'stream' : 'request';
+  if (wantsAutoEndpointMode) {
+    diagnostics.requestedEndpointMode = 'auto';
+    diagnostics.autoEndpointCacheHit = !!cachedEndpointMode;
+    diagnostics.autoEndpointTried = Array.from(autoEndpointTried || []);
+    diagnostics.autoEndpointSelected = runtime?.endpointMode || '';
+  }
+  if (canTryV1Toggle) {
+    diagnostics.autoBaseUrlTweak = true;
+    diagnostics.autoBaseUrlInputHasV1 = /\/v1$/i.test(normalizedBaseUrlInput);
+    diagnostics.autoBaseUrlAdjusted = false;
+  }
   const maxRetries = runtime.retryPolicy?.maxRetries || Constants.DEFAULT_MAX_RETRIES;
   const timeoutMs = runtime.timeoutMs || Constants.DEFAULT_REQUEST_TIMEOUT_MS;
   const startedAt = Date.now();
@@ -418,8 +637,8 @@ async function executeRun(options) {
     try {
       const response = await AbortUtils.raceWithAbort(fetch(runtime.baseUrl, {
         method: 'POST',
-        headers: adapter.buildHeaders(settings, runtime, stream),
-        body: JSON.stringify(adapter.buildBody({ settings, prompt, runtime, stream, meta })),
+        headers: adapter.buildHeaders(effectiveSettings, runtime, stream),
+        body: JSON.stringify(adapter.buildBody({ settings: effectiveSettings, prompt, runtime, stream, meta })),
         signal: controller.signal,
         mode: 'cors',
         credentials: 'omit'
@@ -464,6 +683,24 @@ async function executeRun(options) {
       diagnostics.preview = result.preview || '';
       diagnostics.usage = result.usage || null;
 
+      if (wantsAutoEndpointMode) {
+        diagnostics.autoEndpointTried = Array.from(autoEndpointTried || []);
+        diagnostics.autoEndpointSelected = runtime?.endpointMode || '';
+      }
+      if (wantsAutoEndpointMode && autoEndpointCacheKey) {
+        await setCachedAutoEndpointMode(autoEndpointCacheKey, runtime?.endpointMode || '');
+      }
+      if (meta?.stage === 'test' && canTryV1Toggle) {
+        const originalBase = normalizeUrlNoTrailingSlash(settings?.aiBaseURL || '');
+        const finalBase = normalizeUrlNoTrailingSlash(effectiveSettings?.aiBaseURL || '');
+        if (originalBase && finalBase && originalBase !== finalBase) {
+          await new Promise((resolve) => {
+            chrome.storage.sync.set({ aiBaseURL: finalBase }, () => resolve());
+          });
+          diagnostics.autoBaseUrlSaved = true;
+        }
+      }
+
       RunState.finishRun(runId);
 
       return {
@@ -476,6 +713,79 @@ async function executeRun(options) {
     } catch (error) {
       clearTimeout(timeout);
       let normalized = normalizeRuntimeError(error, runtime, meta.stage, runId, { stream });
+
+      if (wantsAutoEndpointMode && isAutoEndpointNotSupportedError(normalized) && autoEndpointTried) {
+        const nextMode = autoEndpointCandidates.find((mode) => mode && !autoEndpointTried.has(mode));
+        if (nextMode) {
+          const nextSettings = Object.assign({}, effectiveSettings, { endpointMode: nextMode });
+          const nextResolution = AdapterRegistry.resolve(nextSettings);
+          if (nextResolution) {
+            RunState.setRunController(runId, null);
+            effectiveSettings = nextSettings;
+            adapter = nextResolution.adapter;
+            runtime = nextResolution.snapshot;
+            autoEndpointTried.add(runtime?.endpointMode || nextMode);
+
+            diagnostics.provider = runtime?.provider || diagnostics.provider;
+            diagnostics.adapterId = runtime?.adapterId || diagnostics.adapterId;
+            diagnostics.family = runtime?.family || diagnostics.family;
+            diagnostics.endpointMode = runtime?.endpointMode || diagnostics.endpointMode;
+            diagnostics.baseUrl = runtime?.baseUrl || diagnostics.baseUrl;
+            diagnostics.model = runtime?.model || diagnostics.model;
+            diagnostics.autoEndpointTried = Array.from(autoEndpointTried);
+            diagnostics.autoEndpointSelected = runtime?.endpointMode || '';
+
+            RunState.prepareRun(runId, { runtime });
+
+            // Keep the attempt number stable when switching endpoint modes.
+            attempt -= 1;
+            continue;
+          }
+        }
+      }
+
+      if (canTryV1Toggle && isAutoEndpointNotSupportedError(normalized) && autoBaseUrlTried) {
+        const currentBase = normalizeUrlNoTrailingSlash(effectiveSettings?.aiBaseURL || '');
+        const nextBase = toggleTrailingV1(currentBase);
+        if (nextBase && !autoBaseUrlTried.has(nextBase)) {
+          const nextSettings = Object.assign({}, effectiveSettings, { aiBaseURL: nextBase });
+          const nextResolution = AdapterRegistry.resolve(nextSettings);
+          if (nextResolution) {
+            RunState.setRunController(runId, null);
+            effectiveSettings = nextSettings;
+            adapter = nextResolution.adapter;
+            runtime = nextResolution.snapshot;
+            autoBaseUrlTried.add(nextBase);
+
+            if (autoEndpointTried) {
+              autoEndpointTried.clear();
+              autoEndpointTried.add(runtime?.endpointMode || '');
+            }
+
+            diagnostics.provider = runtime?.provider || diagnostics.provider;
+            diagnostics.adapterId = runtime?.adapterId || diagnostics.adapterId;
+            diagnostics.family = runtime?.family || diagnostics.family;
+            diagnostics.endpointMode = runtime?.endpointMode || diagnostics.endpointMode;
+            diagnostics.baseUrl = runtime?.baseUrl || diagnostics.baseUrl;
+            diagnostics.model = runtime?.model || diagnostics.model;
+            if (typeof diagnostics.autoBaseUrlAdjusted === 'boolean') {
+              diagnostics.autoBaseUrlAdjusted = true;
+              diagnostics.autoBaseUrlAppliedV1 = /\/v1$/i.test(nextBase);
+            }
+            if (wantsAutoEndpointMode) {
+              diagnostics.autoEndpointTried = Array.from(autoEndpointTried || []);
+              diagnostics.autoEndpointSelected = runtime?.endpointMode || '';
+            }
+
+            RunState.prepareRun(runId, { runtime });
+
+            // Keep the attempt number stable when tweaking base URL.
+            attempt -= 1;
+            continue;
+          }
+        }
+      }
+
       diagnostics.lastError = sanitizeErrorForTransport(normalized);
 
       if (normalized.code === Errors.ERROR_CODES.RUN_CANCELLED) {
@@ -530,6 +840,128 @@ async function executeRun(options) {
 
   RunState.finishRun(runId);
   throw Errors.createError(Errors.ERROR_CODES.UNKNOWN_ERROR, { stage: meta.stage || '' });
+}
+
+async function listModels(settings) {
+  const stage = 'models';
+  const provider = String(settings?.aiProvider || '').toLowerCase();
+
+  if (!settings?.apiKey) {
+    throw Errors.createError(Errors.ERROR_CODES.CONFIG_MISSING_API_KEY, { stage });
+  }
+
+  if (provider && provider !== 'openai') {
+    return {
+      success: true,
+      fetchedAt: new Date().toISOString(),
+      models: [],
+      rawHint: '当前 provider 暂不支持自动拉取模型列表（仍可手动输入模型 ID）。'
+    };
+  }
+
+  const resolution = AdapterRegistry.resolve(Object.assign({}, settings, { endpointMode: 'responses' })) || AdapterRegistry.resolve(settings);
+  const runtime = resolution?.snapshot || null;
+  const cacheKey = getModelsCacheKey(settings, runtime);
+
+  const baseRoot = normalizeOpenAiBaseRootForCache(runtime?.baseUrl || settings?.aiBaseURL || 'https://api.openai.com/v1');
+  if (!baseRoot) {
+    throw Errors.createError(Errors.ERROR_CODES.NETWORK_ERROR, { stage, detail: 'missing_base_url', provider: 'openai' });
+  }
+
+  const candidates = [baseRoot];
+  const toggled = toggleTrailingV1(baseRoot);
+  if (toggled && toggled !== baseRoot) candidates.push(toggled);
+
+  let lastError = null;
+  for (const candidate of candidates) {
+    const root = normalizeUrlNoTrailingSlash(candidate);
+    if (!root) continue;
+
+    const url = root + '/models';
+    try {
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          Accept: 'application/json',
+          'Content-Type': 'application/json',
+          Authorization: 'Bearer ' + String(settings?.apiKey || '')
+        },
+        mode: 'cors',
+        credentials: 'omit'
+      });
+
+      if (!response.ok) {
+        const body = await response.text().catch(() => '');
+        const error = Errors.createHttpError(response.status, body, {
+          stage,
+          provider: 'openai',
+          endpointHost: (() => {
+            try {
+              return new URL(url).host || '';
+            } catch {
+              return '';
+            }
+          })()
+        });
+
+        // Common: 404 / "route not found" when the gateway expects a different `/v1` prefix.
+        if (response.status === 404 || response.status === 400 || response.status === 405) {
+          lastError = error;
+          continue;
+        }
+
+        throw error;
+      }
+
+      const json = await response.json().catch(() => null);
+      if (!json || typeof json !== 'object') {
+        throw Errors.createError(Errors.ERROR_CODES.PARSE_ERROR, {
+          stage,
+          provider: 'openai',
+          detail: 'invalid_models_response'
+        });
+      }
+
+      const rows = Array.isArray(json.data)
+        ? json.data
+        : Array.isArray(json.models)
+          ? json.models
+          : Array.isArray(json.items)
+            ? json.items
+            : Array.isArray(json)
+              ? json
+              : [];
+
+      const models = rows
+        .map((item) => {
+          if (typeof item === 'string') return { id: item };
+          const id = String(item?.id || '').trim();
+          if (!id) return null;
+          const ownedBy = item?.owned_by ? String(item.owned_by) : '';
+          return ownedBy ? { id, owned_by: ownedBy } : { id };
+        })
+        .filter(Boolean);
+
+      const fetchedAt = new Date().toISOString();
+      if (cacheKey) {
+        await setCachedModels(cacheKey, {
+          fetchedAt,
+          models: models.map((item) => String(item?.id || '')).filter(Boolean)
+        });
+      }
+
+      return {
+        success: true,
+        fetchedAt,
+        models
+      };
+    } catch (error) {
+      lastError = error;
+    }
+  }
+
+  if (lastError) throw lastError;
+  throw Errors.createError(Errors.ERROR_CODES.NETWORK_ERROR, { stage, provider: 'openai', detail: 'models_request_failed' });
 }
 
 async function handleStreamStart(port, portId, message) {
@@ -702,6 +1134,15 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     }).catch((error) => {
       console.error('[Yilan] Failed to open reader tab.', error);
       sendResponse(createErrorResponse(error, '打开阅读页失败。'));
+    });
+    return true;
+  }
+
+  if (message.action === 'listModels') {
+    listModels(message.settings || {}).then((result) => {
+      sendResponse(result);
+    }).catch((error) => {
+      sendResponse(createErrorResponse(error, '模型列表获取失败。'));
     });
     return true;
   }

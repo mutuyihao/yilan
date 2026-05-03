@@ -247,9 +247,17 @@ async function writeSseResponse(response, text, options) {
   response.end();
 }
 
-async function startTestServer() {
+async function startTestServer(options) {
   const requests = [];
   let origin = '';
+  const config = Object.assign({
+    // OpenAI compatible endpoint behaviors for targeted E2E tests.
+    // - openaiV1Policy: 'any' | 'require' | 'forbid'
+    openaiV1Policy: 'any',
+    allowResponses: true,
+    allowChatCompletions: true,
+    allowLegacyCompletions: true
+  }, options || {});
 
   const server = http.createServer(async (request, response) => {
     const url = new URL(request.url, origin || 'http://127.0.0.1');
@@ -281,6 +289,7 @@ async function startTestServer() {
     if (request.method === 'POST' && (
       url.pathname.endsWith('/responses') ||
       url.pathname.endsWith('/chat/completions') ||
+      url.pathname.endsWith('/completions') ||
       url.pathname.endsWith('/v1/messages')
     )) {
       const rawBody = await readRequestBody(request);
@@ -288,9 +297,14 @@ async function startTestServer() {
       const prompt = extractPrompt(body);
       const text = buildMockText(prompt);
       const responseOptions = getResponseOptions(prompt);
+      const pathname = url.pathname || '';
+      const isOpenAiResponses = pathname.endsWith('/responses');
+      const isOpenAiChat = pathname.endsWith('/chat/completions');
+      const isOpenAiLegacy = pathname.endsWith('/completions');
+      const isOpenAiCompat = isOpenAiResponses || isOpenAiChat || isOpenAiLegacy;
       const entry = {
         method: request.method,
-        pathname: url.pathname,
+        pathname,
         headers: request.headers,
         body,
         prompt,
@@ -299,6 +313,38 @@ async function startTestServer() {
         responseOptions
       };
       requests.push(entry);
+
+      if (isOpenAiResponses && !config.allowResponses) {
+        response.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
+        response.end('Not Found');
+        return;
+      }
+
+      if (isOpenAiChat && !config.allowChatCompletions) {
+        response.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
+        response.end('Not Found');
+        return;
+      }
+
+      if (isOpenAiLegacy && !config.allowLegacyCompletions) {
+        response.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
+        response.end('Not Found');
+        return;
+      }
+
+      if (isOpenAiCompat && config.openaiV1Policy !== 'any') {
+        const hasV1Segment = pathname.includes('/v1/');
+        if (config.openaiV1Policy === 'require' && !hasV1Segment) {
+          response.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
+          response.end('Not Found');
+          return;
+        }
+        if (config.openaiV1Policy === 'forbid' && hasV1Segment) {
+          response.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
+          response.end('Not Found');
+          return;
+        }
+      }
 
       if (url.pathname.includes('/v1-error/')) {
         response.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });

@@ -60,28 +60,18 @@
       ? ProviderPresets.normalizeEndpointMode(settings?.endpointMode, 'openai', presetId)
       : 'responses';
 
-    let endpointMode = explicitMode || detectedMode || normalizeEndpointMode(presetMode) || 'responses';
+    let endpointMode = explicitMode || normalizeEndpointMode(presetMode) || 'responses';
     let baseUrl = customUrl || DEFAULT_BASE_ROOT;
 
     if (!customUrl) {
       baseUrl = appendEndpoint(DEFAULT_BASE_ROOT, endpointMode);
-    } else if (explicitMode) {
-      baseUrl = appendEndpoint(customUrl, explicitMode);
-      endpointMode = explicitMode;
     } else if (detectedMode) {
       baseUrl = AdapterUtils.trimTrailingSlash(customUrl);
       endpointMode = detectedMode;
-    } else if (presetId && presetId !== 'custom') {
-      baseUrl = appendEndpoint(customUrl, endpointMode);
     } else {
-      const normalized = AdapterUtils.trimTrailingSlash(customUrl);
-      if (/\/v1$/i.test(normalized)) {
-        baseUrl = normalized + '/responses';
-        endpointMode = 'responses';
-      } else {
-        baseUrl = normalized;
-        endpointMode = 'responses';
-      }
+      const effectiveMode = explicitMode || endpointMode || 'responses';
+      baseUrl = appendEndpoint(customUrl, effectiveMode);
+      endpointMode = effectiveMode;
     }
 
     const defaultModel = endpointMode === 'legacy_completions' ? 'gpt-3.5-turbo-instruct' : 'gpt-4o-mini';

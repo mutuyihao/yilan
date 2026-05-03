@@ -1,6 +1,6 @@
 # 用户文档
 
-Last updated: 2026-04-29
+Last updated: 2026-05-04
 
 这份文档面向第一次使用扩展的用户，也适合用来确认当前版本的真实功能边界。
 
@@ -50,20 +50,23 @@ Last updated: 2026-04-29
 
 主要字段：
 
+- `配置方案`：可选，用来保存多套连接配置并快速切换。`当前配置（未绑定）` 表示只编辑当前设置；绑定到某个配置方案后，后续自动保存会同步更新该配置方案。可通过右侧 `⋯` 管理（新建 / 另存为 / 重命名 / 删除）。
 - `厂商预设`：给出更稳的默认 Provider、Endpoint Mode、Base URL 和模型名。
 - `Provider`：当前运行时支持 `OpenAI / OpenAI 兼容接口` 与 `Anthropic / Claude 兼容接口`。
 - `Endpoint Mode`：显式指定最终接口类型。
 - `API Key`
 - `Base URL`
 - `模型名称`
+- `刷新`：拉取当前接口返回的模型列表，用于输入提示（需要先填写 `API Key`）。
 
 建议流程：
 
-1. 先选厂商预设。
-2. 再确认 Provider 和 Endpoint Mode。
-3. 填写 API Key。
-4. 按需覆盖 Base URL 和模型名称。
-5. 等待自动保存后点击“测试连接”。
+1.（可选）如果你需要保存多套连接配置，先用“配置方案”新建或另存为一个方案。
+2. 先选厂商预设。
+3. 再确认 Provider 和 Endpoint Mode。
+4. 填写 API Key。
+5. 按需覆盖 Base URL 和模型名称。
+6. 等待自动保存后点击“测试连接”。
 
 当前内置预设包括：`OpenAI`、`Anthropic`、`DeepSeek`、`Gemini`、`xAI`、`Qwen`、`GLM`、`MiniMax`、`Doubao`、`Hunyuan`。
 
@@ -71,6 +74,8 @@ Last updated: 2026-04-29
 
 - `Gemini / Google` 当前走 OpenAI 兼容的 `Chat Completions`。
 - `xAI / Grok` 当前默认走 OpenAI 兼容的 `Responses API`，也可手动切到 `Chat Completions`。
+- `Base URL` 既可以填写根地址（例如 `https://api.openai.com/v1`），也可以直接填写完整 endpoint；设置页会显示“将请求 …”的预览，便于确认最终访问路径。
+- 如果“测试连接”失败，底部状态会显示简要错误；必要时可以展开“错误详情”查看更具体的诊断信息。
 
 ### 偏好
 
@@ -207,7 +212,8 @@ Last updated: 2026-04-29
 设置项保存在 `chrome.storage.sync` 中，例如：
 
 - API Key
-- 模型配置
+- 模型配置（厂商预设 / Provider / Endpoint Mode / Base URL / 模型名称 / 额外系统要求等）
+- 配置方案索引与当前激活配置方案
 - 主题偏好
 - 隐私与入口设置
 
@@ -216,6 +222,7 @@ Last updated: 2026-04-29
 运行时本地状态保存在 `chrome.storage.local` 中，例如：
 
 - 右键菜单 / 快捷键状态
+- 模型列表缓存（按 Provider + Base URL 维度缓存，用于输入提示）
 - 阅读页临时会话
 
 ### IndexedDB

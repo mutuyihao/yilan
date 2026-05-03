@@ -1,6 +1,6 @@
 # 技术架构
 
-Last updated: 2026-05-02
+Last updated: 2026-05-04
 
 这份文档描述当前仓库已经落地并仍然有效的运行时边界、数据模型，以及支撑重构的工程验证边界。TypeScript、构建链和 Preact 迁移属于规划草案，见 [TypeScript + Preact 迁移设计](TS_PREACT_MIGRATION.md)。
 
@@ -175,8 +175,10 @@ flowchart TB
 职责：
 
 - 渲染设置页三个标签：`连接`、`偏好`、`入口`
+- 管理“配置方案”（多套连接配置的保存与切换）
 - 自动保存设置
 - 测试连接
+- 刷新模型列表（用于输入提示），并按 Provider + Base URL 做本地缓存
 - 打开当前页历史
 - 配置入口是否优先复用本页历史摘要
 - 检查右键菜单 / 快捷键状态
@@ -187,6 +189,7 @@ flowchart TB
 - 文本输入走 debounce + `blur` 立即保存
 - 复选框和下拉框走 immediate save
 - `visibilitychange` 和 `pagehide` 时 flush 未完成改动
+- 若当前绑定了配置方案（active profile），保存时会同时写入对应的 profile key，并更新 profile 索引元数据
 
 ### `content.js`
 
@@ -433,10 +436,17 @@ provider-specific 逻辑集中在这里，而不是散落在 `background.js`：
 - API Key
 - 厂商预设、Provider、Endpoint Mode
 - Base URL、模型名称、额外系统要求
+- 配置方案索引与当前激活配置方案（以及每个配置方案的快照数据）
 - 自动翻译、默认输出语言
 - 主题偏好
 - 无痕模式、默认写入历史、默认允许分享
 - 入口自动生成、入口默认简短总结、入口优先显示本页历史摘要
+
+配置方案相关 key 约定（当前实现）：
+
+- `yilanProfilesIndexV1`
+- `yilanActiveProfileIdV1`
+- `yilanProfileV1:<profileId>`
 
 ### `chrome.storage.local`
 
@@ -444,7 +454,10 @@ provider-specific 逻辑集中在这里，而不是散落在 `background.js`：
 
 - 右键菜单 / 快捷键状态
 - 最近触发信息
+- 模型列表缓存（按 Provider + Base URL 维度缓存，用于输入提示）
 - 阅读页临时会话
+
+模型列表缓存 key（当前实现）：`yilanModelsCacheV1`
 
 ### IndexedDB
 

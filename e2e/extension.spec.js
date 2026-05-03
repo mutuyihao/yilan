@@ -193,6 +193,94 @@ test.describe('Yilan extension E2E', () => {
     }
   });
 
+  test('popup testConnection auto-toggles /v1 when the gateway requires it', async () => {
+    const strictServer = await startTestServer({ openaiV1Policy: 'require' });
+    const harness = await launchExtensionContext();
+    try {
+      await resetExtensionState(harness.serviceWorker);
+      await setSyncSettings(harness.serviceWorker, buildDefaultSettings(strictServer.origin, {
+        providerPreset: 'custom',
+        aiProvider: 'openai',
+        endpointMode: 'responses',
+        aiBaseURL: strictServer.origin,
+        modelName: 'mock-model'
+      }));
+
+      const popupPage = await openExtensionPage(harness.context, harness.extensionId, 'popup.html');
+      strictServer.clearRequests();
+      await popupPage.locator('#testBtn').click();
+
+      await expect.poll(() => strictServer.getRequests().length).toBe(2);
+      await expect(popupPage.locator('#testBtn')).toBeEnabled();
+
+      await popupPage.reload();
+      await expect(popupPage.locator('#baseURL')).toHaveValue(strictServer.origin + '/v1');
+    } finally {
+      await harness.close();
+      await strictServer.close();
+    }
+  });
+
+  test('popup testConnection auto-removes /v1 when the gateway forbids it', async () => {
+    const strictServer = await startTestServer({ openaiV1Policy: 'forbid' });
+    const harness = await launchExtensionContext();
+    try {
+      await resetExtensionState(harness.serviceWorker);
+      await setSyncSettings(harness.serviceWorker, buildDefaultSettings(strictServer.origin, {
+        providerPreset: 'openai_official',
+        aiProvider: 'openai',
+        endpointMode: 'responses',
+        aiBaseURL: strictServer.origin + '/v1',
+        modelName: 'mock-model'
+      }));
+
+      const popupPage = await openExtensionPage(harness.context, harness.extensionId, 'popup.html');
+      strictServer.clearRequests();
+      await popupPage.locator('#testBtn').click();
+
+      await expect.poll(() => strictServer.getRequests().length).toBe(2);
+      await expect(popupPage.locator('#testBtn')).toBeEnabled();
+
+      await popupPage.reload();
+      await expect(popupPage.locator('#baseURL')).toHaveValue(strictServer.origin);
+    } finally {
+      await harness.close();
+      await strictServer.close();
+    }
+  });
+
+  test('popup testConnection resolves endpointMode=auto by falling back to chat_completions', async () => {
+    const compatServer = await startTestServer({
+      allowResponses: false,
+      allowChatCompletions: true,
+      allowLegacyCompletions: false
+    });
+    const harness = await launchExtensionContext();
+    try {
+      await resetExtensionState(harness.serviceWorker);
+      await setSyncSettings(harness.serviceWorker, buildDefaultSettings(compatServer.origin, {
+        providerPreset: 'custom',
+        aiProvider: 'openai',
+        endpointMode: 'auto',
+        aiBaseURL: compatServer.origin + '/v1',
+        modelName: 'mock-model'
+      }));
+
+      const popupPage = await openExtensionPage(harness.context, harness.extensionId, 'popup.html');
+      compatServer.clearRequests();
+      await popupPage.locator('#testBtn').click();
+
+      await expect.poll(() => compatServer.getRequests().length).toBe(2);
+      await expect(popupPage.locator('#testBtn')).toBeEnabled();
+      const requests = compatServer.getRequests();
+      expect(requests[0].pathname).toMatch(/\/responses$/);
+      expect(requests[1].pathname).toMatch(/\/chat\/completions$/);
+    } finally {
+      await harness.close();
+      await compatServer.close();
+    }
+  });
+
   test('injects the sidebar, generates a summary, writes history, and opens the reader page', async () => {
     const harness = await launchExtensionContext();
     try {

@@ -55,7 +55,7 @@ test('openai adapter resolves endpoint modes, headers, bodies, text, deltas, and
     aiProvider: 'openai',
     aiBaseURL: 'https://api.example.com/custom'
   });
-  assert.strictEqual(customExact.baseUrl, 'https://api.example.com/custom');
+  assert.strictEqual(customExact.baseUrl, 'https://api.example.com/custom/responses');
 
   const preset = OpenAIAdapter.resolve({
     providerPreset: 'deepseek',
