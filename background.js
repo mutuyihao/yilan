@@ -2,6 +2,7 @@ importScripts(
   'shared/domain.js',
   'shared/errors.js',
   'shared/provider-presets.js',
+  'shared/constants.js',
   'shared/adapter-utils.js',
   'adapters/openai-adapter.js',
   'adapters/anthropic-adapter.js',
@@ -19,6 +20,7 @@ importScripts(
 const AbortUtils = self.AISummaryAbortUtils;
 const Domain = self.AISummaryDomain;
 const Errors = self.AISummaryErrors;
+const Constants = self.AISummaryConstants;
 const AdapterRegistry = self.AISummaryAdapterRegistry;
 const TransportUtils = self.AISummaryTransportUtils;
 const RunState = self.YilanRunState;
@@ -30,6 +32,7 @@ const CONTENT_SCRIPT_FILES = [
   'shared/strings.js',
   'shared/page-strategy.js',
   'shared/article-utils.js',
+  'shared/constants.js',
   'libs/readability.js',
   'content.js'
 ];
@@ -376,8 +379,8 @@ async function executeRun(options) {
   const runtime = resolution.snapshot;
   const diagnostics = createDiagnostics(runId, runtime, meta);
   diagnostics.transportMode = stream ? 'stream' : 'request';
-  const maxRetries = runtime.retryPolicy?.maxRetries || 3;
-  const timeoutMs = runtime.timeoutMs || 90000;
+  const maxRetries = runtime.retryPolicy?.maxRetries || Constants.DEFAULT_MAX_RETRIES;
+  const timeoutMs = runtime.timeoutMs || Constants.DEFAULT_REQUEST_TIMEOUT_MS;
   const startedAt = Date.now();
 
   RunState.prepareRun(runId, {
@@ -474,7 +477,7 @@ async function executeRun(options) {
 
       const shouldRetry = normalized.retriable && attempt < maxRetries;
       if (shouldRetry) {
-        const delay = Math.min(1000 * Math.pow(2, attempt - 1), 8000);
+        const delay = Math.min(Constants.RETRY_BASE_DELAY_MS * Math.pow(2, attempt - 1), Constants.RETRY_MAX_DELAY_MS);
         diagnostics.retryCount += 1;
         options.onRetry?.({ attempt, delay, error: normalized });
         const retryController = controller.signal.aborted ? new AbortController() : controller;

@@ -4,6 +4,7 @@ const ProviderPresets = window.AISummaryProviderPresets;
 const Theme = window.AISummaryTheme;
 const UiFormat = window.AISummaryUiFormat;
 const UiLabels = window.AISummaryUiLabels;
+const Constants = window.AISummaryConstants;
 
 const SETTINGS_KEYS = [
   'providerPreset',
@@ -25,7 +26,6 @@ const SETTINGS_KEYS = [
 ];
 
 const ACTIVE_TAB_STORAGE_KEY = 'popupActiveTab';
-const AUTOSAVE_DEBOUNCE_MS = 500;
 const IDLE_STATUS_TEXT = '设置修改后会自动保存。';
 const WAITING_AUTOSAVE_TEXT = '检测到变更，输入停顿后会自动保存。';
 
@@ -402,7 +402,7 @@ function scheduleAutoSave() {
   setStatus(WAITING_AUTOSAVE_TEXT);
   saveState.timer = window.setTimeout(() => {
     persistSettings();
-  }, AUTOSAVE_DEBOUNCE_MS);
+  }, Constants.AUTOSAVE_DEBOUNCE_MS);
 }
 
 function flushPendingChanges() {

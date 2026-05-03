@@ -3,10 +3,9 @@ if (!window.__aiSummaryInjected) {
 
   const Domain = window.AISummaryDomain;
   const ArticleUtils = window.AISummaryArticle;
+  const Constants = window.AISummaryConstants;
   const SIDEBAR_FRAME_ID = 'ai-summary-sidebar';
   const SIDEBAR_FRAME_WIDTH = 460;
-  const NAVIGATION_REFRESH_DELAY_MS = 450;
-  const NAVIGATION_POLL_INTERVAL_MS = 500;
   const NAVIGATION_REFRESH_POLICY = {
     autoStartOnNavigation: false,
     duringGeneration: 'defer'
@@ -268,7 +267,7 @@ if (!window.__aiSummaryInjected) {
         source: 'navigation',
         navigationPolicy: NAVIGATION_REFRESH_POLICY
       });
-    }, NAVIGATION_REFRESH_DELAY_MS);
+    }, Constants.NAVIGATION_REFRESH_DELAY_MS);
   }
 
   function handlePageContextChange() {
@@ -307,7 +306,7 @@ if (!window.__aiSummaryInjected) {
     window.addEventListener('popstate', handlePageContextChange);
     window.addEventListener('hashchange', handlePageContextChange);
 
-    navigationPollTimer = window.setInterval(handlePageContextChange, NAVIGATION_POLL_INTERVAL_MS);
+    navigationPollTimer = window.setInterval(handlePageContextChange, Constants.NAVIGATION_POLL_INTERVAL_MS);
   }
 
   window.addEventListener('message', (event) => {
