@@ -194,6 +194,11 @@ function sanitizeDiagnosticsForTransport(diagnostics) {
   if (!diagnostics) return null;
 
   const safeDiagnostics = Object.assign({}, diagnostics);
+
+  // Remove sensitive fields that could expose user configuration
+  delete safeDiagnostics.baseUrl;  // Custom API endpoints
+  delete safeDiagnostics.family;   // Internal adapter family classification
+
   safeDiagnostics.lastError = diagnostics.lastError ? sanitizeErrorForTransport(diagnostics.lastError) : null;
   return createTransportPayload(safeDiagnostics);
 }
