@@ -16,7 +16,7 @@ Last updated: 2026-05-04
 ## 规划草案
 
 - [升级设计](UPGRADE_DESIGN.md)：Pinboard 启发下的产品方向和行为等价重构路线。
-- [TypeScript + Preact 迁移设计](TS_PREACT_MIGRATION.md)：用 TS 和 Preact 降低技术债的分阶段方案。
+- [TS + React 迁移评估与执行计划](TS_REACT_MIGRATION.md)：用 TS 和 React 降低技术债的分阶段方案。
 
 ## 维护规则
 
