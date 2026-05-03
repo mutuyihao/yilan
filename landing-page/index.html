@@ -56,7 +56,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link
-    href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;700;800&display=swap"
+    href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=Noto+Sans+SC:wght@400;500;600;700&family=Noto+Serif+SC:wght@500;600;700;800&display=swap"
     rel="stylesheet"
   >
   <link rel="stylesheet" href="./styles.css">
@@ -85,35 +85,30 @@
           </button>
         </div>
         <a class="ghost-btn" href="https://github.com/mutuyihao/yilan" target="_blank" rel="noreferrer noopener">GitHub</a>
-        <a class="primary-btn" href="https://discord.gg/MWWDwXZ2TV" target="_blank" rel="noreferrer noopener">问题反馈</a>
+        <a class="primary-btn" href="https://discord.gg/MWWDwXZ2TV" target="_blank" rel="noreferrer noopener">反馈</a>
       </div>
     </header>
 
     <main id="top">
       <section class="hero-section">
         <div class="hero-copy">
-          <div class="eyebrow">AI Reading Workspace For The Open Web</div>
-          <h1>把网页变成可回看的工作台，而不只是一次性摘要</h1>
+          <div class="eyebrow">AI Reading Workspace</div>
+          <h1>把网页变成可回看的工作台</h1>
           <p class="hero-lead">
-            一览把网页抽取、结构化总结、继续加工、历史沉淀和专注阅读串成一条顺滑流程。
-            你可以用它快速读懂文章，也可以把每次处理结果留下来，方便以后检索、收藏和回顾。
+            一览把网页抽取、结构化总结、二次生成、历史沉淀和专注阅读串成一条工作流。
+            快速读懂，也能把每次处理结果留在本地，方便检索、收藏和回顾。
           </p>
           <div class="cta-row">
-            <a class="primary-btn large" href="https://github.com/mutuyihao/yilan" target="_blank" rel="noreferrer noopener">查看项目</a>
-            <a class="ghost-btn large" href="#shots">查看产品细节</a>
+            <a class="primary-btn large" href="https://github.com/mutuyihao/yilan" target="_blank" rel="noreferrer noopener">开始使用</a>
+            <a class="ghost-btn large" href="#workflow">看工作流</a>
           </div>
           <ul class="hero-points">
-            <li>支持 Chromium 扩展安装与本地优先使用</li>
-            <li>支持简短总结、标准总结、详细分析、关键要点</li>
-            <li>支持行动项、术语表、问答卡片等二次生成</li>
+            <li>BYOK：使用你自己的 API Key</li>
+            <li>结构化总结 + 二次生成（行动项 / 术语表 / 问答卡片）</li>
+            <li>本地历史、收藏与检索</li>
           </ul>
         </div>
         <div class="hero-visual">
-          <div class="hero-card orbit-card">
-            <span>网页抽取</span>
-            <span>结构化总结</span>
-            <span>本地历史</span>
-          </div>
           <figure class="shot-frame shot-hero">
             <img
               class="theme-shot"
@@ -121,10 +116,9 @@
               data-light-src="./assets/screens/hero-main-light.png"
               data-dark-src="./assets/screens/hero-main-dark.png"
               alt="一览主界面截图占位图"
-              width="1600"
-              height="980"
+              width="1280"
+              height="800"
               decoding="async"
-              style="object-fit: fill;height:350px"
             >
           </figure>
         </div>
@@ -202,10 +196,9 @@
               data-light-src="./assets/screens/workflow-summary-light.png"
               data-dark-src="./assets/screens/workflow-summary-dark.png"
               alt="一览工作流截图占位图"
-              width="1600"
-              height="980"
+              width="1280"
+              height="800"
               decoding="async"
-              style="object-fit: fill;height:450px"
             >
           </figure>
         </div>
@@ -220,30 +213,26 @@
         <div class="shots-grid">
           <figure class="shot-frame">
             <img
-              class="theme-shot"
+              class="theme-shot theme-shot-top"
               src="./assets/screens/history-reader-dark.png"
               data-light-src="./assets/screens/history-reader-light.png"
               data-dark-src="./assets/screens/history-reader-dark.png"
               alt="历史与阅读页截图占位图"
-              width="600"
-              height="1550"
+              width="1280"
+              height="800"
               decoding="async"
-              style="object-fit:cover;object-position:top;height:750px"
-
             >
           </figure>
           <figure class="shot-frame">
             <img
-              class="theme-shot"
+              class="theme-shot theme-shot-top"
               src="./assets/screens/settings-panel-dark.png"
               data-light-src="./assets/screens/settings-panel-light.png"
               data-dark-src="./assets/screens/settings-panel-dark.png"
               alt="设置页截图占位图"
-              width="1600"
-              height="980"
+              width="1280"
+              height="800"
               decoding="async"
-              style="object-fit: fill;height:750px"
-
             >
           </figure>
         </div>
@@ -268,11 +257,11 @@
         <div class="faq-grid">
           <article class="faq-card">
             <h3>“一览”是怎么开始工作的？</h3>
-            <p>打开任意网页后，右键选择“用“一览”总结此页”，或者直接按 `Alt + S`。侧栏会打开，并按你的入口设置自动开始生成，或者等待你手动触发。</p>
+            <p>打开任意网页后，右键选择“用「一览」总结此页”，或者直接按 <kbd>Alt + S</kbd>。侧栏会打开，并按你的入口设置自动开始生成，或者等待你手动触发。</p>
           </article>
           <article class="faq-card">
             <h3>需要先配置 API Key 吗？</h3>
-            <p>需要。“一览”采用 `BYOK` 模式，首次使用前要在设置页填入你自己的 API Key，并选择厂商预设、Provider 和 Endpoint Mode。保存后可以先点“测试连接”确认配置可用。</p>
+            <p>需要。“一览”采用 <code>BYOK</code> 模式，首次使用前要在设置页填入你自己的 API Key，并选择厂商预设、Provider 和 Endpoint Mode。保存后可以先点“测试连接”确认配置可用。</p>
           </article>
           <article class="faq-card">
             <h3>生成成功了，为什么历史里没有？</h3>
