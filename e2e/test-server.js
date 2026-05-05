@@ -300,7 +300,7 @@ async function startTestServer(options) {
       const pathname = url.pathname || '';
       const isOpenAiResponses = pathname.endsWith('/responses');
       const isOpenAiChat = pathname.endsWith('/chat/completions');
-      const isOpenAiLegacy = pathname.endsWith('/completions');
+      const isOpenAiLegacy = pathname.endsWith('/completions') && !isOpenAiChat;
       const isOpenAiCompat = isOpenAiResponses || isOpenAiChat || isOpenAiLegacy;
       const entry = {
         method: request.method,

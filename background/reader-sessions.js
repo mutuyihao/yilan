@@ -4,21 +4,46 @@
   const READER_SESSION_PREFIX = 'readerSession:';
   const READER_SESSION_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 
+  function readRuntimeLastErrorMessage() {
+    return chrome.runtime.lastError?.message || '';
+  }
+
   function storageLocalGet(key) {
-    return new Promise((resolve) => {
-      chrome.storage.local.get(key, (items) => resolve(items || {}));
+    return new Promise((resolve, reject) => {
+      chrome.storage.local.get(key, (items) => {
+        const error = readRuntimeLastErrorMessage();
+        if (error) {
+          reject(new Error(error));
+          return;
+        }
+        resolve(items || {});
+      });
     });
   }
 
   function storageLocalSet(payload) {
-    return new Promise((resolve) => {
-      chrome.storage.local.set(payload, resolve);
+    return new Promise((resolve, reject) => {
+      chrome.storage.local.set(payload, () => {
+        const error = readRuntimeLastErrorMessage();
+        if (error) {
+          reject(new Error(error));
+          return;
+        }
+        resolve();
+      });
     });
   }
 
   function storageLocalRemove(keys) {
-    return new Promise((resolve) => {
-      chrome.storage.local.remove(keys, resolve);
+    return new Promise((resolve, reject) => {
+      chrome.storage.local.remove(keys, () => {
+        const error = readRuntimeLastErrorMessage();
+        if (error) {
+          reject(new Error(error));
+          return;
+        }
+        resolve();
+      });
     });
   }
 

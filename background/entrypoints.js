@@ -9,15 +9,33 @@
 
   let bound = false;
 
+  function readRuntimeLastErrorMessage() {
+    return chrome.runtime.lastError?.message || '';
+  }
+
   function storageLocalGet(key) {
-    return new Promise((resolve) => {
-      chrome.storage.local.get(key, (items) => resolve(items || {}));
+    return new Promise((resolve, reject) => {
+      chrome.storage.local.get(key, (items) => {
+        const error = readRuntimeLastErrorMessage();
+        if (error) {
+          reject(new Error(error));
+          return;
+        }
+        resolve(items || {});
+      });
     });
   }
 
   function storageLocalSet(payload) {
-    return new Promise((resolve) => {
-      chrome.storage.local.set(payload, resolve);
+    return new Promise((resolve, reject) => {
+      chrome.storage.local.set(payload, () => {
+        const error = readRuntimeLastErrorMessage();
+        if (error) {
+          reject(new Error(error));
+          return;
+        }
+        resolve();
+      });
     });
   }
 
@@ -38,8 +56,15 @@
   }
 
   function commandsGetAll() {
-    return new Promise((resolve) => {
-      chrome.commands.getAll((commands) => resolve(Array.isArray(commands) ? commands : []));
+    return new Promise((resolve, reject) => {
+      chrome.commands.getAll((commands) => {
+        const error = readRuntimeLastErrorMessage();
+        if (error) {
+          reject(new Error(error));
+          return;
+        }
+        resolve(Array.isArray(commands) ? commands : []);
+      });
     });
   }
 

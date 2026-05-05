@@ -46,17 +46,51 @@ const MODELS_CACHE_STORAGE_KEY = 'yilanModelsCacheV1';
 let modelsCache = null;
 let modelsCacheLoad = null;
 
+function storageLocalGetStrict(keys) {
+  return new Promise((resolve, reject) => {
+    chrome.storage.local.get(keys, (items) => {
+      const error = readRuntimeLastErrorMessage();
+      if (error) {
+        reject(new Error(error));
+        return;
+      }
+      resolve(items || {});
+    });
+  });
+}
+
+function storageLocalSetStrict(payload) {
+  return new Promise((resolve, reject) => {
+    chrome.storage.local.set(payload, () => {
+      const error = readRuntimeLastErrorMessage();
+      if (error) {
+        reject(new Error(error));
+        return;
+      }
+      resolve();
+    });
+  });
+}
+
+function normalizeStoredCacheRecord(raw) {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {};
+  return Object.assign({}, raw);
+}
+
 function loadAutoEndpointModeCache() {
   if (autoEndpointModeCache) return Promise.resolve(autoEndpointModeCache);
   if (autoEndpointModeCacheLoad) return autoEndpointModeCacheLoad;
 
-  autoEndpointModeCacheLoad = new Promise((resolve) => {
-    chrome.storage.local.get([AUTO_ENDPOINT_CACHE_STORAGE_KEY], (items) => {
-      const raw = items?.[AUTO_ENDPOINT_CACHE_STORAGE_KEY];
-      autoEndpointModeCache = raw && typeof raw === 'object' ? raw : {};
-      resolve(autoEndpointModeCache);
+  autoEndpointModeCacheLoad = storageLocalGetStrict([AUTO_ENDPOINT_CACHE_STORAGE_KEY])
+    .then((items) => {
+      autoEndpointModeCache = normalizeStoredCacheRecord(items?.[AUTO_ENDPOINT_CACHE_STORAGE_KEY]);
+      return autoEndpointModeCache;
+    })
+    .catch((error) => {
+      autoEndpointModeCacheLoad = null;
+      console.warn('[Yilan] Failed to load auto endpoint cache.', error);
+      return {};
     });
-  });
 
   return autoEndpointModeCacheLoad;
 }
@@ -105,26 +139,32 @@ async function getCachedAutoEndpointMode(cacheKey) {
 
 async function setCachedAutoEndpointMode(cacheKey, mode) {
   if (!cacheKey || !mode) return;
-  const cache = await loadAutoEndpointModeCache();
-  if (cache?.[cacheKey] === mode) return;
-  cache[cacheKey] = mode;
+  const cache = normalizeStoredCacheRecord(await loadAutoEndpointModeCache());
+  if (cache[cacheKey] === mode) return;
 
-  await new Promise((resolve) => {
-    chrome.storage.local.set({ [AUTO_ENDPOINT_CACHE_STORAGE_KEY]: cache }, () => resolve());
-  });
+  const nextCache = Object.assign({}, cache, { [cacheKey]: mode });
+  try {
+    await storageLocalSetStrict({ [AUTO_ENDPOINT_CACHE_STORAGE_KEY]: nextCache });
+    autoEndpointModeCache = nextCache;
+  } catch (error) {
+    console.warn('[Yilan] Failed to persist auto endpoint cache.', error);
+  }
 }
 
 function loadModelsCache() {
   if (modelsCache) return Promise.resolve(modelsCache);
   if (modelsCacheLoad) return modelsCacheLoad;
 
-  modelsCacheLoad = new Promise((resolve) => {
-    chrome.storage.local.get([MODELS_CACHE_STORAGE_KEY], (items) => {
-      const raw = items?.[MODELS_CACHE_STORAGE_KEY];
-      modelsCache = raw && typeof raw === 'object' ? raw : {};
-      resolve(modelsCache);
+  modelsCacheLoad = storageLocalGetStrict([MODELS_CACHE_STORAGE_KEY])
+    .then((items) => {
+      modelsCache = normalizeStoredCacheRecord(items?.[MODELS_CACHE_STORAGE_KEY]);
+      return modelsCache;
+    })
+    .catch((error) => {
+      modelsCacheLoad = null;
+      console.warn('[Yilan] Failed to load models cache.', error);
+      return {};
     });
-  });
 
   return modelsCacheLoad;
 }
@@ -154,27 +194,28 @@ function normalizeModelsCacheEntry(entry) {
 async function setCachedModels(cacheKey, entry) {
   if (!cacheKey) return;
 
-  const cache = await loadModelsCache();
   const normalized = normalizeModelsCacheEntry(entry);
   if (!normalized) return;
 
-  cache[cacheKey] = normalized;
+  const cache = normalizeStoredCacheRecord(await loadModelsCache());
+  const nextCache = Object.assign({}, cache, { [cacheKey]: normalized });
 
-  const entries = Object.entries(cache);
+  const entries = Object.entries(nextCache);
   if (entries.length > 20) {
     entries
       .sort((a, b) => String(b?.[1]?.fetchedAt || '').localeCompare(String(a?.[1]?.fetchedAt || '')))
       .slice(20)
       .forEach(([key]) => {
-        try {
-          delete cache[key];
-        } catch {}
+        delete nextCache[key];
       });
   }
 
-  await new Promise((resolve) => {
-    chrome.storage.local.set({ [MODELS_CACHE_STORAGE_KEY]: cache }, () => resolve());
-  });
+  try {
+    await storageLocalSetStrict({ [MODELS_CACHE_STORAGE_KEY]: nextCache });
+    modelsCache = nextCache;
+  } catch (error) {
+    console.warn('[Yilan] Failed to persist models cache.', error);
+  }
 }
 
 function createErrorResponse(error, fallbackMessage, additionalFields = {}) {
@@ -431,6 +472,19 @@ function looksLikeOpenAiEndpointUrl(value) {
   );
 }
 
+function canAutoToggleTrailingV1(value) {
+  const normalized = normalizeUrlNoTrailingSlash(value);
+  if (!normalized || looksLikeOpenAiEndpointUrl(normalized)) return false;
+
+  try {
+    const parsed = new URL(normalized);
+    const path = String(parsed.pathname || '').replace(/\/+$/g, '');
+    return path === '' || path === '/' || /^\/v1$/i.test(path);
+  } catch {
+    return /^(?:https?:\/\/[^/]+)(?:\/v1)?$/i.test(normalized);
+  }
+}
+
 function toggleTrailingV1(value) {
   const normalized = normalizeUrlNoTrailingSlash(value);
   if (!normalized) return normalized;
@@ -579,7 +633,7 @@ async function executeRun(options) {
   }
 
   const normalizedBaseUrlInput = normalizeUrlNoTrailingSlash(effectiveSettings?.aiBaseURL || '');
-  const canTryV1Toggle = isOpenAiProvider && !!normalizedBaseUrlInput && !looksLikeOpenAiEndpointUrl(normalizedBaseUrlInput);
+  const canTryV1Toggle = isOpenAiProvider && canAutoToggleTrailingV1(normalizedBaseUrlInput);
   const autoBaseUrlTried = canTryV1Toggle ? new Set([normalizedBaseUrlInput]) : null;
 
   const autoEndpointCandidates = wantsAutoEndpointMode

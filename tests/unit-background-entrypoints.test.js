@@ -10,6 +10,16 @@ function installChromeEntrypointFake(options) {
   const listeners = {};
   const commands = options?.commands || [];
   const tabs = options?.tabs || [{ id: 1 }];
+  const failures = Object.assign({}, options?.failures || {});
+
+  function withLastError(message, callback) {
+    global.chrome.runtime.lastError = message ? { message } : null;
+    try {
+      callback();
+    } finally {
+      global.chrome.runtime.lastError = null;
+    }
+  }
 
   global.chrome = {
     runtime: {
@@ -28,11 +38,17 @@ function installChromeEntrypointFake(options) {
     storage: {
       local: {
         get(key, callback) {
-          callback({ [key]: store[key] });
+          withLastError(failures.storageGet, () => {
+            callback({ [key]: store[key] });
+          });
         },
         set(payload, callback) {
-          Object.assign(store, payload || {});
-          callback?.();
+          withLastError(failures.storageSet, () => {
+            if (!failures.storageSet) {
+              Object.assign(store, payload || {});
+            }
+            callback?.();
+          });
         }
       }
     },
@@ -53,7 +69,9 @@ function installChromeEntrypointFake(options) {
     },
     commands: {
       getAll(callback) {
-        callback(commands);
+        withLastError(failures.commandsGetAll, () => {
+          callback(commands);
+        });
       },
       onCommand: {
         addListener(listener) {
@@ -137,5 +155,23 @@ test('background entrypoints bind browser events to content triggers once', [
   ]);
   assert.deepStrictEqual(warnings, []);
 
+  delete global.chrome;
+});
+
+test('background entrypoints surface callback failures from storage and commands', [
+  'entrypoint.status'
+], async () => {
+  let fake = installChromeEntrypointFake({
+    failures: { storageGet: 'storage_read_failed' }
+  });
+  let Entrypoints = freshRequire('background/entrypoints.js');
+  await assert.rejects(() => Entrypoints.readEntrypointStatus(), /storage_read_failed/);
+  delete global.chrome;
+
+  fake = installChromeEntrypointFake({
+    failures: { commandsGetAll: 'commands_unavailable' }
+  });
+  Entrypoints = freshRequire('background/entrypoints.js');
+  await assert.rejects(() => Entrypoints.refreshShortcutStatus(), /commands_unavailable/);
   delete global.chrome;
 });

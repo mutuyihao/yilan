@@ -1,5 +1,5 @@
 (function (global) {
-  const AdapterUtils = global.AISummaryAdapterUtils || (typeof require === 'function' ? require('./adapter-utils.js') : null);
+  const AdapterUtils = (/** @type {any} */ (global)).AISummaryAdapterUtils || (typeof require === 'function' ? require('./adapter-utils.js') : null);
 
   function trimTrailingSlash(value) {
     if (AdapterUtils?.trimTrailingSlash) return AdapterUtils.trimTrailingSlash(value);
@@ -81,4 +81,3 @@
     (/** @type {any} */ (global)).AISummaryUrlUtils = UrlUtils;
   }
 })(typeof globalThis !== 'undefined' ? globalThis : typeof self !== 'undefined' ? self : {});
-
