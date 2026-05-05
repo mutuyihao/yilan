@@ -1,6 +1,6 @@
 # Yilan
 
-Last updated: 2026-05-04
+Last updated: 2026-05-05
 
 Language: English | [中文](README.zh-CN.md)
 
@@ -20,8 +20,8 @@ The current version is no longer just a summarizer. It is a local-first web read
 - Can reuse the current page's latest historical summary at entry time, while keeping `Regenerate` available to refresh the page result.
 - Refreshes sidebar context after same-document SPA route changes without automatically starting a new model request by default.
 - Opens the current summary in a standalone new-tab reader.
-- Exports Markdown and creates long screenshot share cards with source links.
-- Provides provider presets, explicit Endpoint Mode, theme preference, entry status checks, and auto-save in the settings page.
+- Copies the current summary, exports Markdown, and creates long screenshot share cards with source links.
+- Provides provider presets, explicit or automatic Endpoint Mode, model list refresh for OpenAI-compatible endpoints, light/dark/system mode, four palette presets, entry status checks, and auto-save in the settings page.
 - Uses a two-layer test baseline: `Node feature matrix + static contracts` and `Playwright browser main flow`, which protects future refactors and technical-debt cleanup.
 
 ## Current Scope
@@ -55,8 +55,9 @@ Notes:
 - Text inputs are saved after a short pause, and also save immediately on `blur`.
 - Select boxes and switches save immediately.
 - `Base URL` accepts either a root URL (e.g. `https://api.openai.com/v1`) or a full endpoint; the UI shows an endpoint preview.
-- You can refresh model options from the settings page (requires `API Key`).
-- Built-in provider presets currently include OpenAI, Anthropic, DeepSeek, Gemini, xAI, Qwen, GLM, MiniMax, Doubao, and Hunyuan.
+- `Endpoint Mode` can be explicit, or `Auto` for OpenAI-compatible custom gateways. Connection tests may cache the working endpoint mode and can auto-adjust a missing or extra `/v1` suffix when the gateway makes that clear.
+- You can refresh model options from the settings page for OpenAI-compatible endpoints (requires `API Key`). Anthropic-compatible providers still accept manual model IDs.
+- Built-in provider presets currently include Custom Compatible, OpenAI Official, Anthropic Official, DeepSeek, Gemini / Google, xAI / Grok, Qwen / Bailian, GLM / Zhipu, MiniMax, Doubao / Volcano Ark, and Hunyuan / Tencent.
 
 ### 3. Use the extension
 
@@ -94,6 +95,19 @@ node tests/run-tests.js
 
 For details about test scope, test layers, and requirements for new features, see [Testing](docs/TESTING.md). For the development workflow, manual regression checklist, and documentation maintenance rules, see [Developer Guide](docs/DEVELOPER_GUIDE.md).
 
+## Release Packaging
+
+The 1.0.0 release gate is:
+
+```powershell
+npm.cmd run typecheck
+npm.cmd test
+npm.cmd run test:e2e
+npm.cmd run package:release
+```
+
+`npm.cmd run package:release` creates a runtime-only extension package under `release/` and excludes test files, Playwright artifacts, private folders, dependencies, and source-only docs. Use [Release Checklist](docs/RELEASE_CHECKLIST.md) and [Chrome Web Store Listing Draft](docs/STORE_LISTING.md) before publishing.
+
 ## Repository Layout
 
 ```text
@@ -112,7 +126,7 @@ For details about test scope, test layers, and requirements for new features, se
 |   `-- html2canvas.min.js      # Long screenshot share card generation
 |-- shared/                    # Domain utilities, page strategy, trust policy, theme, transport utilities, provider presets
 |-- tests/                     # Node feature matrix, unit tests, static contracts
-|-- background.js              # Background orchestration, entry state, run control, reader sessions
+|-- background.js              # Background orchestration, connection checks, model listing, entry state, run control, reader sessions
 |-- content.js                 # Page extraction and sidebar injection
 |-- db.js                      # IndexedDB history storage and migrations
 |-- manifest.json              # Extension manifest
@@ -132,9 +146,18 @@ Most project docs are currently written in Chinese:
 - [Technical Architecture](docs/TECHNICAL_ARCHITECTURE.md)
 - [Testing](docs/TESTING.md)
 - [Developer Guide](docs/DEVELOPER_GUIDE.md)
+- [Release Checklist](docs/RELEASE_CHECKLIST.md)
+- [Chrome Web Store Listing Draft](docs/STORE_LISTING.md)
+- [Privacy Policy](PRIVACY_POLICY.md)
+- [Design System](DESIGN_SYSTEM.md)
 - [Upgrade Design draft](docs/UPGRADE_DESIGN.md)
-- [TypeScript + Preact Migration draft](docs/TS_PREACT_MIGRATION.md)
+- [TypeScript + React Migration draft](docs/TS_REACT_MIGRATION.md)
 - [Contributing](CONTRIBUTING.md)
+- [Changelog](CHANGELOG.md)
+
+## Feedback
+
+Please report release issues through GitHub Issues: <https://github.com/mutuyihao/yilan/issues>. Community discussion is available at <https://discord.gg/MWWDwXZ2TV>.
 
 ## License
 

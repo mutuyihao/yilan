@@ -1,6 +1,6 @@
 # 开发者指南
 
-Last updated: 2026-05-04
+Last updated: 2026-05-05
 
 这份文档面向在当前仓库里改代码的人，重点说明三件事：先看哪些文档、修改后怎么验证、哪些事实应该写回哪份文档。
 
@@ -11,7 +11,7 @@ Last updated: 2026-05-04
 3. [测试体系](TESTING.md)
 4. [技术架构](TECHNICAL_ARCHITECTURE.md)
 5. [升级设计（draft）](UPGRADE_DESIGN.md)
-6. [TypeScript + Preact 迁移设计（draft）](TS_PREACT_MIGRATION.md)
+6. [TypeScript + React 迁移设计（draft）](TS_REACT_MIGRATION.md)
 7. [协作与贡献](../CONTRIBUTING.md)
 
 ## 本地开发
@@ -39,7 +39,7 @@ Last updated: 2026-05-04
 npm test
 ```
 
-`npm test` 会跑 Node 层测试，并附带一方 JavaScript 文件的语法检查、功能覆盖矩阵和静态契约检查。
+`npm test` 会跑 Node 层测试，并附带一方 JavaScript 文件的语法检查、功能覆盖矩阵和静态契约检查。当前 Node 层还覆盖后台 entrypoints / run-state / reader-sessions，以及侧栏拆分后的 state / generation / render / events / export / reader-session / mode-control 控制器。
 
 ### 2. TypeScript 契约检查
 
@@ -95,8 +95,9 @@ node tests/run-tests.js
 - 主题切换能同步到 popup、侧栏和阅读页。
 - “检查入口”和“快捷键设置”仍能给出正确状态或跳转。
 - 厂商 preset、Provider、Endpoint Mode 的非常见组合仍能得到合理表单状态。
+- `Endpoint Mode = 自动判断` 的连接测试能在兼容网关上给出清晰诊断；如果网关需要补齐或去除 `/v1`，设置页能同步修正结果。
 - 配置方案（profiles）能正常创建 / 另存为 / 重命名 / 删除，绑定提示与禁用态正确。
-- 模型列表刷新按钮能在成功连接后拉取并缓存输入提示，异常时错误提示合理。
+- 模型列表刷新按钮能在 OpenAI 兼容接口成功连接后拉取并缓存输入提示；Anthropic 兼容接口应给出“不支持自动拉取，手动输入模型 ID”的合理提示。
 
 ### 侧栏与历史
 
@@ -128,12 +129,13 @@ node tests/run-tests.js
 
 - `shared/provider-presets.js`
 - `shared/transport-utils.js`
+- `shared/url-utils.js`
 - `adapters/openai-adapter.js`
 - `adapters/anthropic-adapter.js`
 - `adapters/registry.js`
 - `background.js`
 
-原则：provider-specific 逻辑优先放进 `adapters/`，不要把兼容分支堆回后台主流程。
+原则：provider-specific 请求格式优先放进 `adapters/`，不要把兼容分支堆回后台主流程。连接测试里的自动 endpoint 试探、模型列表刷新、`/v1` 自动修正和本地缓存属于后台编排能力，仍保留在 `background.js` 与共享 URL / transport 工具中。
 
 ### 后台运行与取消
 
@@ -208,7 +210,7 @@ node tests/run-tests.js
 规划草案：
 
 - `docs/UPGRADE_DESIGN.md`：Pinboard 启发下的后续升级方向与低风险重构路线
-- `docs/TS_PREACT_MIGRATION.md`：TypeScript、构建链和 Preact 的分阶段迁移方案
+- `docs/TS_REACT_MIGRATION.md`：TypeScript、构建链和 React 的分阶段迁移方案
 
 出现以下变化时，需要同步更新：
 
@@ -217,17 +219,18 @@ node tests/run-tests.js
 - 测试命令、覆盖策略、验证入口变化：更新 `docs/TESTING.md` 和 `docs/DEVELOPER_GUIDE.md`
 - 文档入口或文档分工变化：更新 `README.md` 和 `docs/README.md`
 - 产品升级方向、行为等价重构路线变化：更新 `docs/UPGRADE_DESIGN.md`
-- TypeScript、构建链、框架迁移变化：更新 `docs/TS_PREACT_MIGRATION.md`
+- TypeScript、构建链、框架迁移变化：更新 `docs/TS_REACT_MIGRATION.md`
 - 贡献约定变化：更新 `CONTRIBUTING.md`
 
 ## 当前建议保持的工程边界
 
-- 当前运行产物继续保持无构建、纯脚本结构；TypeScript、构建链和 Preact 迁移必须按 `docs/TS_PREACT_MIGRATION.md` 分阶段推进。
+- 当前运行产物继续保持无构建、纯脚本结构；TypeScript、构建链和 React 迁移必须按 `docs/TS_REACT_MIGRATION.md` 分阶段推进。
 - TypeScript 契约当前只做 `tsc --noEmit` 检查，不能把 `types/` 当作运行时代码加载。
 - 共享逻辑优先放在 `shared/`，不要把同类判断复制到 popup、sidebar、reader 三处。
 - provider-specific 逻辑继续收敛在 `adapters/`，不要把 transport 和 provider 分支堆回 `background.js`。
 - 入口状态继续收敛在 `background/entrypoints.js`，不要把 context menu / command listener 重新散回 `background.js`。
 - 后台运行状态继续收敛在 `background/run-state.js`，不要把 active run / port run Map 重新散回 `background.js`。
 - 阅读页临时会话继续收敛在 `background/reader-sessions.js`，不要把 reader session 过期清理散回 `background.js`。
+- 运行时消息新增或改名时，同步检查 `types/messages.ts`、`tests/static-contracts.test.js` 和 `docs/TECHNICAL_ARCHITECTURE.md`。
 - 与落库和隐私相关的改动，务必同时检查 `db.js`、`shared/trust-policy.js` 和用户文档。
 - 如果某条用户主路径能稳定地在浏览器里复现，优先补 Playwright，而不是只留下手工说明。

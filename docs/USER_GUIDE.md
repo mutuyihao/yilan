@@ -1,6 +1,6 @@
 # 用户文档
 
-Last updated: 2026-05-04
+Last updated: 2026-05-05
 
 这份文档面向第一次使用扩展的用户，也适合用来确认当前版本的真实功能边界。
 
@@ -11,6 +11,7 @@ Last updated: 2026-05-04
 - 基于当前摘要继续生成 `行动项`、`术语表`、`问答卡片`。
 - 在侧栏中查看来源信息、页面策略、可信与控制状态。
 - 查看、搜索、收藏、删除历史记录，并按站点聚合筛选。
+- 复制当前摘要或阅读页里的 Markdown。
 - 导出 Markdown。
 - 生成带来源链接的长截图分享卡。
 - 在新标签页打开专注阅读页，获得更适合阅读的版面。
@@ -53,11 +54,11 @@ Last updated: 2026-05-04
 - `配置方案`：可选，用来保存多套连接配置并快速切换。`当前配置（未绑定）` 表示只编辑当前设置；绑定到某个配置方案后，后续自动保存会同步更新该配置方案。可通过右侧 `⋯` 管理（新建 / 另存为 / 重命名 / 删除）。
 - `厂商预设`：给出更稳的默认 Provider、Endpoint Mode、Base URL 和模型名。
 - `Provider`：当前运行时支持 `OpenAI / OpenAI 兼容接口` 与 `Anthropic / Claude 兼容接口`。
-- `Endpoint Mode`：显式指定最终接口类型。
+- `Endpoint Mode`：显式指定最终接口类型。OpenAI 兼容接口支持 `自动判断`、`Responses API`、`Chat Completions`、`Legacy Completions`；Anthropic / Claude 兼容接口使用 `Messages API`。
 - `API Key`
 - `Base URL`
 - `模型名称`
-- `刷新`：拉取当前接口返回的模型列表，用于输入提示（需要先填写 `API Key`）。
+- `刷新`：拉取 OpenAI 兼容接口返回的模型列表，用于输入提示（需要先填写 `API Key`）。Anthropic / Claude 兼容接口目前不自动拉取模型列表，仍可手动输入模型 ID。
 
 建议流程：
 
@@ -68,13 +69,14 @@ Last updated: 2026-05-04
 5. 按需覆盖 Base URL 和模型名称。
 6. 等待自动保存后点击“测试连接”。
 
-当前内置预设包括：`OpenAI`、`Anthropic`、`DeepSeek`、`Gemini`、`xAI`、`Qwen`、`GLM`、`MiniMax`、`Doubao`、`Hunyuan`。
+当前内置预设包括：`自定义兼容接口`、`OpenAI 官方`、`Anthropic 官方`、`DeepSeek`、`Gemini / Google`、`xAI / Grok`、`Qwen / 百炼`、`GLM / 智谱`、`MiniMax`、`Doubao / 火山方舟`、`Hunyuan / 腾讯混元`。
 
 补充说明：
 
 - `Gemini / Google` 当前走 OpenAI 兼容的 `Chat Completions`。
 - `xAI / Grok` 当前默认走 OpenAI 兼容的 `Responses API`，也可手动切到 `Chat Completions`。
 - `Base URL` 既可以填写根地址（例如 `https://api.openai.com/v1`），也可以直接填写完整 endpoint；设置页会显示“将请求 …”的预览，便于确认最终访问路径。
+- `Endpoint Mode = 自动判断` 会在 OpenAI 兼容自定义网关中尝试可用接口；连接测试可能缓存成功的 endpoint mode，并在网关错误足够明确时自动补齐或去除 `Base URL` 末尾的 `/v1`。
 - 如果“测试连接”失败，底部状态会显示简要错误；必要时可以展开“错误详情”查看更具体的诊断信息。
 
 ### 偏好
@@ -86,7 +88,8 @@ Last updated: 2026-05-04
 - `额外系统要求`
 - `自动翻译输出`
 - `默认输出语言`
-- `配色模式`
+- `明暗模式`：`自动跟随系统`、`固定浅色`、`固定深色`
+- `色彩方案`：`松石绿`、`雾蓝`、`岩茶棕`、`檀紫`，对应内部 palette：`jade`、`slate`、`copper`、`plum`
 - `无痕模式`
 - `默认写入历史`
 - `允许分享卡`
@@ -198,8 +201,9 @@ Last updated: 2026-05-04
 
 ### 6. 导出与分享
 
-当前支持两种主要输出：
+当前支持三种主要输出：
 
+- 复制当前摘要 / 阅读页 Markdown
 - Markdown 导出
 - 长截图分享卡
 
@@ -214,20 +218,21 @@ Last updated: 2026-05-04
 - API Key
 - 模型配置（厂商预设 / Provider / Endpoint Mode / Base URL / 模型名称 / 额外系统要求等）
 - 配置方案索引与当前激活配置方案
-- 主题偏好
+- 明暗模式与色彩方案
 - 隐私与入口设置
 
 ### 浏览器本地存储
 
 运行时本地状态保存在 `chrome.storage.local` 中，例如：
 
-- 右键菜单 / 快捷键状态
+- 右键菜单 / 快捷键入口状态
 - 模型列表缓存（按 Provider + Base URL 维度缓存，用于输入提示）
+- 自动 Endpoint Mode 缓存（OpenAI 兼容接口自动判断成功后按 Provider + Base URL 维度缓存）
 - 阅读页临时会话
 
 ### IndexedDB
 
-历史记录保存在当前浏览器 profile 的 IndexedDB 中，主 store 为 `summaryRecords`。
+历史记录保存在当前浏览器 profile 的 IndexedDB 中，数据库名为 `aiSummaryDB`，主 store 为 `summaryRecords`。
 
 ## 常见问题
 
@@ -242,6 +247,14 @@ Last updated: 2026-05-04
 - 文本输入是延迟保存，不是每敲一个字就立刻写入。
 - 离开输入框时会立即保存。
 - 底部状态栏会显示自动保存状态。
+
+### 测试连接后 Base URL 或 Endpoint Mode 变了
+
+这是当前实现的自动兼容逻辑。部分 OpenAI 兼容网关对 `/v1` 前缀或 endpoint 类型要求不同；如果连接测试能判断出更合适的写法，会把结果同步回设置页，并把成功的自动 Endpoint Mode 缓存在本地，后续减少重复试探。
+
+### 刷新模型列表没有返回模型
+
+模型列表刷新目前只针对 OpenAI 兼容接口调用 `/models`。Anthropic / Claude 兼容接口会提示不支持自动拉取，手动填写模型 ID 即可。
 
 ### 生成成功了，但历史里没有
 

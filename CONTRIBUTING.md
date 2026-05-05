@@ -1,6 +1,6 @@
 # 协作与贡献指南
 
-Last updated: 2026-04-02
+Last updated: 2026-05-05
 
 欢迎提交 issue 和 PR。这个项目希望保持“轻量、清晰、可维护”的演进方式：功能可以继续增加，但边界不能越来越乱。
 
@@ -58,28 +58,17 @@ Last updated: 2026-04-02
 至少执行：
 
 ```powershell
-node --check background.js
-node --check content.js
-node --check popup.js
-node --check sidebar.js
-node --check reader.js
-node --check db.js
-node --check shared/article-utils.js
-node --check shared/page-strategy.js
-node --check shared/trust-policy.js
-node --check adapters/openai-adapter.js
-node --check adapters/anthropic-adapter.js
-node --check adapters/registry.js
-node tests/run-tests.js
+npm test
+npm run typecheck
 ```
 
-如果改动影响注入逻辑、侧栏或页面路由，记得在扩展管理页 `Reload` 扩展，并刷新目标网页重新验证。
+如果 Windows PowerShell 拦截 `npm.ps1`，可改用 `npm.cmd test` 和 `npm.cmd run typecheck`。如果改动影响注入逻辑、侧栏、阅读页或页面路由，记得在扩展管理页 `Reload` 扩展，并刷新目标网页重新验证；能稳定自动化的主路径优先补 Playwright。
 
 ## 手工回归建议
 
 对用户可见改动，至少覆盖受影响路径。
 
-- 设置页：自动保存、主题切换、连接测试
+- 设置页：自动保存、主题切换、连接测试、Endpoint Mode 自动判断、模型列表刷新
 - 侧栏：打开、自动生成、取消、模式切换、二次生成
 - 长文：分段与汇总
 - 历史与收藏：写入、搜索、筛选、删除、收藏

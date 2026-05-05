@@ -1,6 +1,6 @@
 # 一览
 
-Last updated: 2026-05-04
+Last updated: 2026-05-05
 
 语言：中文 | [English](README.md)
 
@@ -20,8 +20,8 @@ GitHub：<https://github.com/mutuyihao/yilan>
 - 入口可优先复用当前页面的历史摘要，命中后直接展示旧结果，并保留“重新生成”更新当前页。
 - 在同一页面的 SPA 路由切换中，侧栏会刷新页面上下文，但默认不会自动发起新的模型请求。
 - 支持把当前摘要打开到独立的新标签页阅读器。
-- 支持 Markdown 导出和带来源链接的长截图分享卡。
-- 设置页支持厂商预设、显式 Endpoint Mode、主题偏好、入口状态检查，并且默认自动保存。
+- 支持复制当前摘要、Markdown 导出和带来源链接的长截图分享卡。
+- 设置页支持厂商预设、显式或自动 Endpoint Mode、OpenAI 兼容接口的模型列表刷新、明暗模式、四套色彩方案、入口状态检查，并且默认自动保存。
 - 当前测试基线已经分成 `Node 功能矩阵 + 静态契约` 与 `Playwright 浏览器主链路` 两层，用来给后续重构和技术债治理兜底。
 
 ## 当前边界
@@ -55,8 +55,9 @@ GitHub：<https://github.com/mutuyihao/yilan>
 - 文本输入项会在停顿后保存，`blur` 时也会立即保存。
 - 下拉框和开关会立即保存。
 - `Base URL` 既可以填根地址（例如 `https://api.openai.com/v1`），也可以直接填完整 endpoint；设置页会显示请求预览。
-- 可在设置页刷新模型列表（需要先填写 `API Key`）。
-- 内置厂商预设目前包含 OpenAI、Anthropic、DeepSeek、Gemini、xAI、Qwen、GLM、MiniMax、Doubao、Hunyuan。
+- `Endpoint Mode` 可以显式指定，也可以在 OpenAI 兼容自定义网关里使用“自动判断”。连接测试可能缓存可用 endpoint mode，并在网关错误足够明确时自动补齐或去除 `/v1`。
+- 可在设置页为 OpenAI 兼容接口刷新模型列表（需要先填写 `API Key`）。Anthropic 兼容接口目前仍手动填写模型 ID。
+- 内置厂商预设目前包含自定义兼容接口、OpenAI 官方、Anthropic 官方、DeepSeek、Gemini / Google、xAI / Grok、Qwen / 百炼、GLM / 智谱、MiniMax、Doubao / 火山方舟、Hunyuan / 腾讯混元。
 
 ### 3. 使用扩展
 
@@ -94,6 +95,19 @@ node tests/run-tests.js
 
 更详细的覆盖口径、测试分层和新增功能要求见 [测试体系](docs/TESTING.md)。开发流程、手工回归和文档维护规则见 [开发者指南](docs/DEVELOPER_GUIDE.md)。
 
+## 发版打包
+
+1.0.0 正式版门禁：
+
+```powershell
+npm.cmd run typecheck
+npm.cmd test
+npm.cmd run test:e2e
+npm.cmd run package:release
+```
+
+`npm.cmd run package:release` 会在 `release/` 下生成只包含扩展运行文件的发布包，排除测试、Playwright 产物、私有目录、依赖目录和源码文档。发布前按 [1.0.0 发版清单](docs/RELEASE_CHECKLIST.md) 和 [Chrome Web Store 文案](docs/STORE_LISTING.md) 检查。
+
 ## 目录结构
 
 ```text
@@ -112,7 +126,7 @@ node tests/run-tests.js
 │  └─ html2canvas.min.js      # 用于生成长截图分享卡
 ├─ shared/                    # 领域工具、页面策略、可信策略、主题、传输工具、厂商 preset
 ├─ tests/                     # Node 功能矩阵、单元测试、静态契约
-├─ background.js              # 后台编排、入口状态、运行控制、reader 会话
+├─ background.js              # 后台编排、连接检查、模型列表、入口状态、运行控制、reader 会话
 ├─ content.js                 # 页面抽取与侧栏注入
 ├─ db.js                      # IndexedDB 历史存储与迁移
 ├─ manifest.json              # 扩展清单
@@ -130,9 +144,18 @@ node tests/run-tests.js
 - [技术架构](docs/TECHNICAL_ARCHITECTURE.md)
 - [测试体系](docs/TESTING.md)
 - [开发者指南](docs/DEVELOPER_GUIDE.md)
+- [1.0.0 发版清单](docs/RELEASE_CHECKLIST.md)
+- [Chrome Web Store 文案](docs/STORE_LISTING.md)
+- [隐私政策](PRIVACY_POLICY.md)
+- [设计系统](DESIGN_SYSTEM.md)
 - [升级设计（draft）](docs/UPGRADE_DESIGN.md)
-- [TypeScript + Preact 迁移设计（draft）](docs/TS_PREACT_MIGRATION.md)
+- [TypeScript + React 迁移设计（draft）](docs/TS_REACT_MIGRATION.md)
 - [协作与贡献](CONTRIBUTING.md)
+- [更新日志](CHANGELOG.md)
+
+## 反馈
+
+正式版问题请优先通过 GitHub Issues 反馈：<https://github.com/mutuyihao/yilan/issues>。社区讨论入口：<https://discord.gg/MWWDwXZ2TV>。
 
 ## License
 

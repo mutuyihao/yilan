@@ -1,8 +1,8 @@
 # 技术架构
 
-Last updated: 2026-05-04
+Last updated: 2026-05-05
 
-这份文档描述当前仓库已经落地并仍然有效的运行时边界、数据模型，以及支撑重构的工程验证边界。TypeScript、构建链和 Preact 迁移属于规划草案，见 [TypeScript + Preact 迁移设计](TS_PREACT_MIGRATION.md)。
+这份文档描述当前仓库已经落地并仍然有效的运行时边界、数据模型，以及支撑重构的工程验证边界。TypeScript、构建链和 React 迁移属于规划草案，见 [TS + React 迁移评估与执行计划](TS_REACT_MIGRATION.md)。
 
 ## 运行时总览
 
@@ -13,7 +13,7 @@ Last updated: 2026-05-04
 3. `shared/article-utils.js` 把抽取结果标准化为文章快照，并根据长度决定是否分段。
 4. `shared/page-strategy.js` 基于页面类型给出页面策略和推荐摘要模式。
 5. `sidebar/state.js` 负责侧栏初始状态、导航策略常量和 DOM 元素绑定；`sidebar.js` 负责侧栏编排和收藏；侧栏摘要渲染、来源/信任卡、状态提示和诊断展示由 `sidebar/render.js` 管理；历史面板由 `sidebar/history.js` 管理，Markdown 导出和分享卡由 `sidebar/export.js` 管理，阅读页快照和打开由 `sidebar/reader-session.js` 管理，主摘要、二次生成、取消和流式连接由 `sidebar/generation.js` 管理，摘要模式控件由 `sidebar/mode-control.js` 管理，按钮、键盘和入口消息事件由 `sidebar/events.js` 管理。
-6. `background.js` 通过 `adapters/` 执行请求，统一处理流式、取消、重试和错误；右键菜单、快捷键和入口状态由 `background/entrypoints.js` 管理，运行状态表和 port-run 映射由 `background/run-state.js` 管理，阅读页临时会话由 `background/reader-sessions.js` 管理。
+6. `background.js` 通过 `adapters/` 执行请求，统一处理连接测试、模型列表刷新、自动 endpoint 试探、流式、取消、重试和错误；右键菜单、快捷键和入口状态由 `background/entrypoints.js` 管理，运行状态表和 port-run 映射由 `background/run-state.js` 管理，阅读页临时会话由 `background/reader-sessions.js` 管理。
 7. `db.js` 把结构化结果保存到 IndexedDB，并提供搜索、收藏、删除和站点聚合能力。
 8. `reader.html / reader.js` 从临时阅读会话中恢复当前摘要，在新标签页提供专注阅读体验。
 
@@ -205,6 +205,7 @@ flowchart TB
 
 - `content.js` 使用 `libs/readability.js` 这个 vendored 的外部库做正文抽取。
 - `readability.js` 属于第三方依赖，不是项目自研模块。
+- 动态注入列表由 `background.js` 中的 `CONTENT_SCRIPT_FILES` 维护，当前包括 `shared/domain.js`、`shared/strings.js`、`shared/page-strategy.js`、`shared/article-utils.js`、`shared/constants.js`、`libs/readability.js` 和 `content.js`。
 - 右键、快捷键和 popup 等显式入口仍通过 `injectSidebar()` 打开或重建侧栏。
 - SPA / 同文档路由切换不会重建 iframe；`content.js` 会向现有 iframe `postMessage` 发送 `articleData`，并带上 `source: 'navigation'` 与内部 `navigationPolicy`。
 
@@ -288,6 +289,9 @@ SPA 路由切换的当前默认策略：
 - 流式输出和取消控制编排
 - 统一错误归一化
 - 连接测试
+- 模型列表刷新：当前只对 OpenAI 兼容接口调用 `/models`，结果按 Provider + Base URL 缓存在 `chrome.storage.local`
+- OpenAI 兼容接口的 `endpointMode=auto` 试探与成功模式缓存
+- 明确网关错误下的 `/v1` 自动补齐或去除，并把修正后的 Base URL 同步回设置页
 - 委托入口模块维护右键菜单和快捷键状态
 - 委托入口模块打开快捷键设置页
 - 委托阅读会话模块创建独立阅读页会话并打开 `reader.html`
@@ -320,6 +324,7 @@ SPA 路由切换的当前默认策略：
 - `getEntrypointStatus`
 - `openShortcutSettings`
 - `openReaderTab`
+- `listModels`
 
 ### `db.js`
 
@@ -371,10 +376,13 @@ provider-specific 逻辑集中在这里，而不是散落在 `background.js`：
 
 当前支持的接口族：
 
+- OpenAI Compatible `auto` resolution（最终落到下列 OpenAI 兼容 endpoint 之一）
 - OpenAI Compatible `responses`
 - OpenAI Compatible `chat_completions`
 - OpenAI Compatible `legacy_completions`
 - Anthropic `messages`
+
+内置 preset 与运行时 Provider 是分开的：preset 用于提供默认 Base URL、默认模型和可选 Endpoint Mode；最终请求仍由 `aiProvider` 选择 `openai` 或 `anthropic` adapter。当前 preset 包括 `custom`、`openai_official`、`anthropic_official`、`deepseek`、`gemini`、`qwen`、`glm`、`xai`、`minimax`、`doubao`、`hunyuan`。
 
 ## 数据模型
 
@@ -438,7 +446,7 @@ provider-specific 逻辑集中在这里，而不是散落在 `background.js`：
 - Base URL、模型名称、额外系统要求
 - 配置方案索引与当前激活配置方案（以及每个配置方案的快照数据）
 - 自动翻译、默认输出语言
-- 主题偏好
+- 明暗模式与色彩方案
 - 无痕模式、默认写入历史、默认允许分享
 - 入口自动生成、入口默认简短总结、入口优先显示本页历史摘要
 
@@ -454,7 +462,9 @@ provider-specific 逻辑集中在这里，而不是散落在 `background.js`：
 
 - 右键菜单 / 快捷键状态
 - 最近触发信息
+- 入口状态缓存：`entrypointStatus`
 - 模型列表缓存（按 Provider + Base URL 维度缓存，用于输入提示）
+- 自动 Endpoint Mode 缓存：`yilanAutoEndpointModeCacheV1`
 - 阅读页临时会话
 
 模型列表缓存 key（当前实现）：`yilanModelsCacheV1`
@@ -463,7 +473,7 @@ provider-specific 逻辑集中在这里，而不是散落在 `background.js`：
 
 保存历史记录：
 
-- 数据库：`AISummaryDB`
+- 数据库名：`aiSummaryDB`
 - 版本：`2`
 - store：`summaryRecords`
 - 保留旧 `history` store 用于迁移兼容
@@ -479,4 +489,4 @@ provider-specific 逻辑集中在这里，而不是散落在 `background.js`：
 - 阅读页继续作为侧栏之外的补充阅读能力，而不是替代侧栏主工作流。
 - 后台 reader session 创建和过期清理继续收敛在 `background/reader-sessions.js`。
 - 验证体系保持 `Node 契约` 与 `Playwright 主链路` 分层，不拿其中一层去替代另一层。
-- 当前运行产物仍是无构建、纯脚本结构；如引入 TypeScript、构建链或 Preact，必须按专项迁移设计分阶段验证。
+- 当前运行产物仍是无构建、纯脚本结构；如引入 TypeScript、构建链或 React，必须按专项迁移设计分阶段验证。

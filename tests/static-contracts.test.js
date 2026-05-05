@@ -555,12 +555,13 @@ test('technical architecture docs capture diagrams, runtime loading, and module 
   });
 });
 
-test('planning docs record upgrade direction and TS/Preact migration guardrails', 'quality.docs_upgrade_design', () => {
+test('planning docs record upgrade direction and TS/React migration guardrails', 'quality.docs_upgrade_design', () => {
   const index = readText('docs/README.md');
   const upgradeDoc = readText('docs/UPGRADE_DESIGN.md');
-  const migrationDoc = readText('docs/TS_PREACT_MIGRATION.md');
+  const migrationDoc = readText('docs/TS_REACT_MIGRATION.md');
 
-  assert.ok(index.includes('TS_PREACT_MIGRATION.md'));
+  assert.ok(index.includes('TS_REACT_MIGRATION.md'));
+  assert.ok(!index.includes('TS_PREACT_MIGRATION.md'));
 
   [
     'Pinboard',
@@ -578,7 +579,7 @@ test('planning docs record upgrade direction and TS/Preact migration guardrails'
 
   [
     'TypeScript',
-    'Preact',
+    'React',
     'npm.cmd run typecheck',
     'types/messages.ts',
     'types/history.ts',
@@ -589,6 +590,6 @@ test('planning docs record upgrade direction and TS/Preact migration guardrails'
     'sidebar',
     'dist/'
   ].forEach((needle) => {
-    assert.ok(migrationDoc.includes(needle), 'TS/Preact migration design missing: ' + needle);
+    assert.ok(migrationDoc.includes(needle), 'TS/React migration design missing: ' + needle);
   });
 });

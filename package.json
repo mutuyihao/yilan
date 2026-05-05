@@ -1,5 +1,6 @@
 {
   "name": "yilan-extension",
+  "version": "1.0.0",
   "private": true,
   "scripts": {
     "test": "node tests/run-tests.js",
@@ -7,6 +8,7 @@
     "typecheck": "tsc --noEmit",
     "test:e2e": "playwright test",
     "test:e2e:headed": "playwright test --headed",
+    "package:release": "node scripts/package-release.js",
     "playwright:install": "playwright install chromium"
   },
   "devDependencies": {

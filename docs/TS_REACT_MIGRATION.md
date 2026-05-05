@@ -1,7 +1,12 @@
-# TS + React 迁移评估与执行计划（Yilan）
+# TypeScript + React 迁移评估与执行计划（Yilan）
+
+Last updated: 2026-05-05
+
+Status: draft
 
 ## 摘要（是否有必要）
 - 结论：在你的目标组合（长期可维护 + 复杂 UI 持续迭代 + 团队协作 + 可接受构建链 + 必须 React）下，迁移到 **TS + React** 是“值得做且可行”的，但必须 **分阶段**，先把构建/产物/测试护栏做稳，再逐页迁移 UI，最后完成全仓 TS 化与旧架构下线。
+- 当前仓库已落地的是 `allowJs + checkJs` 的 `npm.cmd run typecheck`、`types/*` 契约文件、Node 单元测试和 Playwright 主链路；还没有把 `dist/` 作为运行事实来源，也没有引入 React 或构建产物加载。
 - 关键硬约束：
   - MV3 background 是 **extension service worker**：若想使用 ES module `import`，需要在 manifest 里声明 `type: "module"`；同时 **不支持动态 `import()`**（只支持静态 import）。([developer.chrome.com](https://developer.chrome.com/docs/extensions/develop/concepts/service-workers/basics?authuser=2&utm_source=openai))
   - 你偏好的开发方式（watch + reload）可以直接用 `vite build --watch`。([vite.dev](https://vite.dev/guide/build?utm_source=openai))
@@ -27,6 +32,7 @@
 ### Phase 0：冻结契约与验收门禁（1-3 天）
 - 锁定当前行为的验收清单：
   - Node：现有 `node tests/run-tests.js`
+  - TS：现有 `npm.cmd run typecheck`
   - E2E：现有 Playwright 主链路（popup 保存/自动保存/连接测试、注入侧栏、生成、历史复用、导出、reader）。
 - 产物与入口基线：
   - 明确未来以 `dist/` 为加载目录；根目录脚本进入“过渡期保留，但不再新增特性”。
@@ -90,6 +96,7 @@
   - popup 自动保存/连接测试/错误展示仍一致。
   - content 注入 + sidebar iframe 注入 + SPA 路由刷新仍一致。
   - reader session 恢复路径与失效回退不变。
+  - 类型契约继续覆盖 `types/messages.ts`、`types/history.ts`、`types/settings.ts`、`types/diagnostics.ts`。
 
 ## 假设与已锁定决策
 - 目标浏览器：仅 Chromium（Chrome/Edge）。

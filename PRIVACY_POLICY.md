@@ -1,6 +1,6 @@
 # Privacy Policy — Yilan
 
-**Last Updated: 2026-04-02**
+**Last Updated: 2026-05-05**
 
 Official website: https://yilan.app
 Source code: https://github.com/mutuyihao/yilan
@@ -35,7 +35,7 @@ When you generate a summary, the **article content from the current webpage** is
 | `storage` | Save your settings and preferences |
 | `contextMenus` | Add "Summarize this page with Yilan" to the right-click menu |
 | `clipboardWrite` | Copy summaries to your clipboard |
-| `host_permissions: <all_urls>` | Required to (1) extract content from any webpage and (2) send API requests to user-configured AI endpoints at arbitrary URLs |
+| `host_permissions: <all_urls>` | Required to (1) extract content from arbitrary webpages after user action and (2) send API requests to user-configured AI endpoints at arbitrary URLs |
 
 ## Privacy Mode
 

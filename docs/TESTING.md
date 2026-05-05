@@ -1,6 +1,6 @@
 # 测试体系
 
-Last updated: 2026-05-04
+Last updated: 2026-05-05
 
 当前测试体系分成两层：
 
@@ -21,7 +21,7 @@ Last updated: 2026-05-04
 - UI 投影和纯视图模型：用 Node 单元测试覆盖格式化、文案、阅读快照、历史项、诊断面板和侧栏 meta/trust card。
 - IndexedDB 记录层：用 `tests/fake-indexeddb.js` 覆盖存取、搜索、收藏、删除、复用等行为。
 - 浏览器页面和 Manifest V3 入口：用静态契约测试覆盖 DOM id、脚本加载顺序、消息 action、权限和资源声明。
-- 文档入口和规划草案：用静态契约测试覆盖文档索引、升级设计和 TypeScript / Preact 迁移设计的关键 guardrail。
+- 文档入口和规划草案：用静态契约测试覆盖文档索引、升级设计和 TypeScript / React 迁移设计的关键 guardrail。
 - 真实浏览器链路：用 Playwright 覆盖 popup、content script、background service worker、sidebar iframe、reader 页面和 mocked AI 接口之间的协作。
 
 这套体系适合给“行为等价”的重构和技术债治理提供护栏，但它仍然不等于所有排列组合都自动化：
@@ -69,6 +69,10 @@ node tests/run-tests.js
 - `tests/feature-matrix.js`：既有功能覆盖清单，新增功能必须同步增加或更新。
 - `tests/unit-core.test.js`：领域工具、文章快照、分段、prompt、信任策略、错误、取消、诊断、preset、主题，以及 UI 格式化/文案/视图模型工具。
 - `tests/unit-adapters-transport.test.js`：OpenAI/Anthropic adapter、registry、SSE/non-stream 解析和 transport 错误归一。
+- `tests/unit-background-entrypoints.test.js`：右键菜单、快捷键状态、入口注册和触发契约。
+- `tests/unit-background-run-state.test.js`：active run、stream port 映射和取消清理。
+- `tests/unit-background-reader-sessions.test.js`：阅读页临时会话创建和过期清理。
+- `tests/unit-sidebar-*.test.js`：侧栏状态、模式控件、渲染、事件、生成、导出和阅读页打开控制器。
 - `tests/unit-record-store.test.js`：记录存储、历史搜索、站点聚合、收藏删除、当前页复用、session-only 记录。
 - `tests/static-contracts.test.js`：Manifest、HTML DOM 契约、脚本顺序、background/content/sidebar/popup/reader 入口契约、一方 JS 语法检查，以及规划文档 guardrail。
 - `tests/fake-indexeddb.js`：面向记录层测试的最小内存 IndexedDB。
@@ -103,6 +107,7 @@ node tests/run-tests.js
 - 为纯逻辑补 Node 单元测试。
 - 为浏览器入口补静态契约测试，至少覆盖 DOM id、message action、Manifest 资源和脚本顺序。
 - 如果新增共享脚本或页面 view model，补 Node 单元测试并同步 HTML 脚本顺序、Manifest 可访问资源和静态契约。
+- 如果新增后台子模块、runtime message 或 port message，补对应 Node 契约测试并同步 `types/messages.ts`。
 - 如果调整文档入口、升级路线或工程迁移方案，补或更新规划文档 guardrail，避免 draft 和当前边界脱节。
 - 如果功能会改变存储结构，补旧记录兼容测试。
 - 如果功能属于高价值主链路，且能在浏览器里稳定复现，优先补 Playwright 用例。
@@ -115,6 +120,9 @@ node tests/run-tests.js
 - popup 设置保存与连接测试
 - popup 自动保存
 - popup 连接错误态
+- popup 连接测试根据网关反馈自动补齐 `/v1`
+- popup 连接测试根据网关反馈自动去除 `/v1`
+- popup `endpointMode=auto` 自动回退到可用 OpenAI 兼容接口
 - 当前标签页注入侧栏并生成主摘要
 - 超时、CORS、网络断开、流式断流等异常链路
 - 短暂网络失败后的重试与诊断计数
@@ -150,4 +158,4 @@ node tests/run-tests.js
 如果测试覆盖的是规划或迁移 guardrail，还需要同步检查：
 
 - `docs/UPGRADE_DESIGN.md`
-- `docs/TS_PREACT_MIGRATION.md`
+- `docs/TS_REACT_MIGRATION.md`
