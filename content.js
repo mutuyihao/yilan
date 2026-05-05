@@ -5,16 +5,17 @@ if (!window.__aiSummaryInjected) {
   const ArticleUtils = window.AISummaryArticle;
   const Constants = window.AISummaryConstants;
   const SIDEBAR_FRAME_ID = 'ai-summary-sidebar';
-  const SIDEBAR_FRAME_WIDTH = 460;
+  const SIDEBAR_FRAME_WIDTH = 420;
   const NAVIGATION_REFRESH_POLICY = {
     autoStartOnNavigation: false,
     duringGeneration: 'defer'
   };
   let detachViewportSync = null;
-  let navigationRefreshTimer = 0;
   let navigationPollTimer = 0;
+  let navigationMutationObserver = null;
+  let navigationMutationTimer = 0;
   let activeSidebarPayloadType = '';
-  let currentPageKey = buildPageKey();
+  let currentPageKey = buildPageContextKey();
 
   function readCanonicalUrl(doc) {
     const canonicalLink = doc.querySelector('link[rel="canonical"]');
@@ -97,6 +98,16 @@ if (!window.__aiSummaryInjected) {
       window.location.search || '',
       routeHash
     ].join('');
+  }
+
+  function buildPageContextKey() {
+    const h1Text = Domain.normalizeWhitespace(document.querySelector('h1')?.textContent || '');
+    return [
+      buildPageKey(),
+      document.title || '',
+      readCanonicalUrl(document) || '',
+      h1Text
+    ].join('\n');
   }
 
   function isDiscourseListingPage() {
@@ -210,7 +221,7 @@ if (!window.__aiSummaryInjected) {
   }
 
   function injectSidebar(payload) {
-    currentPageKey = buildPageKey();
+    currentPageKey = buildPageContextKey();
     activeSidebarPayloadType = String(payload?.type || '');
     const iframe = createSidebarFrame();
     iframe.onload = () => {
@@ -230,9 +241,9 @@ if (!window.__aiSummaryInjected) {
   }
 
   function removeSidebar() {
-    if (navigationRefreshTimer) {
-      clearTimeout(navigationRefreshTimer);
-      navigationRefreshTimer = 0;
+    if (navigationMutationTimer) {
+      clearTimeout(navigationMutationTimer);
+      navigationMutationTimer = 0;
     }
     if (typeof detachViewportSync === 'function') {
       detachViewportSync();
@@ -244,34 +255,26 @@ if (!window.__aiSummaryInjected) {
     }
   }
 
+  function shouldTrackPageContext() {
+    return activeSidebarPayloadType === 'articleData' && !!document.getElementById(SIDEBAR_FRAME_ID);
+  }
+
   function scheduleSidebarRefreshForNavigation() {
-    if (activeSidebarPayloadType !== 'articleData') return;
-    if (!document.getElementById(SIDEBAR_FRAME_ID)) return;
+    if (!shouldTrackPageContext()) return;
 
-    if (navigationRefreshTimer) {
-      clearTimeout(navigationRefreshTimer);
-    }
-
-    const targetPageKey = currentPageKey;
-    navigationRefreshTimer = window.setTimeout(() => {
-      navigationRefreshTimer = 0;
-
-      if (activeSidebarPayloadType !== 'articleData') return;
-      if (!document.getElementById(SIDEBAR_FRAME_ID)) return;
-      if (targetPageKey !== buildPageKey()) return;
-
-      const article = extractArticleSnapshot();
-      postToExistingSidebar({
-        type: 'articleData',
-        article,
-        source: 'navigation',
-        navigationPolicy: NAVIGATION_REFRESH_POLICY
-      });
-    }, Constants.NAVIGATION_REFRESH_DELAY_MS);
+    const article = extractArticleSnapshot();
+    postToExistingSidebar({
+      type: 'articleData',
+      article,
+      source: 'navigation',
+      navigationPolicy: NAVIGATION_REFRESH_POLICY
+    });
   }
 
   function handlePageContextChange() {
-    const nextPageKey = buildPageKey();
+    if (!shouldTrackPageContext()) return;
+
+    const nextPageKey = buildPageContextKey();
     if (nextPageKey === currentPageKey) return;
     currentPageKey = nextPageKey;
 
@@ -281,6 +284,21 @@ if (!window.__aiSummaryInjected) {
     }
 
     scheduleSidebarRefreshForNavigation();
+  }
+
+  function schedulePageContextCheck() {
+    if (!shouldTrackPageContext()) return;
+    window.setTimeout(handlePageContextChange, 0);
+    window.setTimeout(handlePageContextChange, Constants.NAVIGATION_REFRESH_DELAY_MS);
+  }
+
+  function schedulePageContextCheckFromMutation() {
+    if (!shouldTrackPageContext()) return;
+    if (navigationMutationTimer) return;
+    navigationMutationTimer = window.setTimeout(() => {
+      navigationMutationTimer = 0;
+      handlePageContextChange();
+    }, Constants.NAVIGATION_REFRESH_DELAY_MS);
   }
 
   function bindNavigationTracking() {
@@ -305,6 +323,18 @@ if (!window.__aiSummaryInjected) {
 
     window.addEventListener('popstate', handlePageContextChange);
     window.addEventListener('hashchange', handlePageContextChange);
+    window.addEventListener('click', schedulePageContextCheck, true);
+
+    if (!navigationMutationObserver && typeof MutationObserver !== 'undefined') {
+      navigationMutationObserver = new MutationObserver(schedulePageContextCheckFromMutation);
+      navigationMutationObserver.observe(document.documentElement, {
+        attributes: true,
+        attributeFilter: ['content', 'href'],
+        childList: true,
+        characterData: true,
+        subtree: true
+      });
+    }
 
     navigationPollTimer = window.setInterval(handlePageContextChange, Constants.NAVIGATION_POLL_INTERVAL_MS);
   }
