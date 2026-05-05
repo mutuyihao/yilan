@@ -138,6 +138,50 @@ function buildMockText(prompt) {
     return 'OK';
   }
 
+  if (prompt.includes('一览信息整理工作流') || prompt.includes('一览把网页抽取、结构化总结')) {
+    if (prompt.includes('以下是网页原始摘要，请基于摘要内容进行二次加工。')) {
+      if (prompt.includes('问答卡片') || prompt.includes('问答') || prompt.includes('Q&A')) {
+        return [
+          '## Q1. 这条工作流解决了什么问题？',
+          'A: 它把网页阅读、结构化摘要、继续加工和本地回看串在一个侧栏里。',
+          '',
+          '## Q2. 为什么要保留历史？',
+          'A: 历史记录让摘要不只是一次性输出，而是可以检索、收藏、导出和复用的资料。'
+        ].join('\n');
+      }
+
+      if (prompt.includes('术语表') || prompt.includes('术语卡') || prompt.includes('核心术语')) {
+        return [
+          '## 核心术语',
+          '- BYOK：使用自己的模型 API Key，不绑定单一服务商。',
+          '- 本地历史：摘要、来源和快照优先保存在浏览器本地。'
+        ].join('\n');
+      }
+
+      if (prompt.includes('行动清单') || prompt.includes('行动项') || prompt.includes('可立即执行')) {
+        return [
+          '## 可立即执行',
+          '1. 保存值得回看的网页，保留标题、来源和正文快照。',
+          '2. 生成结构化摘要，再继续转成行动项或术语表。',
+          '',
+          '## 后续跟进',
+          '1. 在历史面板按站点和关键词检索旧记录。',
+          '2. 将关键结果导出为 Markdown 或分享卡。'
+        ].join('\n');
+      }
+    }
+
+    return [
+      '## 核心结论',
+      '- 一览把网页抽取、结构化总结、二次生成和本地历史串成一条可回看的工作流。',
+      '',
+      '## 关键信息',
+      '- 侧栏会保留来源、站点、字数、分段策略和可信控制。',
+      '- 摘要完成后，可以继续生成行动项、术语表或问答卡片。',
+      '- 结果可写入本地历史，支持收藏、检索、阅读页和 Markdown 导出。'
+    ].join('\n');
+  }
+
   if (prompt.includes('Playwright Slow Article')) {
     return [
       '## 核心结论',

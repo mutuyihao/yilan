@@ -13,10 +13,10 @@ landing-page/
 └─ assets/
    └─ screens/
       ├─ README.md
-      ├─ hero-main-light.svg / hero-main-dark.svg
-      ├─ workflow-summary-light.svg / workflow-summary-dark.svg
-      ├─ history-reader-light.svg / history-reader-dark.svg
-      └─ settings-panel-light.svg / settings-panel-dark.svg
+      ├─ hero-main-light.png / hero-main-dark.png
+      ├─ workflow-summary-light.png / workflow-summary-dark.png
+      ├─ history-reader-light.png / history-reader-dark.png
+      └─ settings-panel-light.png / settings-panel-dark.png
 ```
 
 ## 直接部署到 Vercel
@@ -44,7 +44,7 @@ landing-page/
 
 去看 [assets/screens/README.md](./assets/screens/README.md)。
 
-现在页面里放的是成对的浅色 / 深色 SVG 占位图，所以即使你还没准备真实截图，页面也能正常展示。
+现在页面里放的是成对的浅色 / 深色 PNG 产品截图，页面会按当前主题自动切换。
 
 后面你有两种替换方式：
 

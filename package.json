@@ -8,6 +8,7 @@
     "typecheck": "tsc --noEmit",
     "test:e2e": "playwright test",
     "test:e2e:headed": "playwright test --headed",
+    "screenshots:landing": "node scripts/capture-landing-screenshots.js",
     "package:release": "node scripts/package-release.js",
     "playwright:install": "playwright install chromium"
   },
