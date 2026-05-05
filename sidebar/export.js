@@ -29,6 +29,19 @@
     return source.slice(0, safeLimit).trimEnd() + '...';
   }
 
+  function resolveShareModelLabel(record, diagnostics, settings) {
+    const model = [
+      record?.model,
+      record?.diagnostics?.model,
+      record?.diagnostics?.finalRun?.model,
+      diagnostics?.model,
+      diagnostics?.finalRun?.model,
+      settings?.modelName
+    ].map(fallbackNormalizeWhitespace).find(Boolean);
+
+    return '\u6a21\u578b\uff1a' + (model || '-');
+  }
+
   function createExportController(deps) {
     const getState = deps.getState;
     const getElements = deps.getElements;
@@ -37,7 +50,6 @@
     const createArticleFromRecord = deps.createArticleFromRecord;
     const getShareCardThemePalette = deps.getShareCardThemePalette;
     const sanitizeMarkdownToHtml = deps.sanitizeMarkdownToHtml;
-    const getProviderLabel = deps.getProviderLabel;
     const getStrategyLabel = deps.getStrategyLabel;
     const getModeLabel = deps.getModeLabel;
     const formatDateTime = deps.formatDateTime;
@@ -170,7 +182,7 @@
         '  <div class="share-content">' + sanitizeMarkdownToHtml(summaryMarkdown || '') + '</div>',
         '  <div class="share-footer">',
         '    <span>\u6765\u6e90\uff1a' + escapeHtml(article?.siteName || article?.sourceHost || '-') + '</span>',
-        '    <span>' + escapeHtml(getProviderLabel(record?.provider || state?.lastDiagnostics?.provider || '')) + '</span>',
+        '    <span>' + escapeHtml(resolveShareModelLabel(record, state?.lastDiagnostics, state?.settings)) + '</span>',
         '  </div>',
         '</div>'
       ].join('');
@@ -240,6 +252,7 @@
     DEFAULT_SHARE_QUOTE_MAX_CHARS,
     sanitizeFilename,
     buildShareQuoteSnippet,
+    resolveShareModelLabel,
     createExportController
   };
 

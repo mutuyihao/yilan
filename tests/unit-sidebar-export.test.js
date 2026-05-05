@@ -20,4 +20,17 @@ test('sidebar export helpers sanitize filenames and build bounded source quotes'
     excerpt: 'This excerpt is deliberately long enough to be preferred over body text.',
     cleanText: 'Body text should not win.'
   }, 48, { normalizeWhitespace: normalized }), 'This excerpt is deliberately long enough to be p...');
+
+  assert.strictEqual(
+    SidebarExport.resolveShareModelLabel({ provider: 'openai', model: 'gpt-4.1-mini' }, { model: 'fallback' }, {}),
+    '模型：gpt-4.1-mini'
+  );
+  assert.strictEqual(
+    SidebarExport.resolveShareModelLabel({}, { finalRun: { model: 'claude-sonnet-4' } }, { modelName: 'fallback' }),
+    '模型：claude-sonnet-4'
+  );
+  assert.strictEqual(
+    SidebarExport.resolveShareModelLabel({}, {}, { modelName: 'custom-model' }),
+    '模型：custom-model'
+  );
 });

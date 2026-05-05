@@ -6,11 +6,20 @@
     const renderPlaceholder = deps.renderPlaceholder;
     const bindVisibleRecord = deps.bindVisibleRecord;
     const refreshActionStates = deps.refreshActionStates;
+    const setStatus = deps.setStatus;
     const closeDiagnostics = deps.closeDiagnostics;
     const formatDateTime = deps.formatDateTime;
     const escapeHtml = deps.escapeHtml;
     const buildHistoryItemView = deps.buildHistoryItemView;
     const buildHistoryGroupView = deps.buildHistoryGroupView;
+
+    function reportHistoryError(error, fallbackMessage) {
+      const message = String(error?.message || error || fallbackMessage || '操作失败');
+      console.error('[Yilan] History action failed.', error);
+      if (typeof setStatus === 'function') {
+        setStatus(message, 'error');
+      }
+    }
 
     function renderEmpty(message) {
       elements.historySiteFilters.innerHTML = '';
@@ -116,11 +125,15 @@
       favoriteBtn.textContent = item.favorite ? '\u53d6\u6d88\u6536\u85cf' : '\u6536\u85cf';
       favoriteBtn.addEventListener('click', async (event) => {
         event.stopPropagation();
-        const updated = await recordStore.toggleFavorite(item.recordId);
-        if (state.visibleRecord?.recordId === updated?.recordId) {
-          bindVisibleRecord(updated, { preserveCurrentArticle: state.visibleRecordUsesCurrentArticle });
+        try {
+          const updated = await recordStore.toggleFavorite(item.recordId);
+          if (state.visibleRecord?.recordId === updated?.recordId) {
+            bindVisibleRecord(updated, { preserveCurrentArticle: state.visibleRecordUsesCurrentArticle });
+          }
+          await refresh();
+        } catch (error) {
+          reportHistoryError(error, '\u66f4\u65b0\u6536\u85cf\u72b6\u6001\u5931\u8d25');
         }
-        await refresh();
       });
 
       const deleteBtn = document.createElement('button');
@@ -128,15 +141,19 @@
       deleteBtn.textContent = '\u5220\u9664';
       deleteBtn.addEventListener('click', async (event) => {
         event.stopPropagation();
-        await recordStore.deleteRecord(item.recordId);
-        if (state.visibleRecord?.recordId === item.recordId) {
-          state.visibleRecord = null;
-          state.visibleRecordUsesCurrentArticle = false;
-          state.summaryMarkdown = '';
-          renderPlaceholder('\u8bb0\u5f55\u5df2\u5220\u9664', '\u53ef\u4ee5\u91cd\u65b0\u751f\u6210\u5f53\u524d\u9875\u9762\u6458\u8981\u3002');
+        try {
+          await recordStore.deleteRecord(item.recordId);
+          if (state.visibleRecord?.recordId === item.recordId) {
+            state.visibleRecord = null;
+            state.visibleRecordUsesCurrentArticle = false;
+            state.summaryMarkdown = '';
+            renderPlaceholder('\u8bb0\u5f55\u5df2\u5220\u9664', '\u53ef\u4ee5\u91cd\u65b0\u751f\u6210\u5f53\u524d\u9875\u9762\u6458\u8981\u3002');
+          }
+          await refresh();
+          refreshActionStates();
+        } catch (error) {
+          reportHistoryError(error, '\u5220\u9664\u5386\u53f2\u8bb0\u5f55\u5931\u8d25');
         }
-        await refresh();
-        refreshActionStates();
       });
 
       actions.appendChild(favoriteBtn);
@@ -238,11 +255,15 @@
     elements.historyCloseBtn.addEventListener('click', close);
     elements.historySearch.addEventListener('input', () => {
       state.historyQuery = elements.historySearch.value || '';
-      refresh().catch(console.error);
+      refresh().catch((error) => {
+        reportHistoryError(error, '\u5237\u65b0\u5386\u53f2\u8bb0\u5f55\u5931\u8d25');
+      });
     });
     elements.favoritesOnly.addEventListener('change', () => {
       state.favoritesOnly = !!elements.favoritesOnly.checked;
-      refresh().catch(console.error);
+      refresh().catch((error) => {
+        reportHistoryError(error, '\u5237\u65b0\u5386\u53f2\u8bb0\u5f55\u5931\u8d25');
+      });
     });
 
     return {

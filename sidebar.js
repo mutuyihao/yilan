@@ -162,58 +162,49 @@ function withCustomPrompt(prompt, settings) {
 
 function getShareCardThemePalette() {
   const theme = Theme.getCurrentTheme();
-  if (theme === 'light') {
-    return {
-      background: 'linear-gradient(180deg, #fffaf4 0%, #f1f6fb 100%)',
-      canvasBackground: '#fffaf4',
-      text: '#173043',
-      heading: '#102a3b',
-      shadow: '0 30px 80px rgba(127, 99, 58, 0.18)',
-      subtitle: '#62798b',
-      badgeBackground: 'rgba(21, 47, 69, 0.06)',
-      badgeText: '#355b76',
-      sourceBackground: 'rgba(21, 47, 69, 0.04)',
-      sourceBorder: 'rgba(103, 126, 147, 0.14)',
-      accent: '#128a74',
-      accentText: '#0f6f5e',
-      quoteBackground: 'rgba(18, 138, 116, 0.08)',
-      quotePanelBackground: 'linear-gradient(135deg, rgba(18, 138, 116, 0.12), rgba(90, 149, 232, 0.07))',
-      quotePanelBorder: 'rgba(18, 138, 116, 0.16)',
-      quotePanelText: '#23465b',
-      quotePanelLabel: '#40677f',
-      quoteMark: 'rgba(18, 138, 116, 0.22)',
-      codeBackground: 'rgba(21, 47, 69, 0.06)',
-      codeText: '#2a6e9a',
-      divider: 'rgba(103, 126, 147, 0.16)',
-      brandGradient: 'linear-gradient(135deg, #1fa08a, #5a95e8)',
-      brandInk: '#fffaf3'
-    };
-  }
+  const rootStyle = window.getComputedStyle(/** @type {any} */ (document.documentElement));
+  const token = (name, fallback) => {
+    const value = rootStyle.getPropertyValue(name).trim();
+    return value || fallback;
+  };
+  const bg = token('--bg', theme === 'light' ? '#f7faf7' : '#0a0e12');
+  const bgSoft = token('--bg-soft', theme === 'light' ? '#eef6f2' : '#0f151d');
+  const surfaceSoft = token('--surface-soft', theme === 'light' ? 'rgba(26, 32, 40, 0.045)' : 'rgba(255, 255, 255, 0.045)');
+  const line = token('--line', theme === 'light' ? 'rgba(26, 32, 40, 0.10)' : 'rgba(255, 255, 255, 0.08)');
+  const text = token('--text', theme === 'light' ? '#1a2028' : '#eef2f7');
+  const muted = token('--text-soft', theme === 'light' ? '#5d6b7a' : '#8a99aa');
+  const accent = token('--accent', theme === 'light' ? '#0b8a6f' : '#2bbf9a');
+  const accentStrong = token('--accent-strong', theme === 'light' ? '#08745d' : '#3dd4b8');
+  const accentSoft = token('--accent-soft', theme === 'light' ? 'rgba(11, 138, 111, 0.08)' : 'rgba(43, 191, 154, 0.12)');
+  const brandGradient = token('--brand-gradient', theme === 'light'
+    ? 'linear-gradient(135deg, #0b8a6f, #1fa89e)'
+    : 'linear-gradient(135deg, #2bbf9a, #3dd4b8)');
+  const brandInk = token('--brand-ink', theme === 'light' ? '#fbfffd' : '#041411');
 
   return {
-    background: 'linear-gradient(180deg, #06131f 0%, #0b1b2b 100%)',
-    canvasBackground: '#06131f',
-    text: '#eff7ff',
-    heading: '#f7fcff',
-    shadow: '0 30px 80px rgba(1, 8, 14, 0.34)',
-    subtitle: '#8eb0c6',
-    badgeBackground: 'rgba(255,255,255,0.06)',
-    badgeText: '#cfe7f8',
-    sourceBackground: 'rgba(255,255,255,0.04)',
-    sourceBorder: 'rgba(255,255,255,0.08)',
-    accent: '#3ec0a0',
-    accentText: '#76f0d1',
-    quoteBackground: 'rgba(62,192,160,0.08)',
-    quotePanelBackground: 'linear-gradient(135deg, rgba(62,192,160,0.14), rgba(83,144,241,0.08))',
-    quotePanelBorder: 'rgba(62,192,160,0.14)',
-    quotePanelText: '#dfeffb',
-    quotePanelLabel: '#90b8cd',
-    quoteMark: 'rgba(118, 240, 209, 0.18)',
-    codeBackground: 'rgba(255,255,255,0.06)',
-    codeText: '#a7d0ff',
-    divider: 'rgba(255,255,255,0.1)',
-    brandGradient: 'linear-gradient(135deg, #3ec0a0, #5390f1)',
-    brandInk: '#06131f'
+    background: `linear-gradient(180deg, ${bg} 0%, ${bgSoft} 100%)`,
+    canvasBackground: bg,
+    text,
+    heading: text,
+    shadow: theme === 'light' ? '0 30px 80px rgba(26, 32, 40, 0.14)' : '0 30px 80px rgba(1, 8, 14, 0.34)',
+    subtitle: muted,
+    badgeBackground: surfaceSoft,
+    badgeText: muted,
+    sourceBackground: surfaceSoft,
+    sourceBorder: line,
+    accent,
+    accentText: accentStrong,
+    quoteBackground: accentSoft,
+    quotePanelBackground: `linear-gradient(135deg, ${accentSoft}, ${surfaceSoft})`,
+    quotePanelBorder: line,
+    quotePanelText: text,
+    quotePanelLabel: muted,
+    quoteMark: accentSoft,
+    codeBackground: surfaceSoft,
+    codeText: accentStrong,
+    divider: line,
+    brandGradient,
+    brandInk
   };
 }
 
@@ -736,7 +727,6 @@ const exportController = SidebarExport.createExportController({
   createArticleFromRecord,
   getShareCardThemePalette,
   sanitizeMarkdownToHtml,
-  getProviderLabel,
   getStrategyLabel,
   getModeLabel,
   formatDateTime,
@@ -787,11 +777,11 @@ function renderThemeToggleState() {
     : getThemePreferenceDisplayLabel(preference);
   const nextLabel = getThemePreferenceDisplayLabel(nextPreference);
 
-  elements.themeBtn.textContent = '\u914d\u8272\uff1a' + getThemePreferenceDisplayLabel(preference);
+  elements.themeBtn.textContent = '\u660e\u6697\uff1a' + getThemePreferenceDisplayLabel(preference);
   elements.themeBtn.dataset.preference = preference;
   elements.themeBtn.dataset.theme = theme;
 
-  const title = '\u5f53\u524d\u914d\u8272\u4e3a' + currentLabel + '\uff1b\u70b9\u51fb\u5207\u6362\u5230' + nextLabel;
+  const title = '\u5f53\u524d\u660e\u6697\u6a21\u5f0f\u4e3a' + currentLabel + '\uff1b\u70b9\u51fb\u5207\u6362\u5230' + nextLabel;
   elements.themeBtn.title = title;
   elements.themeBtn.setAttribute('aria-label', title);
 }
@@ -804,8 +794,8 @@ async function cycleThemePreference() {
 
   setStatus(
     result.preference === 'system'
-      ? '\u914d\u8272\u5df2\u6539\u4e3a\u8ddf\u968f\u7cfb\u7edf\uff0c\u5f53\u524d\u751f\u6548\uff1a' + themeLabel + '\u3002'
-      : '\u914d\u8272\u5df2\u5207\u6362\u4e3a\u56fa\u5b9a' + themeLabel + '\u3002',
+      ? '\u660e\u6697\u6a21\u5f0f\u5df2\u6539\u4e3a\u8ddf\u968f\u7cfb\u7edf\uff0c\u5f53\u524d\u751f\u6548\uff1a' + themeLabel + '\u3002'
+      : '\u660e\u6697\u6a21\u5f0f\u5df2\u5207\u6362\u4e3a\u56fa\u5b9a' + themeLabel + '\u3002',
     'success'
   );
 }
