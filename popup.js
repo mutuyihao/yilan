@@ -18,6 +18,7 @@ const SETTINGS_KEYS = [
   'autoTranslate',
   'defaultLanguage',
   'themePreference',
+  'themePalette',
   'privacyMode',
   'defaultAllowHistory',
   'defaultAllowShare',
@@ -50,6 +51,20 @@ const THEME_PREFERENCE_LABELS = {
 const THEME_EFFECTIVE_LABELS = {
   light: '浅色',
   dark: '深色'
+};
+
+const THEME_PALETTE_LABELS = {
+  jade: '松石绿',
+  slate: '雾蓝',
+  copper: '岩茶棕',
+  plum: '檀紫'
+};
+
+const THEME_PALETTE_HINTS = {
+  jade: '默认方案，清爽、稳定，适合长期阅读',
+  slate: '蓝灰倾向更克制，适合弱化品牌色干扰',
+  copper: '偏茶棕的暖调方案，保留温度但不偏黄',
+  plum: '更有识别度的深檀色调，适合强调品牌感'
 };
 
 const autoFillState = {
@@ -239,7 +254,7 @@ function renderThemeHint(preference, theme) {
 
   $('themeHint').textContent = normalizedPreference === 'system'
     ? `${preferenceLabel}。当前生效：${effectiveLabel}；系统主题变化时会自动切换。`
-    : `${preferenceLabel}。当前 popup 和侧栏会保持 ${effectiveLabel} 配色。`;
+    : `${preferenceLabel}。当前 popup 和侧栏会保持 ${effectiveLabel} 模式。`;
 }
 
 function syncThemePreferenceControl(preference, options = {}) {
@@ -249,6 +264,38 @@ function syncThemePreferenceControl(preference, options = {}) {
     field.value = result.preference;
   }
   renderThemeHint(result.preference, result.theme);
+  return result;
+}
+
+function renderPaletteHint(palette) {
+  const normalizedPalette = Theme.normalizePalette(palette);
+  const label = THEME_PALETTE_LABELS[normalizedPalette] || THEME_PALETTE_LABELS.jade;
+  const hint = THEME_PALETTE_HINTS[normalizedPalette] || THEME_PALETTE_HINTS.jade;
+  const hintNode = $('paletteHint');
+  if (!hintNode) return;
+
+  hintNode.textContent = `${label}：${hint}。会同步到 popup、侧栏和阅读页。`;
+}
+
+function setPaletteControlState(palette) {
+  const normalizedPalette = Theme.normalizePalette(palette);
+  const field = $('themePalette');
+  if (field) {
+    field.value = normalizedPalette;
+  }
+
+  document.querySelectorAll('[data-palette-option]').forEach((button) => {
+    const isSelected = button.dataset.paletteOption === normalizedPalette;
+    button.classList.toggle('active', isSelected);
+    button.setAttribute('aria-checked', isSelected ? 'true' : 'false');
+  });
+
+  renderPaletteHint(normalizedPalette);
+}
+
+function syncThemePaletteControl(palette, options = {}) {
+  const result = Theme.applyPalette(palette, { force: options.force !== false });
+  setPaletteControlState(result.palette);
   return result;
 }
 
@@ -541,6 +588,7 @@ function collectSettings() {
     autoTranslate: $('autoTranslate').checked,
     defaultLanguage: $('defaultLanguage').value,
     themePreference: Theme.normalizePreference($('themePreference').value),
+    themePalette: Theme.normalizePalette($('themePalette')?.value),
     privacyMode: $('privacyMode').checked,
     defaultAllowHistory: $('defaultAllowHistory').checked,
     defaultAllowShare: $('defaultAllowShare').checked,
@@ -872,6 +920,7 @@ async function persistSettings(options = {}) {
 
   const requestId = ++saveState.requestId;
   syncThemePreferenceControl(settings.themePreference);
+  syncThemePaletteControl(settings.themePalette);
 
   if (!options.silentStatus) {
     setStatus(options.statusText || '正在自动保存...');
@@ -1019,6 +1068,7 @@ function applySettingsToForm(settings) {
   const provider = ProviderPresets.normalizeProvider(safeSettings.aiProvider || '', presetId);
   const endpointMode = inferEndpointMode(safeSettings, presetId, provider);
   const themePreference = Theme.normalizePreference(safeSettings.themePreference);
+  const themePalette = Theme.normalizePalette(safeSettings.themePalette);
 
   $('providerPreset').value = presetId;
   $('aiProvider').value = provider;
@@ -1029,6 +1079,7 @@ function applySettingsToForm(settings) {
   $('autoTranslate').checked = !!safeSettings.autoTranslate;
   $('defaultLanguage').value = safeSettings.defaultLanguage || 'zh';
   $('themePreference').value = themePreference;
+  $('themePalette').value = themePalette;
   $('privacyMode').checked = trustSettings.privacyMode;
   $('defaultAllowHistory').checked = trustSettings.defaultAllowHistory;
   $('defaultAllowShare').checked = trustSettings.defaultAllowShare;
@@ -1038,6 +1089,7 @@ function applySettingsToForm(settings) {
 
   syncSelectionState({ preferredEndpointMode: endpointMode });
   syncThemePreferenceControl(themePreference);
+  syncThemePaletteControl(themePalette);
 
   saveState.lastSavedSignature = createSettingsSignature(collectSettings());
   renderEndpointPreview();
@@ -1202,6 +1254,13 @@ function bindSelectionListeners() {
   $('themePreference').addEventListener('change', () => {
     syncThemePreferenceControl($('themePreference').value);
     persistSettings();
+  });
+
+  document.querySelectorAll('[data-palette-option]').forEach((button) => {
+    button.addEventListener('click', () => {
+      syncThemePaletteControl(button.dataset.paletteOption);
+      persistSettings();
+    });
   });
 }
 
@@ -1391,9 +1450,11 @@ window.addEventListener('DOMContentLoaded', () => {
   }
 
   syncThemePreferenceControl(Theme.getCurrentPreference() || Theme.DEFAULT_PREFERENCE, { force: false });
-  Theme.onChange(({ preference, theme }) => {
+  syncThemePaletteControl(Theme.getCurrentPalette() || Theme.DEFAULT_PALETTE, { force: false });
+  Theme.onChange(({ preference, theme, palette }) => {
     $('themePreference').value = preference;
     renderThemeHint(preference, theme);
+    setPaletteControlState(palette);
   });
 
   loadSettings().catch((error) => {

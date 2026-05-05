@@ -128,7 +128,7 @@ function renderReader(snapshot) {
     buildDetail('阅读', estimateReadMinutes(snapshot.summaryPlainText || snapshot.summaryMarkdown || '')),
     snapshot.author ? buildDetail('作者', snapshot.author) : '',
     snapshot.completedAtLabel && snapshot.completedAtLabel !== '未记录' ? buildDetail('生成时间', snapshot.completedAtLabel) : '',
-    snapshot.providerLabel ? buildDetail('模型供应商', snapshot.providerLabel) : '',
+    // snapshot.providerLabel ? buildDetail('模型供应商', snapshot.providerLabel) : '',
     snapshot.model ? buildDetail('模型', snapshot.model) : ''
   ].filter(Boolean).join('');
 
@@ -168,6 +168,15 @@ function renderSanitizedMarkdownFragment(container, markdown) {
   container.replaceChildren(fragment);
 }
 
+function initializeReaderChromeState() {
+  const syncChromeState = () => {
+    document.body.classList.toggle('reader-is-scrolled', window.scrollY > 8);
+  };
+
+  window.addEventListener('scroll', syncChromeState, { passive: true });
+  syncChromeState();
+}
+
 window.addEventListener('DOMContentLoaded', async () => {
   marked.setOptions({
     breaks: true,
@@ -192,4 +201,6 @@ window.addEventListener('DOMContentLoaded', async () => {
       setStatus(String(error?.message || error || '复制失败。'), 'error');
     });
   });
+
+  initializeReaderChromeState();
 });

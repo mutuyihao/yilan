@@ -1,7 +1,10 @@
 (function initAISummaryTheme(global) {
   const STORAGE_KEY = 'themePreference';
+  const PALETTE_STORAGE_KEY = 'themePalette';
   const DEFAULT_PREFERENCE = 'system';
+  const DEFAULT_PALETTE = 'jade';
   const PREFERENCES = ['system', 'light', 'dark'];
+  const PALETTES = ['jade', 'slate', 'copper', 'plum'];
   const listeners = new Set();
   const mediaQuery = typeof global.matchMedia === 'function'
     ? global.matchMedia('(prefers-color-scheme: dark)')
@@ -9,11 +12,17 @@
 
   let currentPreference = DEFAULT_PREFERENCE;
   let currentTheme = mediaQuery?.matches ? 'dark' : 'light';
+  let currentPalette = DEFAULT_PALETTE;
   let loadPromise = null;
 
   function normalizePreference(value) {
     const normalized = String(value || '').trim().toLowerCase();
     return PREFERENCES.includes(normalized) ? normalized : DEFAULT_PREFERENCE;
+  }
+
+  function normalizePalette(value) {
+    const normalized = String(value || '').trim().toLowerCase();
+    return PALETTES.includes(normalized) ? normalized : DEFAULT_PALETTE;
   }
 
   function resolveTheme(preference) {
@@ -22,6 +31,14 @@
       return mediaQuery?.matches ? 'dark' : 'light';
     }
     return normalized;
+  }
+
+  function createSnapshot() {
+    return {
+      preference: currentPreference,
+      theme: currentTheme,
+      palette: currentPalette
+    };
   }
 
   function notify(snapshot) {
@@ -46,10 +63,29 @@
     if (root) {
       root.dataset.themePreference = currentPreference;
       root.dataset.theme = currentTheme;
+      root.dataset.palette = currentPalette;
       root.style.colorScheme = currentTheme;
     }
 
-    const snapshot = { preference: currentPreference, theme: currentTheme };
+    const snapshot = createSnapshot();
+    if (changed || options.force) {
+      notify(snapshot);
+    }
+    return snapshot;
+  }
+
+  function applyPalette(palette, options = {}) {
+    const nextPalette = normalizePalette(palette);
+    const root = global.document?.documentElement;
+    const changed = nextPalette !== currentPalette;
+
+    currentPalette = nextPalette;
+
+    if (root) {
+      root.dataset.palette = currentPalette;
+    }
+
+    const snapshot = createSnapshot();
     if (changed || options.force) {
       notify(snapshot);
     }
@@ -65,12 +101,14 @@
 
     const storage = getStorage();
     if (!storage?.get) {
+      applyPalette(currentPalette, { force: false });
       loadPromise = Promise.resolve(applyPreference(currentPreference, { force: true }));
       return loadPromise;
     }
 
     loadPromise = new Promise((resolve) => {
-      storage.get([STORAGE_KEY], (items) => {
+      storage.get([STORAGE_KEY, PALETTE_STORAGE_KEY], (items) => {
+        applyPalette(items?.[PALETTE_STORAGE_KEY], { force: false });
         resolve(applyPreference(items?.[STORAGE_KEY], { force: true }));
       });
     });
@@ -85,12 +123,29 @@
     applyPreference(nextPreference, { force: true });
 
     if (!storage?.set) {
-      return Promise.resolve({ preference: currentPreference, theme: currentTheme });
+      return Promise.resolve(createSnapshot());
     }
 
     return new Promise((resolve) => {
       storage.set({ [STORAGE_KEY]: nextPreference }, () => {
-        resolve({ preference: currentPreference, theme: currentTheme });
+        resolve(createSnapshot());
+      });
+    });
+  }
+
+  function saveThemePalette(palette) {
+    const nextPalette = normalizePalette(palette);
+    const storage = getStorage();
+
+    applyPalette(nextPalette, { force: true });
+
+    if (!storage?.set) {
+      return Promise.resolve(createSnapshot());
+    }
+
+    return new Promise((resolve) => {
+      storage.set({ [PALETTE_STORAGE_KEY]: nextPalette }, () => {
+        resolve(createSnapshot());
       });
     });
   }
@@ -101,6 +156,10 @@
 
   function getCurrentTheme() {
     return currentTheme;
+  }
+
+  function getCurrentPalette() {
+    return currentPalette;
   }
 
   function getNextPreference(preference) {
@@ -120,8 +179,13 @@
 
   if (global.chrome?.storage?.onChanged?.addListener) {
     global.chrome.storage.onChanged.addListener((changes, areaName) => {
-      if (areaName !== 'sync' || !changes?.[STORAGE_KEY]) return;
-      applyPreference(changes[STORAGE_KEY].newValue, { force: true });
+      if (areaName !== 'sync') return;
+      if (changes?.[PALETTE_STORAGE_KEY]) {
+        applyPalette(changes[PALETTE_STORAGE_KEY].newValue, { force: true });
+      }
+      if (changes?.[STORAGE_KEY]) {
+        applyPreference(changes[STORAGE_KEY].newValue, { force: true });
+      }
     });
   }
 
@@ -140,15 +204,22 @@
 
   global.AISummaryTheme = {
     STORAGE_KEY,
+    PALETTE_STORAGE_KEY,
     DEFAULT_PREFERENCE,
+    DEFAULT_PALETTE,
     PREFERENCES,
+    PALETTES,
     normalizePreference,
+    normalizePalette,
     resolveTheme,
     applyPreference,
+    applyPalette,
     loadThemePreference,
     saveThemePreference,
+    saveThemePalette,
     getCurrentPreference,
     getCurrentTheme,
+    getCurrentPalette,
     getNextPreference,
     onChange
   };

@@ -8,6 +8,32 @@
     return UiFormat.formatDateTime(value, { emptyText: '-' });
   }
 
+  function formatContentLength(value) {
+    const count = Number(value || 0);
+    if (!Number.isFinite(count) || count <= 0) return '-';
+
+    if (count >= 10000) {
+      const wan = count / 10000;
+      return wan.toLocaleString('zh-CN', {
+        maximumFractionDigits: wan < 10 ? 1 : 0
+      }) + '\u4e07\u5b57';
+    }
+
+    return Math.round(count).toLocaleString('zh-CN') + '\u5b57';
+  }
+
+  function formatChunkLabel(article, simpleModeEnabled) {
+    if (simpleModeEnabled) return '\u7b80\u5355 \u00b7 \u5355\u6b21';
+
+    const chunkCount = Number(article?.chunkCount || 0);
+    if (chunkCount > 1) {
+      const strategyLabel = UiLabels.getChunkingStrategyLabel(article?.chunkingStrategy, { fallback: '\u81ea\u52a8' });
+      return strategyLabel + ' \u00b7 ' + chunkCount + ' \u6bb5';
+    }
+
+    return '\u5355\u6bb5';
+  }
+
   function buildArticleMetaView(article, options) {
     const modeKey = options?.summaryMode || 'medium';
     const simpleModeEnabled = !!options?.simpleModeEnabled;
@@ -22,12 +48,8 @@
       modeLabel: UiLabels.getSummaryModeLabel(modeKey, { fallback: '\u6807\u51c6\u603b\u7ed3' }),
       authorLabel: article?.author || '-',
       publishedLabel: formatSidebarDateTime(article?.publishedAt),
-      lengthLabel: article?.contentLength ? article.contentLength + ' \u5b57' : '-',
-      chunkLabel: simpleModeEnabled
-        ? '\u7b80\u5355\u6a21\u5f0f \u00b7 \u5355\u6b21\u8bf7\u6c42'
-        : article?.chunkCount > 1
-          ? (article.chunkingStrategy || 'paragraph_split') + ' \u00b7 ' + article.chunkCount + ' \u6bb5'
-          : '\u65e0\u9700\u5206\u6bb5',
+      lengthLabel: formatContentLength(article?.contentLength),
+      chunkLabel: formatChunkLabel(article, simpleModeEnabled),
       warnings: UiLabels.summarizeWarnings(article?.warnings || [])
     };
   }

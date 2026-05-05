@@ -8,7 +8,7 @@
     name="description"
     content="一览是一个面向 Chromium 浏览器的 AI 阅读与摘要扩展，支持网页抽取、结构化总结、二次生成、历史沉淀与专注阅读。"
   >
-  <meta name="theme-color" content="#07131f">
+  <meta name="theme-color" content="#F7FAF7">
   <link rel="icon" type="image/svg+xml" href="./assets/brand/favicon.svg">
   <link rel="shortcut icon" href="./assets/brand/favicon.svg">
   <meta property="og:title" content="一览 Yilan | 把网页变成可回看的工作台">
@@ -19,7 +19,7 @@
   <meta property="og:type" content="website">
   <meta
     property="og:image"
-    content="./assets/screens/hero-main-dark.png"
+    content="./assets/screens/hero-main-light.png"
     data-light-src="./assets/screens/hero-main-light.png"
     data-dark-src="./assets/screens/hero-main-dark.png"
   >
@@ -49,7 +49,7 @@
       root.dataset.theme = resolved;
 
       if (metaTheme) {
-        metaTheme.setAttribute('content', resolved === 'light' ? '#f7efe2' : '#07131f');
+        metaTheme.setAttribute('content', resolved === 'light' ? '#F7FAF7' : '#0A0E12');
       }
     })();
   </script>
@@ -60,6 +60,7 @@
     rel="stylesheet"
   >
   <link rel="stylesheet" href="./styles.css">
+  <link rel="stylesheet" href="./premium.css">
 </head>
 <body>
   <div class="page-shell">
@@ -69,6 +70,7 @@
         <span class="brand-copy">
           <strong>一览</strong>
           <span>Yilan</span>
+          <span class="version-pill">v1.0.0</span>
         </span>
       </a>
       <nav class="site-nav" aria-label="主导航">
@@ -85,7 +87,7 @@
           </button>
         </div>
         <a class="ghost-btn" href="https://github.com/mutuyihao/yilan" target="_blank" rel="noreferrer noopener">GitHub</a>
-        <a class="primary-btn" href="https://discord.gg/MWWDwXZ2TV" target="_blank" rel="noreferrer noopener">反馈</a>
+        <a class="primary-btn" href="https://github.com/mutuyihao/yilan/issues" target="_blank" rel="noreferrer noopener">反馈</a>
       </div>
     </header>
 
@@ -112,7 +114,7 @@
           <figure class="shot-frame shot-hero">
             <img
               class="theme-shot"
-              src="./assets/screens/hero-main-dark.png"
+              src="./assets/screens/hero-main-light.png"
               data-light-src="./assets/screens/hero-main-light.png"
               data-dark-src="./assets/screens/hero-main-dark.png"
               alt="一览主界面截图占位图"
@@ -192,7 +194,7 @@
           <figure class="shot-frame shot-workflow">
             <img
               class="theme-shot"
-              src="./assets/screens/workflow-summary-dark.png"
+              src="./assets/screens/workflow-summary-light.png"
               data-light-src="./assets/screens/workflow-summary-light.png"
               data-dark-src="./assets/screens/workflow-summary-dark.png"
               alt="一览工作流截图占位图"
@@ -214,7 +216,7 @@
           <figure class="shot-frame">
             <img
               class="theme-shot theme-shot-top"
-              src="./assets/screens/history-reader-dark.png"
+              src="./assets/screens/history-reader-light.png"
               data-light-src="./assets/screens/history-reader-light.png"
               data-dark-src="./assets/screens/history-reader-dark.png"
               alt="历史与阅读页截图占位图"
@@ -226,7 +228,7 @@
           <figure class="shot-frame">
             <img
               class="theme-shot theme-shot-top"
-              src="./assets/screens/settings-panel-dark.png"
+              src="./assets/screens/settings-panel-light.png"
               data-light-src="./assets/screens/settings-panel-light.png"
               data-dark-src="./assets/screens/settings-panel-dark.png"
               alt="设置页截图占位图"
@@ -245,7 +247,7 @@
         </div>
         <div class="cta-row">
           <a class="primary-btn large" href="https://github.com/mutuyihao/yilan">打开仓库</a>
-          <a class="ghost-btn large" href="https://discord.gg/MWWDwXZ2TV" target="_blank" rel="noreferrer noopener">问题反馈</a>
+          <a class="ghost-btn large" href="https://github.com/mutuyihao/yilan/issues" target="_blank" rel="noreferrer noopener">问题反馈</a>
         </div>
       </section>
 
@@ -270,6 +272,10 @@
           <article class="faq-card">
             <h3>哪些网页可能无法提取？</h3>
             <p>浏览器内部页面、扩展商店页面，或者其他受浏览器权限限制的页面，通常无法注入内容脚本。这不是“一览”侧栏本身的问题，而是浏览器的安全限制。</p>
+          </article>
+          <article class="faq-card">
+            <h3>正式版问题在哪里反馈？</h3>
+            <p>请优先通过 GitHub Issues 反馈，并附上浏览器、版本号、页面类型和可复现步骤。社区讨论可以继续使用 Discord。</p>
           </article>
         </div>
       </section>

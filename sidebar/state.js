@@ -10,6 +10,7 @@
     'autoTranslate',
     'defaultLanguage',
     'themePreference',
+    'themePalette',
     'privacyMode',
     'defaultAllowHistory',
     'defaultAllowShare',

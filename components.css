@@ -1,0 +1,176 @@
+.btn,
+.btn--primary,
+.btn--secondary,
+.btn--ghost,
+.primary-btn,
+.ghost-btn {
+  align-items: center;
+  border-radius: var(--radius-sm);
+  display: inline-flex;
+  font-size: var(--text-body);
+  font-weight: 500;
+  justify-content: center;
+  letter-spacing: 0.01em;
+  min-height: 38px;
+  padding: 10px 18px;
+  transition:
+    transform var(--duration-fast) var(--ease-standard),
+    border-color var(--duration-fast) var(--ease-standard),
+    background var(--duration-fast) var(--ease-standard),
+    box-shadow var(--duration-fast) var(--ease-standard),
+    color var(--duration-fast) var(--ease-standard);
+}
+
+.btn:hover,
+.btn--primary:hover,
+.btn--secondary:hover,
+.btn--ghost:hover,
+.primary-btn:hover,
+.ghost-btn:hover {
+  transform: translateY(-1px);
+}
+
+.btn--primary,
+.primary,
+.action-btn-primary,
+.primary-btn {
+  background: var(--accent);
+  border-color: transparent;
+  box-shadow: 0 2px 8px var(--accent-soft);
+  color: var(--accent-ink);
+}
+
+.btn--primary:hover,
+.primary:hover,
+.action-btn-primary:hover,
+.primary-btn:hover {
+  box-shadow: 0 4px 12px var(--accent-soft);
+}
+
+.btn--secondary,
+.ghost-btn {
+  background: transparent;
+  border: 1px solid var(--line);
+  color: var(--text);
+}
+
+.btn--secondary:hover,
+.ghost-btn:hover {
+  background: var(--surface-soft);
+  border-color: var(--line-strong);
+}
+
+.btn--ghost {
+  background: transparent;
+  border: none;
+  color: var(--text-soft);
+  padding: 8px 14px;
+}
+
+.btn--ghost:hover {
+  background: var(--surface-soft);
+  color: var(--text);
+}
+
+.card,
+.source-card,
+.trust-card,
+.controls-card,
+.content-panel,
+.reader-empty,
+.faq-card,
+.feature-card,
+.workflow-copy,
+.proof-strip,
+.shot-frame {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow-sm);
+}
+
+.badge,
+.status-badge {
+  align-items: center;
+  border-radius: 6px;
+  display: inline-flex;
+  font-size: var(--text-xs);
+  font-weight: 500;
+  gap: 4px;
+  letter-spacing: 0.02em;
+  line-height: 1.2;
+  padding: 4px 10px;
+}
+
+input,
+select,
+textarea {
+  caret-color: var(--accent);
+}
+
+input:focus,
+select:focus,
+textarea:focus,
+button:focus-visible,
+a:focus-visible {
+  outline: none;
+  border-color: var(--focus-border);
+  box-shadow: 0 0 0 3px var(--focus-ring);
+}
+
+::selection {
+  background: var(--accent-soft);
+  color: var(--text);
+}
+
+html,
+body,
+textarea,
+.summary-root,
+.history-list,
+.reader-content,
+.reader-hero,
+.diagnostics-pre,
+.markdown-body pre {
+  scrollbar-color: color-mix(in srgb, var(--accent) 38%, transparent) transparent;
+  scrollbar-width: thin;
+}
+
+html::-webkit-scrollbar,
+body::-webkit-scrollbar,
+textarea::-webkit-scrollbar,
+.summary-root::-webkit-scrollbar,
+.history-list::-webkit-scrollbar,
+.reader-content::-webkit-scrollbar,
+.reader-hero::-webkit-scrollbar,
+.diagnostics-pre::-webkit-scrollbar,
+.markdown-body pre::-webkit-scrollbar {
+  height: 10px;
+  width: 10px;
+}
+
+html::-webkit-scrollbar-track,
+body::-webkit-scrollbar-track,
+textarea::-webkit-scrollbar-track,
+.summary-root::-webkit-scrollbar-track,
+.history-list::-webkit-scrollbar-track,
+.reader-content::-webkit-scrollbar-track,
+.reader-hero::-webkit-scrollbar-track,
+.diagnostics-pre::-webkit-scrollbar-track,
+.markdown-body pre::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+html::-webkit-scrollbar-thumb,
+body::-webkit-scrollbar-thumb,
+textarea::-webkit-scrollbar-thumb,
+.summary-root::-webkit-scrollbar-thumb,
+.history-list::-webkit-scrollbar-thumb,
+.reader-content::-webkit-scrollbar-thumb,
+.reader-hero::-webkit-scrollbar-thumb,
+.diagnostics-pre::-webkit-scrollbar-thumb,
+.markdown-body pre::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--accent) 34%, transparent);
+  border: 3px solid transparent;
+  border-radius: 999px;
+  background-clip: padding-box;
+}

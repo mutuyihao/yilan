@@ -14,7 +14,6 @@
     const markedImpl = deps.marked || globalAny.marked;
     const hljsImpl = deps.hljs || globalAny.hljs;
     const escapeHtml = deps.escapeHtml;
-    const markdownToPlainText = deps.markdownToPlainText;
     const stripMarkdownPreview = deps.stripMarkdownPreview;
     const buildCancelledStateModel = deps.buildCancelledStateModel;
     const buildDiagnosticsPanelModel = deps.buildDiagnosticsPanelModel;
@@ -68,16 +67,12 @@
       elements.statusText.classList.toggle('status-active', state.generating);
     }
 
-    function setStats(text) {
-      elements.statsText.textContent = text || '';
+    function setStats() {
+      elements.statsText.textContent = '';
     }
 
-    function updateStatsFromMarkdown(markdown, article) {
-      const plainLength = markdownToPlainText(markdown || '').length;
-      const parts = [];
-      if (plainLength) parts.push(plainLength + ' \u5b57');
-      if (article?.chunkCount > 1) parts.push(article.chunkCount + ' \u6bb5');
-      setStats(parts.join(' \u00b7 '));
+    function updateStatsFromMarkdown() {
+      setStats();
     }
 
     function highlightBlocks(root) {
@@ -126,7 +121,7 @@
           renderScheduled = false;
           lastMarkdownRenderAt = getNowMs();
           renderMarkdown(state.summaryMarkdown, { highlight: false, clearPending: false });
-          updateStatsFromMarkdown(state.summaryMarkdown, state.article);
+          updateStatsFromMarkdown();
           if (state.autoScroll) {
             elements.summaryRoot.scrollTop = elements.summaryRoot.scrollHeight;
           }
@@ -286,10 +281,15 @@
       elements.siteTypeBadge.textContent = metaView.siteTypeLabel;
       elements.strategyBadge.textContent = metaView.strategyLabel;
       elements.modeBadge.textContent = metaView.modeLabel;
-      elements.authorValue.textContent = metaView.authorLabel;
-      elements.publishedValue.textContent = metaView.publishedLabel;
-      elements.lengthValue.textContent = metaView.lengthLabel;
-      elements.chunkValue.textContent = metaView.chunkLabel;
+      [
+        [elements.authorValue, metaView.authorLabel],
+        [elements.publishedValue, metaView.publishedLabel],
+        [elements.lengthValue, metaView.lengthLabel],
+        [elements.chunkValue, metaView.chunkLabel]
+      ].forEach(([element, text]) => {
+        element.textContent = text;
+        element.title = text;
+      });
       elements.warningList.innerHTML = metaView.warnings.map((item) => '<span class="warning-chip">' + escapeHtml(item) + '</span>').join('');
       renderTrustCard(currentArticle);
     }

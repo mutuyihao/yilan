@@ -26,6 +26,7 @@ function buildDefaultSettings(origin, overrides) {
     autoTranslate: false,
     defaultLanguage: 'zh',
     themePreference: 'system',
+    themePalette: 'jade',
     privacyMode: false,
     defaultAllowHistory: true,
     defaultAllowShare: true,
@@ -323,6 +324,7 @@ async function configurePopupSettings(page, origin, overrides) {
   await setCheckbox(page, '#autoTranslate', settings.autoTranslate);
   await page.selectOption('#defaultLanguage', settings.defaultLanguage);
   await page.selectOption('#themePreference', settings.themePreference);
+  await page.locator(`[data-palette-option="${settings.themePalette}"]`).evaluate((button) => button.click());
   await setCheckbox(page, '#privacyMode', settings.privacyMode);
   await setCheckbox(page, '#defaultAllowHistory', settings.defaultAllowHistory);
   await setCheckbox(page, '#defaultAllowShare', settings.defaultAllowShare);

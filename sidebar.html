@@ -5,8 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>一览</title>
   <script src="shared/theme.js"></script>
+  <script src="shared/version.js"></script>
   <link rel="stylesheet" href="libs/github-dark.min.css">
   <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="reset.css">
+  <link rel="stylesheet" href="design-tokens.css">
+  <link rel="stylesheet" href="typography.css">
+  <link rel="stylesheet" href="components.css">
+  <link rel="stylesheet" href="sidebar-premium.css">
 </head>
 <body>
   <div class="shell">
@@ -15,13 +21,13 @@
         <div class="brand-mark">览</div>
         <div>
           <div class="brand-title">一览</div>
-          <div class="brand-subtitle">稳定的文章总结工作台</div>
+          <div class="brand-subtitle">Yilan · <span data-yilan-version>v1.0.0</span></div>
         </div>
       </div>
       <div class="topbar-actions">
         <button id="readerBtn" class="topbar-chip-btn" title="在新标签页打开专注阅读" aria-label="在新标签页打开专注阅读">阅读</button>
         <button id="historyBtn" class="topbar-chip-btn" title="打开历史与收藏" aria-label="打开历史与收藏">历史/收藏</button>
-        <button id="themeBtn" class="theme-toggle-btn" title="切换配色模式" aria-label="切换配色模式">配色：跟随系统</button>
+        <button id="themeBtn" class="theme-toggle-btn" title="切换明暗模式" aria-label="切换明暗模式">明暗：跟随系统</button>
         <button id="closeBtn" class="icon-btn" title="关闭" aria-label="关闭">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
             <line x1="18" y1="6" x2="6" y2="18"></line>
@@ -49,15 +55,15 @@
               <strong id="authorValue" class="meta-value">-</strong>
             </div>
             <div class="meta-item">
-              <span class="meta-label">发布时间</span>
+              <span class="meta-label" title="发布时间">发布</span>
               <strong id="publishedValue" class="meta-value">-</strong>
             </div>
             <div class="meta-item">
-              <span class="meta-label">正文长度</span>
+              <span class="meta-label" title="正文长度">字数</span>
               <strong id="lengthValue" class="meta-value">-</strong>
             </div>
             <div class="meta-item">
-              <span class="meta-label">分段策略</span>
+              <span class="meta-label" title="分段策略">分段</span>
               <strong id="chunkValue" class="meta-value">-</strong>
             </div>
           </div>

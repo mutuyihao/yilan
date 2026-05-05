@@ -53,6 +53,12 @@
     repo: 'README \u5bfc\u8bfb'
   };
 
+  const CHUNKING_STRATEGY_LABELS = {
+    none: '\u5355\u6bb5',
+    paragraph_split: '\u6bb5\u843d',
+    section_split: '\u7ae0\u8282'
+  };
+
   function normalizeKey(value) {
     return String(value || '').trim().toLowerCase();
   }
@@ -95,6 +101,15 @@
     return STRATEGY_LABEL_FALLBACKS[normalizeKey(sourceType)] || '\u901a\u7528\u7cbe\u8bfb';
   }
 
+  function getChunkingStrategyLabel(strategy, options) {
+    const key = normalizeKey(strategy);
+    const fallback = Object.prototype.hasOwnProperty.call(options || {}, 'fallback')
+      ? options.fallback
+      : '\u81ea\u52a8';
+
+    return CHUNKING_STRATEGY_LABELS[key] || strategy || fallback;
+  }
+
   function getWarningLabel(warning) {
     return WARNING_LABELS[String(warning || '')] || warning;
   }
@@ -108,6 +123,7 @@
     getSummaryModeLabel,
     getRecordStatusLabel,
     getStrategyLabel,
+    getChunkingStrategyLabel,
     getWarningLabel,
     summarizeWarnings
   };

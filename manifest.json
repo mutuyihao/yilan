@@ -2,7 +2,14 @@
   "manifest_version": 3,
   "name": "一览",
   "description": "一览：稳定的网页 AI 摘要扩展，支持长文分段总结、历史记录、分享卡与多接口适配。",
-  "version": "3.0.0",
+  "version": "1.0.0",
+  "icons": {
+    "16": "icon/icon16.png",
+    "32": "icon/icon32.png",
+    "48": "icon/icon48.png",
+    "64": "icon/icon64.png",
+    "128": "icon/icon128.png"
+  },
   "permissions": [
     "contextMenus",
     "storage",
@@ -17,10 +24,11 @@
   "action": {
     "default_popup": "popup.html",
     "default_icon": {
-      "16": "icon/icon16.png",
-      "48": "icon/icon48.png",
-      "64": "icon/icon64.png",
-      "128": "icon/icon128.png"
+      "16": "icon/action16.png",
+      "32": "icon/action32.png",
+      "48": "icon/action48.png",
+      "64": "icon/action64.png",
+      "128": "icon/action128.png"
     }
   },
   "commands": {
@@ -36,6 +44,13 @@
       "resources": [
         "sidebar.html",
         "style.css",
+        "reset.css",
+        "design-tokens.css",
+        "typography.css",
+        "components.css",
+        "popup-premium.css",
+        "sidebar-premium.css",
+        "reader-premium.css",
         "db.js",
         "sidebar/state.js",
         "sidebar/history.js",
@@ -47,6 +62,7 @@
         "sidebar/events.js",
         "sidebar.js",
         "shared/theme.js",
+        "shared/version.js",
         "shared/ui-format.js",
         "shared/ui-labels.js",
         "shared/summary-text.js",

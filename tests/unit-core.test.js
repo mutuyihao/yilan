@@ -626,15 +626,15 @@ test('sidebar meta view utilities build article meta and trust card labels for s
   assert.strictEqual(articleView.modeLabel, UiLabels.getSummaryModeLabel('long', { fallback: '\u6807\u51c6\u603b\u7ed3' }));
   assert.strictEqual(articleView.authorLabel, 'Author');
   assert.strictEqual(articleView.publishedLabel, UiFormat.formatDateTime('2026-04-15T08:30:00.000Z', { emptyText: '-' }));
-  assert.strictEqual(articleView.lengthLabel, '2048 \u5b57');
-  assert.strictEqual(articleView.chunkLabel, 'paragraph_split \u00b7 3 \u6bb5');
+  assert.strictEqual(articleView.lengthLabel, '2,048\u5b57');
+  assert.strictEqual(articleView.chunkLabel, '\u6bb5\u843d \u00b7 3 \u6bb5');
   assert.deepStrictEqual(articleView.warnings, [UiLabels.getWarningLabel('missing_title'), 'custom_warning']);
 
   const simpleArticleView = SidebarMetaView.buildArticleMetaView({}, {
     summaryMode: 'short',
     simpleModeEnabled: true
   });
-  assert.strictEqual(simpleArticleView.chunkLabel, '\u7b80\u5355\u6a21\u5f0f \u00b7 \u5355\u6b21\u8bf7\u6c42');
+  assert.strictEqual(simpleArticleView.chunkLabel, '\u7b80\u5355 \u00b7 \u5355\u6b21');
 
   const trustView = SidebarMetaView.buildTrustCardView({ allowHistory: true, allowShare: false }, {
     privacyMode: true,
@@ -705,7 +705,11 @@ test('theme module resolves, saves, cycles, and notifies preferences', 'settings
       storage: {
         sync: {
           get(keys, callback) {
-            callback({ [keys[0]]: stored[keys[0]] });
+            const result = {};
+            [].concat(keys).forEach((key) => {
+              result[key] = stored[key];
+            });
+            callback(result);
           },
           set(payload, callback) {
             Object.assign(stored, payload);
@@ -727,6 +731,8 @@ test('theme module resolves, saves, cycles, and notifies preferences', 'settings
     const Theme = fakeWindow.AISummaryTheme;
 
     assert.strictEqual(Theme.normalizePreference('bad'), 'system');
+    assert.strictEqual(Theme.normalizePalette('bad'), 'jade');
+    assert.strictEqual(Theme.normalizePalette('slate'), 'slate');
     assert.strictEqual(Theme.resolveTheme('light'), 'light');
     assert.strictEqual(Theme.getNextPreference('system'), 'light');
     assert.strictEqual(Theme.getNextPreference('dark'), 'system');
@@ -734,14 +740,23 @@ test('theme module resolves, saves, cycles, and notifies preferences', 'settings
     const snapshots = [];
     const unsubscribe = Theme.onChange((snapshot) => snapshots.push(snapshot));
     const saved = await Theme.saveThemePreference('dark');
-    assert.deepStrictEqual(saved, { preference: 'dark', theme: 'dark' });
+    assert.deepStrictEqual(saved, { preference: 'dark', theme: 'dark', palette: 'jade' });
     assert.strictEqual(fakeWindow.document.documentElement.dataset.theme, 'dark');
+    assert.strictEqual(fakeWindow.document.documentElement.dataset.palette, 'jade');
     assert.strictEqual(stored[Theme.STORAGE_KEY], 'dark');
     assert.ok(snapshots.some((snapshot) => snapshot.preference === 'dark'));
+
+    const savedPalette = await Theme.saveThemePalette('plum');
+    assert.deepStrictEqual(savedPalette, { preference: 'dark', theme: 'dark', palette: 'plum' });
+    assert.strictEqual(fakeWindow.document.documentElement.dataset.palette, 'plum');
+    assert.strictEqual(stored[Theme.PALETTE_STORAGE_KEY], 'plum');
+    assert.ok(snapshots.some((snapshot) => snapshot.palette === 'plum'));
     unsubscribe();
 
     listeners[0]({ [Theme.STORAGE_KEY]: { newValue: 'light' } }, 'sync');
     assert.strictEqual(Theme.getCurrentTheme(), 'light');
+    listeners[0]({ [Theme.PALETTE_STORAGE_KEY]: { newValue: 'slate' } }, 'sync');
+    assert.strictEqual(Theme.getCurrentPalette(), 'slate');
   } finally {
     global.window = previousWindow;
   }

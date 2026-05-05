@@ -40,6 +40,7 @@ interface Window {
   AISummaryTrustPolicy: any;
   AISummaryUiFormat: any;
   AISummaryUiLabels: any;
+  AISummaryUrlUtils: any;
   AISummaryOpenAIAdapter: any;
   AISummaryAnthropicAdapter: any;
   AISummaryAdapterRegistry: any;

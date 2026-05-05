@@ -216,7 +216,7 @@ test('sidebar render controller updates status, stats, placeholder, and error st
   assert.strictEqual(elements.statusText.classList.contains('status-active'), true);
 
   controller.setStats('12 字');
-  assert.strictEqual(elements.statsText.textContent, '12 字');
+  assert.strictEqual(elements.statsText.textContent, '');
 
   controller.renderPlaceholder('准备开始', '等待页面内容');
   assert.strictEqual(elements.summaryRoot.className, 'summary-root summary-placeholder');
@@ -351,7 +351,7 @@ test('sidebar render controller sanitizes markdown, highlights code, and schedul
 
   assert.strictEqual(elements.summaryRoot.className, 'summary-root markdown-body');
   assert.deepStrictEqual(elements.summaryRoot.fragment, { sanitizedFragment: '<p>## Streamed text</p>' });
-  assert.strictEqual(elements.statsText.textContent, '13 字 · 2 段');
+  assert.strictEqual(elements.statsText.textContent, '');
   assert.strictEqual(elements.summaryRoot.scrollTop, 540);
   assert.strictEqual(highlightCalls.length, 0);
 

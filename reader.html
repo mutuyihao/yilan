@@ -5,43 +5,38 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>一览阅读</title>
   <script src="shared/theme.js"></script>
+  <script src="shared/version.js"></script>
   <link rel="stylesheet" href="libs/github-dark.min.css">
   <style>
     :root {
-      --bg:
-        radial-gradient(circle at top left, rgba(62, 192, 160, 0.18), transparent 28%),
-        radial-gradient(circle at top right, rgba(83, 143, 241, 0.14), transparent 26%),
-        linear-gradient(180deg, #07131f 0%, #0c1826 100%);
-      --panel: rgba(9, 23, 38, 0.88);
-      --panel-strong: rgba(13, 30, 47, 0.94);
-      --line: rgba(141, 177, 204, 0.16);
-      --text: #eef7ff;
-      --text-soft: #aac0d4;
-      --text-muted: #7790a6;
-      --accent: #3ec0a0;
-      --accent-strong: #69e2c4;
-      --accent-soft: rgba(62, 192, 160, 0.12);
-      --shadow: 0 20px 52px rgba(2, 10, 18, 0.3);
+      --bg: var(--body-bg-dark);
+      --panel: var(--color-surface-dark);
+      --panel-strong: var(--color-surface-solid-dark);
+      --line: var(--color-line-dark);
+      --text: var(--color-ink-dark);
+      --text-soft: var(--color-muted-dark);
+      --text-muted: var(--color-muted-2-dark);
+      --accent: var(--color-accent-dark);
+      --accent-strong: var(--color-accent-strong-dark);
+      --accent-soft: var(--color-accent-soft-dark);
+      --shadow: var(--shadow-md-dark);
       --radius: 22px;
       --radius-sm: 14px;
       --content-width: min(1420px, calc(100vw - 48px));
     }
 
     :root[data-theme='light'] {
-      --bg:
-        radial-gradient(circle at top left, rgba(242, 169, 92, 0.18), transparent 28%),
-        radial-gradient(circle at top right, rgba(90, 149, 232, 0.14), transparent 26%),
-        linear-gradient(180deg, #f7efe2 0%, #eef4fb 100%);
-      --panel: rgba(255, 251, 245, 0.9);
-      --panel-strong: rgba(255, 253, 248, 0.96);
-      --line: rgba(103, 126, 147, 0.16);
-      --text: #173043;
-      --text-soft: #5d7488;
-      --text-muted: #7a8d9d;
-      --accent: #128a74;
-      --accent-strong: #0f6f5e;
-      --accent-soft: rgba(18, 138, 116, 0.1);
-      --shadow: 0 20px 52px rgba(127, 99, 58, 0.14);
+      --bg: var(--body-bg-light);
+      --panel: var(--color-surface-light);
+      --panel-strong: var(--color-surface-solid-light);
+      --line: var(--color-line-light);
+      --text: var(--color-ink-light);
+      --text-soft: var(--color-muted-light);
+      --text-muted: var(--color-muted-2-light);
+      --accent: var(--color-accent-light);
+      --accent-strong: var(--color-accent-strong-light);
+      --accent-soft: var(--color-accent-soft-light);
+      --shadow: var(--shadow-md-light);
     }
 
     * { box-sizing: border-box; }
@@ -572,6 +567,11 @@
       }
     }
   </style>
+  <link rel="stylesheet" href="reset.css">
+  <link rel="stylesheet" href="design-tokens.css">
+  <link rel="stylesheet" href="typography.css">
+  <link rel="stylesheet" href="components.css">
+  <link rel="stylesheet" href="reader-premium.css">
 </head>
 <body>
   <div class="reader-shell">
@@ -585,6 +585,7 @@
           </div>
           <div class="hero-actions">
             <a id="openSourceBtn" class="hero-btn primary" href="#" target="_blank" rel="noreferrer noopener">打开原文</a>
+            <span class="reader-version version-pill" data-yilan-version>v1.0.0</span>
             <button id="copyBtn" class="hero-btn" type="button">复制 Markdown</button>
           </div>
         </div>

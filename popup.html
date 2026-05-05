@@ -5,63 +5,59 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>一览设置</title>
   <script src="shared/theme.js"></script>
+  <script src="shared/version.js"></script>
   <script src="shared/ui-format.js"></script>
   <script src="shared/ui-labels.js"></script>
   <style>
     :root {
-      --bg: #07131f;
-      --panel: rgba(10, 23, 37, 0.92);
-      --field: #13273e;
-      --line: rgba(154, 186, 211, 0.18);
-      --text: #eef7ff;
-      --text-soft: #9db3c6;
-      --accent: #3ec0a0;
-      --accent-strong: #5ddbbd;
+      --bg: var(--color-base-dark);
+      --panel: var(--color-surface-dark);
+      --field: var(--color-field-dark);
+      --line: var(--color-line-dark);
+      --text: var(--color-ink-dark);
+      --text-soft: var(--color-muted-dark);
+      --accent: var(--color-accent-dark);
+      --accent-strong: var(--color-accent-strong-dark);
       --danger: #ff7a88;
       --success: #6fd59a;
       --warning: #f3c86b;
       --radius: 16px;
-      --body-bg:
-        radial-gradient(circle at top left, rgba(62, 192, 160, 0.18), transparent 32%),
-        linear-gradient(180deg, #07131f 0%, #0b1724 100%);
-      --brand-gradient: linear-gradient(135deg, #3ec0a0, #5796f5);
-      --brand-ink: #06131f;
-      --primary-ink: #04111d;
-      --card-shadow: 0 20px 48px rgba(0, 0, 0, 0.24);
-      --surface-soft: rgba(255, 255, 255, 0.03);
-      --surface-strong: rgba(255, 255, 255, 0.04);
-      --surface-outline: rgba(154, 186, 211, 0.08);
+      --body-bg: var(--body-bg-dark);
+      --brand-gradient: linear-gradient(135deg, var(--color-accent-dark), var(--color-accent-strong-dark));
+      --brand-ink: var(--color-accent-ink-dark);
+      --primary-ink: var(--color-accent-ink-dark);
+      --card-shadow: var(--shadow-md-dark);
+      --surface-soft: var(--color-surface-soft-dark);
+      --surface-strong: var(--color-surface-strong-dark);
+      --surface-outline: var(--color-line-dark);
       --focus-border: rgba(93, 219, 189, 0.6);
       --focus-ring: rgba(93, 219, 189, 0.12);
       --status-bg: rgba(255, 255, 255, 0.04);
     }
 
     :root[data-theme='light'] {
-      --bg: #f7efe2;
-      --panel: rgba(255, 251, 245, 0.94);
-      --field: rgba(255, 255, 255, 0.88);
-      --line: rgba(103, 126, 147, 0.18);
-      --text: #173043;
-      --text-soft: #61778a;
-      --accent: #128a74;
-      --accent-strong: #0f6f5e;
+      --bg: var(--color-base-light);
+      --panel: var(--color-surface-light);
+      --field: var(--color-field-light);
+      --line: var(--color-line-light);
+      --text: var(--color-ink-light);
+      --text-soft: var(--color-muted-light);
+      --accent: var(--color-accent-light);
+      --accent-strong: var(--color-accent-strong-light);
       --danger: #c34f61;
       --success: #2f8764;
-      --warning: #b57a1c;
-      --body-bg:
-        radial-gradient(circle at top left, rgba(242, 169, 92, 0.2), transparent 34%),
-        radial-gradient(circle at bottom right, rgba(93, 166, 223, 0.16), transparent 32%),
-        linear-gradient(180deg, #f7efe2 0%, #eef4fb 100%);
-      --brand-gradient: linear-gradient(135deg, #1fa08a, #5a95e8);
-      --brand-ink: #fffaf3;
-      --primary-ink: #fffaf3;
-      --card-shadow: 0 20px 48px rgba(127, 99, 58, 0.14);
-      --surface-soft: rgba(21, 47, 69, 0.04);
-      --surface-strong: rgba(255, 255, 255, 0.62);
-      --surface-outline: rgba(103, 126, 147, 0.12);
+      --warning: var(--color-warning-light);
+      --body-bg: var(--body-bg-light);
+      --brand-gradient: linear-gradient(135deg, var(--color-accent-light), #1fa89e);
+      --brand-ink: var(--color-accent-ink-light);
+      --primary-ink: var(--color-accent-ink-light);
+      --card-shadow: var(--shadow-md-light);
+      --surface-soft: var(--color-surface-soft-light);
+      --surface-strong: var(--color-surface-strong-light);
+      --surface-outline: var(--color-line-light);
       --focus-border: rgba(18, 138, 116, 0.45);
       --focus-ring: rgba(18, 138, 116, 0.12);
-      --status-bg: rgba(21, 47, 69, 0.05);
+      --status-bg: var(--color-surface-soft-light);
     }
 
     :root[data-theme='light'] html,
@@ -563,13 +559,18 @@
       display: none !important;
     }
   </style>
+  <link rel="stylesheet" href="reset.css">
+  <link rel="stylesheet" href="design-tokens.css">
+  <link rel="stylesheet" href="typography.css">
+  <link rel="stylesheet" href="components.css">
+  <link rel="stylesheet" href="popup-premium.css">
 </head>
 <body>
   <div class="hero">
     <div class="mark">览</div>
     <div>
       <h1>一览</h1>
-      <div class="sub">支持厂商预设、显式 endpoint mode，以及 OpenAI / Anthropic 兼容接口</div>
+      <div class="sub">Yilan · AI Reading Workspace <span class="version-pill" data-yilan-version>v1.0.0</span></div>
     </div>
   </div>
 
@@ -733,13 +734,56 @@
       <div class="card">
         <div class="card-title">界面外观</div>
         <div class="field">
-          <label for="themePreference">配色模式</label>
+          <label for="themePreference">明暗模式</label>
           <select id="themePreference">
             <option value="system">自动跟随系统</option>
             <option value="light">固定浅色</option>
             <option value="dark">固定深色</option>
           </select>
-          <div id="themeHint" class="hint">会根据当前配色自动切换 popup 和侧栏主题。</div>
+          <div id="themeHint" class="hint">会根据系统明暗模式自动切换 popup 和侧栏主题。</div>
+        </div>
+        <div class="field">
+          <div id="themePaletteLabel" class="field-label">色彩方案</div>
+          <input id="themePalette" type="hidden" value="jade">
+          <div id="themePaletteGroup" class="palette-grid" role="radiogroup" aria-labelledby="themePaletteLabel">
+            <button type="button" class="palette-option palette-option--jade" data-palette-option="jade" role="radio" aria-checked="true">
+              <span class="palette-swatch" aria-hidden="true">
+                <span></span><span></span><span></span>
+              </span>
+              <span class="palette-copy">
+                <span class="palette-name">松石绿</span>
+                <span class="palette-desc">默认，清爽稳定</span>
+              </span>
+            </button>
+            <button type="button" class="palette-option palette-option--slate" data-palette-option="slate" role="radio" aria-checked="false">
+              <span class="palette-swatch" aria-hidden="true">
+                <span></span><span></span><span></span>
+              </span>
+              <span class="palette-copy">
+                <span class="palette-name">雾蓝</span>
+                <span class="palette-desc">冷静，阅读感强</span>
+              </span>
+            </button>
+            <button type="button" class="palette-option palette-option--copper" data-palette-option="copper" role="radio" aria-checked="false">
+              <span class="palette-swatch" aria-hidden="true">
+                <span></span><span></span><span></span>
+              </span>
+              <span class="palette-copy">
+                <span class="palette-name">岩茶棕</span>
+                <span class="palette-desc">温润，不偏黄</span>
+              </span>
+            </button>
+            <button type="button" class="palette-option palette-option--plum" data-palette-option="plum" role="radio" aria-checked="false">
+              <span class="palette-swatch" aria-hidden="true">
+                <span></span><span></span><span></span>
+              </span>
+              <span class="palette-copy">
+                <span class="palette-name">檀紫</span>
+                <span class="palette-desc">克制，有品牌感</span>
+              </span>
+            </button>
+          </div>
+          <div id="paletteHint" class="hint">色彩方案会同步到 popup、侧栏和阅读页。</div>
         </div>
       </div>
 

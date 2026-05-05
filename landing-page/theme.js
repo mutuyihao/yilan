@@ -36,7 +36,7 @@
 
   function updateThemeMeta(theme) {
     if (themeMeta) {
-      themeMeta.setAttribute('content', theme === 'light' ? '#f7efe2' : '#07131f');
+      themeMeta.setAttribute('content', theme === 'light' ? '#F7FAF7' : '#0A0E12');
     }
   }
 
