@@ -40,8 +40,13 @@ Key features:
 - API keys are stored in `chrome.storage.sync`, which may sync through the user's browser account depending on browser settings.
 - Summary history is stored locally in IndexedDB and can be deleted by the user.
 
+## Privacy Policy URL
+
+- Use `https://github.com/mutuyihao/yilan/blob/master/PRIVACY_POLICY.md` in the Chrome Web Store privacy policy field.
+
 ## Known Limitations
 
 - Browser internal pages, extension store pages, and other restricted URLs cannot be injected due to Chromium security rules.
 - Provider compatibility depends on the chosen API endpoint and its CORS behavior.
+- Custom API endpoints must use HTTPS unless they point to localhost or a LAN address.
 - No-trace mode prevents local history writes but does not prevent sending page content to the configured model provider.

@@ -1,6 +1,7 @@
 ﻿(function (global) {
   const ERROR_CODES = {
     CONFIG_MISSING_API_KEY: 'CONFIG_MISSING_API_KEY',
+    CONFIG_INVALID_BASE_URL: 'CONFIG_INVALID_BASE_URL',
     EXTRACTION_EMPTY: 'EXTRACTION_EMPTY',
     ADAPTER_NOT_FOUND: 'ADAPTER_NOT_FOUND',
     NETWORK_TIMEOUT: 'NETWORK_TIMEOUT',
@@ -21,6 +22,10 @@
   const ERROR_CATALOG = {
     [ERROR_CODES.CONFIG_MISSING_API_KEY]: {
       message: '请先在设置中配置 API Key。',
+      retriable: false
+    },
+    [ERROR_CODES.CONFIG_INVALID_BASE_URL]: {
+      message: 'Base URL 仅支持 HTTPS；HTTP 仅允许本机或局域网地址。',
       retriable: false
     },
     [ERROR_CODES.EXTRACTION_EMPTY]: {

@@ -6,6 +6,65 @@
     return String(value || '').replace(/\/+$/, '');
   }
 
+  function stripIpv6Brackets(hostname) {
+    return String(hostname || '').trim().replace(/^\[/, '').replace(/\]$/, '').toLowerCase();
+  }
+
+  function isIpv4Segment(value) {
+    if (!/^\d+$/.test(String(value || ''))) return false;
+    const numeric = Number(value);
+    return numeric >= 0 && numeric <= 255;
+  }
+
+  function isPrivateIpv4Hostname(hostname) {
+    const normalized = stripIpv6Brackets(hostname);
+    const parts = normalized.split('.');
+    if (parts.length !== 4 || !parts.every(isIpv4Segment)) return false;
+
+    const first = Number(parts[0]);
+    const second = Number(parts[1]);
+
+    if (normalized === '0.0.0.0') return true;
+    if (first === 10 || first === 127) return true;
+    if (first === 169 && second === 254) return true;
+    if (first === 192 && second === 168) return true;
+    if (first === 172 && second >= 16 && second <= 31) return true;
+    return false;
+  }
+
+  function isLocalIpv6Hostname(hostname) {
+    const normalized = stripIpv6Brackets(hostname);
+    if (!normalized) return false;
+    if (normalized === '::1') return true;
+    if (/^fe[89ab][0-9a-f:]*$/i.test(normalized)) return true;
+    if (/^f[cd][0-9a-f:]*$/i.test(normalized)) return true;
+    return false;
+  }
+
+  function isAllowedHttpHostname(hostname) {
+    const normalized = stripIpv6Brackets(hostname);
+    if (!normalized) return false;
+    if (normalized === 'localhost' || normalized.endsWith('.localhost')) return true;
+    if (normalized.endsWith('.local')) return true;
+    if (isPrivateIpv4Hostname(normalized)) return true;
+    if (isLocalIpv6Hostname(normalized)) return true;
+    return false;
+  }
+
+  function isAllowedModelEndpointUrl(value) {
+    if (!value) return true;
+
+    try {
+      const parsed = new URL(String(value || '').trim());
+      const protocol = String(parsed.protocol || '').toLowerCase();
+      if (protocol === 'https:') return true;
+      if (protocol !== 'http:') return false;
+      return isAllowedHttpHostname(parsed.hostname);
+    } catch {
+      return false;
+    }
+  }
+
   function normalizeBaseURLInput(value) {
     const raw = String(value || '').trim();
     if (!raw) return '';
@@ -66,6 +125,7 @@
   }
 
   const UrlUtils = {
+    isAllowedModelEndpointUrl,
     normalizeBaseURLInput,
     normalizeUrlNoTrailingSlash,
     detectOpenAiEndpointModeFromUrl,

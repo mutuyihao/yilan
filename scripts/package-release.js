@@ -59,6 +59,18 @@ async function pathExists(filePath) {
   }
 }
 
+async function syncOptionalDistManifestVersion(version) {
+  const distManifestPath = path.join(root, 'dist', 'manifest.json');
+  if (!await pathExists(distManifestPath)) return false;
+
+  const manifest = JSON.parse(await fs.readFile(distManifestPath, 'utf8'));
+  if (manifest.version === version) return false;
+
+  manifest.version = version;
+  await fs.writeFile(distManifestPath, JSON.stringify(manifest, null, 2) + '\n');
+  return true;
+}
+
 async function copyDirectory(source, target) {
   await fs.mkdir(target, { recursive: true });
   const entries = await fs.readdir(source, { withFileTypes: true });
@@ -136,6 +148,7 @@ async function main() {
   const stagingDir = path.join(releaseRoot, packageName);
   const zipPath = path.join(releaseRoot, `${packageName}-extension.zip`);
   const manifestPath = path.join(releaseRoot, `${packageName}-package-manifest.json`);
+  const distManifestSynced = await syncOptionalDistManifestVersion(version);
 
   await fs.rm(stagingDir, { recursive: true, force: true });
   await fs.mkdir(stagingDir, { recursive: true });
@@ -170,6 +183,9 @@ async function main() {
   }, null, 2) + '\n');
   await createZip(stagingDir, zipPath);
 
+  if (distManifestSynced) {
+    console.log(`Synchronized dist/manifest.json version to ${version}`);
+  }
   console.log(`Release package staged at ${path.relative(root, stagingDir)}`);
   console.log(`Release zip written to ${path.relative(root, zipPath)}`);
   console.log(`Package manifest written to ${path.relative(root, manifestPath)}`);

@@ -16,6 +16,7 @@ const ReaderView = freshRequire('shared/reader-view.js');
 const HistoryView = freshRequire('shared/history-view.js');
 const SidebarMetaView = freshRequire('shared/sidebar-meta-view.js');
 const ProviderPresets = freshRequire('shared/provider-presets.js');
+const UrlUtils = freshRequire('shared/url-utils.js');
 
 test('domain utilities normalize URLs, hosts, hashes, language, dates, and site types', [
   'content.extraction',
@@ -211,6 +212,10 @@ test('error utilities preserve catalog defaults and diagnostic extras', 'transpo
   assert.strictEqual(configError.retriable, false);
   assert.strictEqual(configError.stage, 'primary');
 
+  const invalidBaseUrl = Errors.createError(Errors.ERROR_CODES.CONFIG_INVALID_BASE_URL);
+  assert.strictEqual(invalidBaseUrl.retriable, false);
+  assert.ok(Errors.getUserMessage(invalidBaseUrl).includes('HTTPS'));
+
   const normalized = Errors.normalizeError({
     code: Errors.ERROR_CODES.RUN_CANCELLED,
     message: '\u672c\u6b21\u751f\u6210\u5df2\u53d6\u6d88\u3002',
@@ -224,6 +229,18 @@ test('error utilities preserve catalog defaults and diagnostic extras', 'transpo
   assert.strictEqual(http.code, Errors.ERROR_CODES.HTTP_ERROR);
   assert.strictEqual(http.httpStatus, 500);
   assert.ok(Errors.getUserMessage(http).includes('500'));
+});
+
+test('URL utilities normalize endpoints and only allow HTTP for local networks', 'settings.endpoint_security', () => {
+  assert.strictEqual(UrlUtils.normalizeBaseURLInput('api.example.com/v1'), 'https://api.example.com/v1');
+  assert.strictEqual(UrlUtils.isAllowedModelEndpointUrl('https://api.example.com/v1'), true);
+  assert.strictEqual(UrlUtils.isAllowedModelEndpointUrl('http://127.0.0.1:11434/v1'), true);
+  assert.strictEqual(UrlUtils.isAllowedModelEndpointUrl('http://192.168.1.8:8080/v1'), true);
+  assert.strictEqual(UrlUtils.isAllowedModelEndpointUrl('http://[::1]:11434/v1'), true);
+  assert.strictEqual(UrlUtils.isAllowedModelEndpointUrl('http://printer.local:8080/v1'), true);
+  assert.strictEqual(UrlUtils.isAllowedModelEndpointUrl('http://api.example.com/v1'), false);
+  assert.strictEqual(UrlUtils.isAllowedModelEndpointUrl('ftp://192.168.1.8/v1'), false);
+  assert.strictEqual(UrlUtils.isAllowedModelEndpointUrl('not a url'), false);
 });
 
 test('abort utilities race promises, wait with abort, and preserve abort reasons', 'run.cancellation', async () => {

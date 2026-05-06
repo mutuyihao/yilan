@@ -22,6 +22,7 @@ const AbortUtils = self.AISummaryAbortUtils;
 const Domain = self.AISummaryDomain;
 const Errors = self.AISummaryErrors;
 const Constants = self.AISummaryConstants;
+const UrlUtils = self.AISummaryUrlUtils;
 const AdapterRegistry = self.AISummaryAdapterRegistry;
 const TransportUtils = self.AISummaryTransportUtils;
 const RunState = self.YilanRunState;
@@ -494,6 +495,22 @@ function toggleTrailingV1(value) {
   return normalized + '/v1';
 }
 
+function assertAllowedModelEndpointUrl(value, stage, provider, endpointMode) {
+  if (!value) return;
+
+  const isAllowed = UrlUtils?.isAllowedModelEndpointUrl
+    ? UrlUtils.isAllowedModelEndpointUrl(value)
+    : /^https:\/\//i.test(String(value || '').trim());
+
+  if (isAllowed) return;
+  throw Errors.createError(Errors.ERROR_CODES.CONFIG_INVALID_BASE_URL, {
+    stage: stage || '',
+    provider: provider || '',
+    endpointMode: endpointMode || '',
+    detail: String(value || '')
+  });
+}
+
 async function consumeNonStreamResponse(response, adapter, runtime, signal) {
   const rawBody = await AbortUtils.raceWithAbort(response.text(), signal).catch((error) => {
     if (AbortUtils.isAbortError(error)) {
@@ -618,12 +635,20 @@ async function executeRun(options) {
   const runId = options.runId || Domain.createRuntimeId('run');
   const stream = !!options.stream;
   const meta = options.meta || {};
+  const provider = String(settings?.aiProvider || 'openai').toLowerCase() || 'openai';
 
   if (!settings.apiKey) {
     throw Errors.createError(Errors.ERROR_CODES.CONFIG_MISSING_API_KEY, { stage: meta.stage || '' });
   }
 
-  const isOpenAiProvider = String(settings?.aiProvider || 'openai').toLowerCase() === 'openai';
+  assertAllowedModelEndpointUrl(
+    settings?.aiBaseURL || '',
+    meta.stage || '',
+    provider,
+    String(settings?.endpointMode || '')
+  );
+
+  const isOpenAiProvider = provider === 'openai';
   const wantsAutoEndpointMode = isOpenAiProvider && String(settings?.endpointMode || '').trim() === 'auto';
   const autoEndpointCacheKey = wantsAutoEndpointMode ? getAutoEndpointModeCacheKey(settings) : '';
   const cachedEndpointMode = wantsAutoEndpointMode ? await getCachedAutoEndpointMode(autoEndpointCacheKey) : '';
@@ -912,6 +937,13 @@ async function listModels(settings) {
       rawHint: '当前 provider 暂不支持自动拉取模型列表（仍可手动输入模型 ID）。'
     };
   }
+
+  assertAllowedModelEndpointUrl(
+    settings?.aiBaseURL || '',
+    stage,
+    provider || 'openai',
+    String(settings?.endpointMode || 'responses')
+  );
 
   const resolution = AdapterRegistry.resolve(Object.assign({}, settings, { endpointMode: 'responses' })) || AdapterRegistry.resolve(settings);
   const runtime = resolution?.snapshot || null;

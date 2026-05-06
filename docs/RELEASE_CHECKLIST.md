@@ -28,7 +28,7 @@ The release package script writes `release/yilan-<version>/`, `release/yilan-<ve
 
 - Use `release/yilan-<version>-extension.zip`.
 - Use the listing copy and permission rationale in `docs/STORE_LISTING.md`.
-- Link to `PRIVACY_POLICY.md` or the deployed privacy policy page.
+- Use `https://github.com/mutuyihao/yilan/blob/master/PRIVACY_POLICY.md` as the Chrome Web Store privacy policy URL.
 - Upload screenshots from real extension surfaces: popup, sidebar, reader, history/favorites, and settings.
 
 ## GitHub / Community Release

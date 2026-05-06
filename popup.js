@@ -36,6 +36,8 @@ const MODELS_CACHE_STORAGE_KEY = 'yilanModelsCacheV1';
 const ACTIVE_TAB_STORAGE_KEY = 'popupActiveTab';
 const IDLE_STATUS_TEXT = '设置修改后会自动保存。';
 const WAITING_AUTOSAVE_TEXT = '检测到变更，输入停顿后会自动保存。';
+const BASE_URL_SECURITY_HINT = '远程接口必须使用 HTTPS；HTTP 仅允许本机或局域网地址。';
+const BASE_URL_INVALID_MESSAGE = 'Base URL 仅支持 HTTPS；HTTP 仅允许本机或局域网地址。';
 
 const PROVIDER_FALLBACK_HINTS = {
   openai: '留空时使用 OpenAI 默认根地址，也可以直接填写完整 endpoint。',
@@ -498,11 +500,10 @@ function updateHints() {
     endpointPreview ? `当前会按这个模式补最终路径：${endpointPreview}。` : ''
   ].filter(Boolean).join(' ');
 
-  if (profile?.baseUrl) {
-    $('baseURLHint').textContent = `推荐根地址：${profile.baseUrl}。也可以直接填写完整 endpoint。`;
-  } else {
-    $('baseURLHint').textContent = PROVIDER_FALLBACK_HINTS[provider] || '';
-  }
+  const baseUrlHint = profile?.baseUrl
+    ? `推荐根地址：${profile.baseUrl}。也可以直接填写完整 endpoint。`
+    : (PROVIDER_FALLBACK_HINTS[provider] || '');
+  $('baseURLHint').textContent = [baseUrlHint, BASE_URL_SECURITY_HINT].filter(Boolean).join(' ');
 
   $('modelHint').textContent = profile?.defaultModel
     ? `推荐模型：${profile.defaultModel}。如果你有专属模型 ID，也可以直接覆盖。`
@@ -539,9 +540,10 @@ function syncSelectionState(options = {}) {
 
 function validateBaseURL(url) {
   if (!url) return true;
+  if (UrlUtils?.isAllowedModelEndpointUrl) return UrlUtils.isAllowedModelEndpointUrl(url);
   try {
     const parsed = new URL(url);
-    return parsed.protocol === 'https:' || parsed.protocol === 'http:';
+    return parsed.protocol === 'https:';
   } catch {
     return false;
   }
@@ -888,6 +890,11 @@ async function refreshModelOptions(options = {}) {
       return;
     }
 
+    if (settings.aiBaseURL && !validateBaseURL(settings.aiBaseURL)) {
+      renderModelOptions([], { message: BASE_URL_INVALID_MESSAGE });
+      return;
+    }
+
     const response = await runtimeSendMessage({ action: 'listModels', settings });
     if (!response.success) {
       renderModelOptions([], { message: '模型列表获取失败：' + getRuntimeErrorMessage(response.error) });
@@ -953,7 +960,7 @@ async function persistSettings(options = {}) {
     renderProfileHint();
     if (requestId === saveState.requestId && !options.skipSuccessStatus) {
       if (settings.aiBaseURL && !validateBaseURL(settings.aiBaseURL)) {
-        setStatus('已保存，但 Base URL 格式可能不正确。', 'warning');
+        setStatus(BASE_URL_INVALID_MESSAGE, 'warning');
       } else {
         setStatus(getSaveSuccessText(settings), 'success');
       }
@@ -1136,7 +1143,7 @@ async function handleTestConnection() {
   }
 
   if (settings.aiBaseURL && !validateBaseURL(settings.aiBaseURL)) {
-    setStatus('Base URL 格式不正确，请输入完整的 HTTP/HTTPS 地址。', 'error');
+    setStatus(BASE_URL_INVALID_MESSAGE, 'error');
     return;
   }
 
