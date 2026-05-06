@@ -21,6 +21,7 @@
     const toggleFavoriteFromMain = deps.toggleFavoriteFromMain;
     const copySummary = deps.copySummary;
     const exportMarkdown = deps.exportMarkdown;
+    const exportBilibiliSubtitle = deps.exportBilibiliSubtitle;
     const exportShareImage = deps.exportShareImage;
     const startSecondarySummary = deps.startSecondarySummary;
     const handleArticleDataPayload = deps.handleArticleDataPayload;
@@ -70,6 +71,7 @@
       });
       elements.copyBtn.addEventListener('click', copySummary);
       elements.exportBtn.addEventListener('click', exportMarkdown);
+      elements.subtitleExportBtn?.addEventListener('click', exportBilibiliSubtitle);
       elements.shareBtn.addEventListener('click', exportShareImage);
       documentRef.querySelectorAll('.secondary-btn').forEach((button) => {
         button.addEventListener('click', () => {

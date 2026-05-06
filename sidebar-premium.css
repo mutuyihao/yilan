@@ -641,14 +641,36 @@ body {
 }
 
 .footer {
+  align-items: center;
   background: color-mix(in srgb, var(--surface) 90%, transparent);
   border-top: 1px solid var(--line);
+  display: flex;
+  gap: 12px;
+  justify-content: flex-start;
   min-height: 40px;
   padding: 7px 14px;
 }
 
+.footer-meta {
+  flex: 0 0 auto;
+  margin-left: auto;
+  min-width: max-content;
+}
+
 .status-text {
   color: var(--text-soft);
+  display: block;
+  flex: 1 1 0;
+  line-height: 1.45;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.status-active {
+  align-items: center;
+  display: grid;
+  gap: 8px;
+  grid-template-columns: auto minmax(0, 1fr);
 }
 
 .status-success {

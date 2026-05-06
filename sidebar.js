@@ -430,6 +430,16 @@ function refreshActionStates() {
   elements.copyBtn.disabled = !hasSummary;
   elements.shareBtn.disabled = !hasSummary || !allowShare;
   elements.exportBtn.disabled = !hasSummary;
+  if (elements.subtitleExportBtn) {
+    const isBilibiliVideo = state.article?.diagnostics?.videoSource === 'bilibili' ||
+      !!state.article?.diagnostics?.bilibili ||
+      !!state.lastDiagnostics?.article?.diagnostics?.bilibili;
+    const hasSubtitleExport = !!exportController?.hasBilibiliSubtitleArtifact?.();
+    elements.subtitleExportBtn.hidden = !isBilibiliVideo;
+    elements.subtitleExportBtn.disabled = processing || !hasSubtitleExport;
+    elements.subtitleExportBtn.textContent = hasSubtitleExport ? '导出字幕' : '无字幕';
+    elements.subtitleExportBtn.title = hasSubtitleExport ? '导出 B 站原始字幕 JSON' : '当前 B 站视频未发现可导出的字幕';
+  }
   elements.privacyToggleBtn.disabled = processing;
   elements.statusText.classList.toggle('status-active', processing);
   elements.contentPanel.classList.toggle('content-panel-processing', processing);
@@ -742,6 +752,7 @@ const exportController = SidebarExport.createExportController({
 });
 const exportMarkdown = exportController.exportMarkdown;
 const exportShareImage = exportController.exportShareImage;
+const exportBilibiliSubtitle = exportController.exportBilibiliSubtitle;
 
 async function togglePrivacyMode() {
   const nextPrivacyMode = !Trust.normalizeSettings(state.settings).privacyMode;
@@ -856,6 +867,7 @@ const eventsController = SidebarEvents.createEventsController({
   toggleFavoriteFromMain,
   copySummary,
   exportMarkdown,
+  exportBilibiliSubtitle,
   exportShareImage,
   startSecondarySummary,
   handleArticleDataPayload,

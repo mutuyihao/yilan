@@ -69,6 +69,61 @@
       return getCurrentArticle() || createArticleFromRecord(getCurrentRecord());
     }
 
+    function getBilibiliDiagnostics() {
+      const state = getState() || {};
+      const article = resolveArticle();
+      return state.lastDiagnostics?.article?.diagnostics?.bilibili ||
+        article?.diagnostics?.bilibili ||
+        getCurrentRecord()?.diagnostics?.article?.diagnostics?.bilibili ||
+        null;
+    }
+
+    function getBilibiliSubtitleArtifact() {
+      const subtitles = getBilibiliDiagnostics()?.debug?.subtitles || null;
+      if (!subtitles) return null;
+      const jsonText = String(subtitles.jsonText || '').trim();
+      if (jsonText) {
+        return {
+          text: jsonText,
+          extension: 'json',
+          mimeType: 'application/json;charset=utf-8'
+        };
+      }
+
+      const text = String(subtitles.text || '').trim();
+      if (text) {
+        return {
+          text,
+          extension: 'txt',
+          mimeType: 'text/plain;charset=utf-8'
+        };
+      }
+
+      return null;
+    }
+
+    function hasBilibiliSubtitleArtifact() {
+      return !!getBilibiliSubtitleArtifact();
+    }
+
+    function exportBilibiliSubtitle() {
+      const artifact = getBilibiliSubtitleArtifact();
+      if (!artifact) {
+        setStatus('当前 B 站视频还没有可导出的字幕。', 'warning');
+        return;
+      }
+
+      const article = resolveArticle();
+      const blob = new Blob([artifact.text], { type: artifact.mimeType });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = sanitizeFilename((article?.title || 'bilibili-video') + '-字幕') + '.' + artifact.extension;
+      link.click();
+      URL.revokeObjectURL(url);
+      setStatus('字幕已导出。', 'success');
+    }
+
     function exportMarkdown() {
       const summaryMarkdown = getSummaryMarkdown();
       if (!summaryMarkdown.trim()) return;
@@ -243,6 +298,8 @@
 
     return {
       exportMarkdown,
+      exportBilibiliSubtitle,
+      hasBilibiliSubtitleArtifact,
       createShareCardElement,
       exportShareImage
     };

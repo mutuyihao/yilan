@@ -64,6 +64,7 @@
     copyBtn: 'copyBtn',
     shareBtn: 'shareBtn',
     exportBtn: 'exportBtn',
+    subtitleExportBtn: 'subtitleExportBtn',
     contentPanel: 'content',
     summaryRoot: 'summaryRoot',
     diagnosticsBlock: 'diagnosticsBlock',
