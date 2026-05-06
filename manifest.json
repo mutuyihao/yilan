@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "一览",
+  "name": "一览 - AI 阅读工作台",
   "description": "一览：稳定的网页 AI 摘要扩展，支持长文分段总结、历史记录、分享卡与多接口适配。",
   "version": "1.0.0",
   "icons": {
