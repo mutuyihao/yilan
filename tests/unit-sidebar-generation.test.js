@@ -75,16 +75,16 @@ function createController(overrides) {
       createError: (code, payload) => Object.assign(new Error(code), { code }, payload || {})
     },
     articleUtils: {},
-    runUtils: {},
-    trust: {},
-    loadRuntimeSettings: async () => ({ apiKey: 'test' }),
-    ensureArticleReady: () => {},
+    runUtils: overrides?.runUtils || {},
+    trust: overrides?.trust || {},
+    loadRuntimeSettings: overrides?.loadRuntimeSettings || (async () => ({ apiKey: 'test' })),
+    ensureArticleReady: overrides?.ensureArticleReady || (() => {}),
     withCustomPrompt: (prompt) => prompt,
     getTargetLanguage: () => 'auto',
-    createDraftRecord: () => ({}),
-    finalizeRecord: (record, updates) => Object.assign({}, record, updates),
+    createDraftRecord: overrides?.createDraftRecord || (() => ({})),
+    finalizeRecord: overrides?.finalizeRecord || ((record, updates) => Object.assign({}, record, updates)),
     normalizeUiError: (error) => error,
-    composeDiagnostics: () => ({}),
+    composeDiagnostics: overrides?.composeDiagnostics || (() => ({})),
     markdownToPlainText: (value) => String(value || ''),
     extractBullets: () => [],
     getModeLabel: (mode) => mode,
@@ -204,4 +204,70 @@ test('sidebar generation stream runner posts startStream and resolves streamed t
   assert.strictEqual(state.activePort, null);
   assert.strictEqual(portBundle.disconnected, 1);
   assert.strictEqual(calls.scheduled, 1);
+});
+
+test('sidebar generation uses Bilibili official summary without model streaming', [
+  'generation.primary',
+  'content.extraction'
+], async () => {
+  const portBundle = createPort();
+  const article = {
+    articleId: 'art_bili',
+    title: 'Bili Video',
+    cleanText: '# Bilibili 官方 AI 总结\n官方总结正文',
+    content: '# Bilibili 官方 AI 总结\n官方总结正文',
+    chunkCount: 1,
+    diagnostics: {
+      videoSource: 'bilibili',
+      videoSourceKind: 'official_ai_summary',
+      bilibili: {
+        sourceKind: 'official_ai_summary',
+        debug: {
+          selectedSource: 'official_ai_summary',
+          officialAiSummary: {
+            called: true,
+            summary: '官方总结正文'
+          },
+          subtitles: {
+            attempted: false
+          }
+        }
+      }
+    }
+  };
+  const { controller, state, calls } = createController({
+    portBundle,
+    state: {
+      generating: false,
+      article
+    },
+    loadRuntimeSettings: async () => ({ apiKey: '' }),
+    trust: {
+      buildTrustPolicy: () => ({ allowHistory: true })
+    },
+    runUtils: {
+      pickTerminalRun: (finalRun) => finalRun || null,
+      buildTerminalRecordPatch: (record, diagnostics, status, updates) => Object.assign({}, updates, {
+        status,
+        diagnostics
+      }),
+      sanitizeDiagnosticsForPersistence: (diagnostics) => diagnostics
+    },
+    createDraftRecord: () => ({
+      runId: 'direct_run',
+      allowHistory: true
+    }),
+    composeDiagnostics: (inputArticle, chunkRuns, finalRun) => ({
+      article: { diagnostics: inputArticle.diagnostics },
+      finalRun,
+      provider: finalRun?.provider || ''
+    })
+  });
+
+  await controller.startPrimarySummary('medium');
+
+  assert.strictEqual(state.summaryMarkdown, '# Bilibili 官方 AI 总结\n官方总结正文');
+  assert.strictEqual(state.generating, false);
+  assert.deepStrictEqual(portBundle.posted, []);
+  assert.ok(calls.statuses.some((item) => String(item.text || '').includes('B 站官方 AI 总结')));
 });

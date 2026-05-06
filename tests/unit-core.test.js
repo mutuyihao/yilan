@@ -4,6 +4,7 @@ const Domain = freshRequire('shared/domain.js');
 const Strings = freshRequire('shared/strings.js');
 const PageStrategy = freshRequire('shared/page-strategy.js');
 const ArticleUtils = freshRequire('shared/article-utils.js');
+const BilibiliSource = freshRequire('shared/bilibili-source.js');
 const Trust = freshRequire('shared/trust-policy.js');
 const Errors = freshRequire('shared/errors.js');
 const AbortUtils = freshRequire('shared/abort-utils.js');
@@ -31,6 +32,7 @@ test('domain utilities normalize URLs, hosts, hashes, language, dates, and site 
   );
   assert.strictEqual(Domain.getSourceHost('https://docs.example.com/a'), 'docs.example.com');
   assert.strictEqual(Domain.getSourceHost('not a url'), '');
+  assert.strictEqual(Domain.detectSiteType({ url: 'https://www.bilibili.com/video/BV1KNokBuEYS' }), 'video');
   assert.strictEqual(
     Domain.normalizeUrl('https://example.com/post?b=2&utm_source=x&a=1&fbclid=y#section'),
     'https://example.com/post?a=1&b=2'
@@ -53,6 +55,72 @@ test('domain utilities normalize URLs, hosts, hashes, language, dates, and site 
   assert.strictEqual(Domain.pickFirstNonEmpty(['', null, ' value ']), 'value');
   assert.strictEqual(Domain.toIsoString('2026-04-15T00:00:00Z'), '2026-04-15T00:00:00.000Z');
   assert.strictEqual(Domain.toIsoString('invalid'), '');
+});
+
+test('bilibili source helpers sign requests and format official summaries', [
+  'content.extraction',
+  'page.strategy'
+], async () => {
+  assert.strictEqual(BilibiliSource.isBilibiliVideoUrl('https://www.bilibili.com/video/BV1KNokBuEYS/?spm_id_from=x'), true);
+  assert.strictEqual(BilibiliSource.extractBvid('https://www.bilibili.com/video/BV1KNokBuEYS/'), 'BV1KNokBuEYS');
+
+  const realNow = Date.now;
+  Date.now = () => 1778024983000;
+  try {
+    const signed = await BilibiliSource.signWbiParams({
+      bvid: 'BV1KNokBuEYS',
+      cid: '37873910213',
+      up_mid: '391561843',
+      web_location: '333.788'
+    }, {
+      img_url: 'https://i0.hdslb.com/bfs/wbi/7cd084941338484aae1ad9425b84077c.png',
+      sub_url: 'https://i0.hdslb.com/bfs/wbi/4932caff0ff746eab6f01bf08b70ac45.png'
+    });
+    assert.ok(signed.includes('wts=1778024983'));
+    assert.ok(signed.includes('w_rid=7f3e292978a1c33bfea7795ec84ace34'));
+  } finally {
+    Date.now = realNow;
+  }
+
+  const conclusion = BilibiliSource.normalizeAiResultPayload({
+    code: 0,
+    message: 'OK',
+    data: {
+      code: 0,
+      model_result: {
+        result_type: 2,
+        summary: '视频讲述一个小镇青年开始自救。',
+        outline: [{ timestamp: 12, title: '解释当前困境' }]
+      }
+    }
+  });
+  assert.strictEqual(conclusion.hasSummary, true);
+  assert.strictEqual(conclusion.outline[0].title, '解释当前困境');
+
+  const formatted = BilibiliSource.formatOfficialSummaryText({
+    bvid: 'BV1KNokBuEYS',
+    title: '这是一个34岁无业青年的自救视频',
+    author: '无业小王在自救',
+    duration: 173
+  }, conclusion);
+  assert.ok(formatted.includes('Bilibili 官方 AI 总结'));
+  assert.ok(formatted.includes('[00:12] 解释当前困境'));
+
+  const officialDebug = BilibiliSource.buildOfficialSummaryDebug(conclusion);
+  assert.strictEqual(officialDebug.summary, '视频讲述一个小镇青年开始自救。');
+  assert.strictEqual(officialDebug.outline[0].time, '00:12');
+
+  const subtitleDebug = BilibiliSource.buildSubtitleDebug({
+    body: [
+      { from: 1, content: '第一条字幕' },
+      { from: 3, content: '第二条字幕' }
+    ]
+  }, {
+    lan: 'zh-CN',
+    lan_doc: '中文'
+  });
+  assert.strictEqual(subtitleDebug.lineCount, 2);
+  assert.ok(subtitleDebug.text.includes('[00:03] 第二条字幕'));
 });
 
 test('page strategies cover all page types and fall back safely', 'page.strategy', () => {
@@ -311,6 +379,55 @@ test('run utilities describe cancellation, progress, diagnostics, and terminal p
   assert.ok(summary.includes('\u72b6\u6001: \u5df2\u53d6\u6d88'));
   assert.ok(summary.includes('\u6a21\u578b: openai / gpt-4.1-mini'));
   assert.ok(summary.includes('\u9519\u8bef: RUN_CANCELLED'));
+
+  const bilibiliDiagnostics = {
+    article: {
+      sourceHost: 'www.bilibili.com',
+      sourceType: 'video',
+      diagnostics: {
+        bilibili: {
+          sourceKind: 'subtitle',
+          stages: [{ name: 'official_ai_summary', code: 0, dataCode: 1, message: 'not ready' }],
+          debug: {
+            selectedSource: 'subtitle',
+            officialAiSummary: {
+              called: true,
+              rootCode: 0,
+              dataCode: 1,
+              summary: '\u5b98\u65b9\u6458\u8981\u539f\u6587',
+              outline: [{ time: '00:12', title: '\u5b98\u65b9\u5206\u6bb5' }]
+            },
+            subtitles: {
+              attempted: true,
+              availableCount: 1,
+              lan: 'zh-CN',
+              lanDoc: '\u4e2d\u6587',
+              lineCount: 2,
+              text: '[00:01] \u7b2c\u4e00\u6761\u5b57\u5e55\n[00:03] \u7b2c\u4e8c\u6761\u5b57\u5e55'
+            }
+          }
+        }
+      }
+    },
+    finalRun: {
+      status: 'starting',
+      stage: 'primary'
+    }
+  };
+  const bilibiliSummary = RunUtils.buildDiagnosticsSummary(bilibiliDiagnostics, {});
+  assert.ok(bilibiliSummary.includes('B \u7ad9\u89c6\u9891\u63d0\u53d6\u8c03\u8bd5'));
+  assert.ok(bilibiliSummary.includes('\u5b98\u65b9\u6458\u8981\u539f\u6587'));
+  assert.ok(bilibiliSummary.includes('\u5168\u90e8\u5b57\u5e55'));
+  assert.ok(bilibiliSummary.includes('[00:03] \u7b2c\u4e8c\u6761\u5b57\u5e55'));
+
+  const persistentBilibiliDiagnostics = RunUtils.sanitizeDiagnosticsForPersistence(bilibiliDiagnostics);
+  const persistedDebug = persistentBilibiliDiagnostics.article.diagnostics.bilibili.debug;
+  assert.strictEqual(persistedDebug.fullSourceDebugPersisted, false);
+  assert.strictEqual(Object.prototype.hasOwnProperty.call(persistedDebug.officialAiSummary, 'summary'), false);
+  assert.strictEqual(persistedDebug.officialAiSummary.summaryPreview, '\u5b98\u65b9\u6458\u8981\u539f\u6587');
+  assert.strictEqual(Object.prototype.hasOwnProperty.call(persistedDebug.subtitles, 'text'), false);
+  assert.ok(persistedDebug.subtitles.textPreview.includes('[00:01]'));
+  assert.strictEqual(Object.prototype.hasOwnProperty.call(persistedDebug.subtitles, 'subtitleUrl'), false);
 
   const patch = RunUtils.buildTerminalRecordPatch({ provider: 'fallback' }, diagnostics, 'failed', { errorCode: 'X' });
   assert.strictEqual(patch.status, 'failed');
@@ -613,6 +730,29 @@ test('diagnostics view utilities build sidebar diagnostics and cancelled-state m
   assert.strictEqual(idle.status, 'idle');
   assert.strictEqual(idle.toggleLabel, '\u8fd0\u884c\u8bca\u65ad');
   assert.strictEqual(idle.summaryText, '\u7b49\u5f85\u672c\u6b21\u8fd0\u884c\u7684\u8bca\u65ad\u4fe1\u606f...');
+
+  const bilibiliPanel = DiagnosticsView.buildDiagnosticsPanelModel(null, {
+    article: {
+      diagnostics: {
+        bilibili: {
+          sourceKind: 'official_ai_summary',
+          debug: {
+            selectedSource: 'official_ai_summary',
+            officialAiSummary: {
+              called: true,
+              summary: '\u5b98\u65b9\u6458\u8981'
+            }
+          }
+        }
+      }
+    },
+    finalRun: {
+      status: 'starting',
+      stage: 'primary'
+    }
+  }, '');
+  assert.strictEqual(bilibiliPanel.shouldAutoOpen, true);
+  assert.ok(bilibiliPanel.summaryText.includes('B \u7ad9\u89c6\u9891\u63d0\u53d6\u8c03\u8bd5'));
 });
 
 test('sidebar meta view utilities build article meta and trust card labels for sidebar rendering', [

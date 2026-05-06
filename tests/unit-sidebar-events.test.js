@@ -54,6 +54,7 @@ function createController(overrides) {
     favoriteBtn: createButton(),
     copyBtn: createButton(),
     exportBtn: createButton(),
+    subtitleExportBtn: createButton(),
     shareBtn: createButton(),
     summaryModeSelect: { value: 'medium' },
     diagnosticsBlock: { open: false }
@@ -93,6 +94,7 @@ function createController(overrides) {
     toggleFavoriteFromMain: async () => calls.push(['toggleFavoriteFromMain']),
     copySummary: () => calls.push(['copySummary']),
     exportMarkdown: () => calls.push(['exportMarkdown']),
+    exportBilibiliSubtitle: () => calls.push(['exportBilibiliSubtitle']),
     exportShareImage: () => calls.push(['exportShareImage']),
     startSecondarySummary: async (mode) => calls.push(['startSecondarySummary', mode]),
     handleArticleDataPayload: async (message) => calls.push(['handleArticleDataPayload', message.article?.title]),
@@ -137,6 +139,7 @@ test('sidebar events controller binds buttons, secondary actions, and scroll sta
   elements.favoriteBtn.dispatch('click');
   elements.copyBtn.dispatch('click');
   elements.exportBtn.dispatch('click');
+  elements.subtitleExportBtn.dispatch('click');
   elements.shareBtn.dispatch('click');
   secondaryButtons[0].dispatch('click');
 
@@ -154,6 +157,7 @@ test('sidebar events controller binds buttons, secondary actions, and scroll sta
     ['toggleFavoriteFromMain'],
     ['copySummary'],
     ['exportMarkdown'],
+    ['exportBilibiliSubtitle'],
     ['exportShareImage'],
     ['startSecondarySummary', 'action_items']
   ]);

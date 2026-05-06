@@ -145,6 +145,7 @@ test('manifest declares MV3 shell, entrypoints, permissions, and accessible reso
     'shared/sidebar-meta-view.js',
     'shared/domain.js',
     'shared/article-utils.js',
+    'shared/bilibili-source.js',
     'shared/trust-policy.js',
     'libs/purify.min.js',
     'libs/marked.min.js',
@@ -508,6 +509,8 @@ test('content script extraction, sidebar injection, and SPA navigation contracts
   const sidebarState = readText('sidebar/state.js');
   assert.ok(js.includes('new Readability'));
   assert.ok(js.includes('ArticleUtils.buildArticleSnapshot'));
+  assert.ok(js.includes('BilibiliSource.extractBilibiliVideoSource'));
+  assert.ok(readText('background.js').includes("'shared/bilibili-source.js'"));
   assert.ok(js.includes('createSidebarFrame'));
   assert.ok(js.includes('injectSidebar'));
   assert.ok(js.includes('postToExistingSidebar'));
