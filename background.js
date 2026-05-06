@@ -35,6 +35,7 @@ const CONTENT_SCRIPT_FILES = [
   'shared/strings.js',
   'shared/page-strategy.js',
   'shared/article-utils.js',
+  'shared/bilibili-source.js',
   'shared/constants.js',
   'libs/readability.js',
   'content.js'

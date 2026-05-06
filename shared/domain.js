@@ -96,6 +96,10 @@
       return url.includes('/issues') || url.includes('/discussions') ? 'forum' : 'repo';
     }
 
+    if (host.includes('bilibili.com') && /\/video\/bv[0-9a-z]{10}/i.test(url)) {
+      return 'video';
+    }
+
     if (
       host.includes('stackoverflow.com') ||
       host.includes('reddit.com') ||

@@ -67,6 +67,34 @@
       return state.activeRunIds;
     }
 
+    function hasBilibiliDiagnostics(article) {
+      return !!(article?.diagnostics?.videoSource === 'bilibili' || article?.diagnostics?.bilibili);
+    }
+
+    function buildInitialArticleDiagnostics(article) {
+      if (!hasBilibiliDiagnostics(article)) return null;
+      return composeDiagnostics(article, [], {
+        status: 'starting',
+        stage: 'primary',
+        articleId: article.articleId,
+        chunkCount: article.chunkCount
+      }, null);
+    }
+
+    function sanitizeDiagnosticsForPersistence(diagnostics) {
+      return runUtils.sanitizeDiagnosticsForPersistence
+        ? runUtils.sanitizeDiagnosticsForPersistence(diagnostics)
+        : diagnostics;
+    }
+
+    function bindSavedRecord(savedRecord, liveDiagnostics) {
+      bindVisibleRecord(savedRecord);
+      if (liveDiagnostics) {
+        getState().lastDiagnostics = liveDiagnostics;
+        renderDiagnostics();
+      }
+    }
+
     function beginRunAbortController() {
       const state = getState();
       state.runAbortController = new AbortController();
@@ -281,25 +309,122 @@
       return saved;
     }
 
+    function getBilibiliSourceKind(article) {
+      return article?.diagnostics?.videoSourceKind ||
+        article?.diagnostics?.bilibili?.sourceKind ||
+        '';
+    }
+
+    function getBilibiliOfficialSummaryMarkdown(article) {
+      if (getBilibiliSourceKind(article) !== 'official_ai_summary') return '';
+      return String(article?.cleanText || article?.content || '').trim();
+    }
+
+    async function completeWithBilibiliOfficialSummary(article, settings, summaryMode, trustPolicy) {
+      const state = getState();
+      const startedAt = Date.now();
+      const officialMarkdown = getBilibiliOfficialSummaryMarkdown(article);
+      if (!officialMarkdown) return false;
+
+      state.generating = true;
+      state.cancelRequested = false;
+      state.summaryMarkdown = officialMarkdown;
+      state.lastDiagnostics = buildInitialArticleDiagnostics(article);
+      renderDiagnostics();
+      renderArticleMeta(article, { summaryMode });
+      renderInlineNote(
+        '使用 B 站官方 AI 总结',
+        '已获取 B 站官方 AI 总结，本次不再请求你的模型接口。'
+      );
+      setStatus(trustPolicy.allowHistory ? '正在保存 B 站官方 AI 总结...' : '正在展示 B 站官方 AI 总结，本次不写入历史...');
+      setStats('');
+      refreshActionStates();
+
+      const draftRecord = createDraftRecord(article, settings, summaryMode, 'primary');
+      state.visibleRecord = draftRecord;
+      const finalRun = {
+        runId: draftRecord.runId,
+        stage: 'primary',
+        provider: 'bilibili',
+        adapterId: 'bilibili_official_ai_summary',
+        family: 'bilibili',
+        endpointMode: 'official_ai_summary',
+        model: 'Bilibili 官方 AI 总结',
+        status: 'completed',
+        articleId: article.articleId,
+        chunkCount: article.chunkCount,
+        startedAt: new Date(startedAt).toISOString(),
+        completedAt: new Date().toISOString(),
+        durationMs: Date.now() - startedAt,
+        retryCount: 0
+      };
+      const diagnostics = composeDiagnostics(article, [], finalRun, null);
+      state.lastDiagnostics = diagnostics;
+      renderDiagnostics();
+
+      const persistentDiagnostics = sanitizeDiagnosticsForPersistence(diagnostics);
+      const completedRecord = finalizeRecord(draftRecord, runUtils.buildTerminalRecordPatch(draftRecord, persistentDiagnostics, 'completed', {
+        summaryMarkdown: state.summaryMarkdown,
+        summaryPlainText: markdownToPlainText(state.summaryMarkdown),
+        bullets: extractBullets(state.summaryMarkdown),
+        usage: null
+      }));
+
+      const savedRecord = await persistRecord(completedRecord);
+      bindSavedRecord(savedRecord, diagnostics);
+      setStatus(completedRecord.allowHistory === false ? '已展示 B 站官方 AI 总结，本次未写入历史' : '已使用 B 站官方 AI 总结', 'success');
+      refreshActionStates();
+
+      if (!getElements().historyPanel.classList.contains('hidden')) {
+        await getHistoryController().refresh();
+      }
+
+      return true;
+    }
+
     async function startPrimarySummary(summaryMode) {
       const state = getState();
       if (state.generating) return;
 
       const article = state.article;
       const settings = await loadRuntimeSettings();
-      ensureArticleReady(article);
-
-      if (!settings.apiKey) {
-        throw errors.createError(errors.ERROR_CODES.CONFIG_MISSING_API_KEY);
+      const hasDirectOfficialSummary = !!getBilibiliOfficialSummaryMarkdown(article);
+      if (!hasDirectOfficialSummary) {
+        ensureArticleReady(article);
       }
 
       const trustPolicy = trust.buildTrustPolicy(article, settings);
       const simpleModeEnabled = !!settings.entrypointSimpleMode && summaryMode === 'short';
 
+      try {
+        if (await completeWithBilibiliOfficialSummary(article, settings, summaryMode, trustPolicy)) {
+          state.generating = false;
+          state.cancelRequested = false;
+          clearRunAbortController();
+          getActiveRunIds().clear();
+          safeDisconnectPort();
+          refreshActionStates();
+          await applyPendingNavigationPayload();
+          return;
+        }
+      } catch (error) {
+        state.generating = false;
+        state.cancelRequested = false;
+        clearRunAbortController();
+        getActiveRunIds().clear();
+        safeDisconnectPort();
+        refreshActionStates();
+        throw error;
+      }
+
+      if (!settings.apiKey) {
+        throw errors.createError(errors.ERROR_CODES.CONFIG_MISSING_API_KEY);
+      }
+
       state.generating = true;
       state.cancelRequested = false;
       state.summaryMarkdown = '';
-      state.lastDiagnostics = null;
+      state.lastDiagnostics = buildInitialArticleDiagnostics(article);
       renderDiagnostics();
       renderArticleMeta(article, { summaryMode });
       renderInlineNote(
@@ -382,7 +507,8 @@
         state.lastDiagnostics = diagnostics;
         renderDiagnostics();
 
-        const completedRecord = finalizeRecord(draftRecord, runUtils.buildTerminalRecordPatch(draftRecord, diagnostics, 'completed', {
+        const persistentDiagnostics = sanitizeDiagnosticsForPersistence(diagnostics);
+        const completedRecord = finalizeRecord(draftRecord, runUtils.buildTerminalRecordPatch(draftRecord, persistentDiagnostics, 'completed', {
           summaryMarkdown: state.summaryMarkdown,
           summaryPlainText: markdownToPlainText(state.summaryMarkdown),
           bullets: extractBullets(state.summaryMarkdown),
@@ -390,7 +516,7 @@
         }));
 
         const savedRecord = await persistRecord(completedRecord);
-        bindVisibleRecord(savedRecord);
+        bindSavedRecord(savedRecord, diagnostics);
         setStatus(completedRecord.allowHistory === false ? '\u751f\u6210\u5b8c\u6210\uff0c\u672c\u6b21\u672a\u5199\u5165\u5386\u53f2' : '\u751f\u6210\u5b8c\u6210', 'success');
         refreshActionStates();
 
@@ -404,14 +530,15 @@
         renderDiagnostics();
 
         const failedStatus = error.code === errors.ERROR_CODES.RUN_CANCELLED ? 'cancelled' : 'failed';
-        const failedRecord = finalizeRecord(draftRecord, runUtils.buildTerminalRecordPatch(draftRecord, diagnostics, failedStatus, {
+        const persistentDiagnostics = sanitizeDiagnosticsForPersistence(diagnostics);
+        const failedRecord = finalizeRecord(draftRecord, runUtils.buildTerminalRecordPatch(draftRecord, persistentDiagnostics, failedStatus, {
           errorCode: error.code,
           errorMessage: error.message,
           summaryMarkdown: state.summaryMarkdown
         }));
 
         const savedRecord = await persistRecord(failedRecord);
-        bindVisibleRecord(savedRecord);
+        bindSavedRecord(savedRecord, diagnostics);
         refreshActionStates();
       } finally {
         state.generating = false;
@@ -476,7 +603,8 @@
         state.lastDiagnostics = diagnostics;
         renderDiagnostics();
 
-        const completedRecord = finalizeRecord(draftRecord, runUtils.buildTerminalRecordPatch(draftRecord, diagnostics, 'completed', {
+        const persistentDiagnostics = sanitizeDiagnosticsForPersistence(diagnostics);
+        const completedRecord = finalizeRecord(draftRecord, runUtils.buildTerminalRecordPatch(draftRecord, persistentDiagnostics, 'completed', {
           summaryMarkdown: state.summaryMarkdown,
           summaryPlainText: markdownToPlainText(state.summaryMarkdown),
           bullets: extractBullets(state.summaryMarkdown),
@@ -484,7 +612,7 @@
         }));
 
         const savedRecord = await persistRecord(completedRecord);
-        bindVisibleRecord(savedRecord);
+        bindSavedRecord(savedRecord, diagnostics);
         setStatus(completedRecord.allowHistory === false ? getModeLabel(mode) + ' \u751f\u6210\u5b8c\u6210\uff0c\u672c\u6b21\u672a\u5199\u5165\u5386\u53f2' : getModeLabel(mode) + ' \u751f\u6210\u5b8c\u6210', 'success');
       } catch (errorLike) {
         const error = normalizeUiError(errorLike);
@@ -493,14 +621,15 @@
         renderDiagnostics();
 
         const failedStatus = error.code === errors.ERROR_CODES.RUN_CANCELLED ? 'cancelled' : 'failed';
-        const failedRecord = finalizeRecord(draftRecord, runUtils.buildTerminalRecordPatch(draftRecord, diagnostics, failedStatus, {
+        const persistentDiagnostics = sanitizeDiagnosticsForPersistence(diagnostics);
+        const failedRecord = finalizeRecord(draftRecord, runUtils.buildTerminalRecordPatch(draftRecord, persistentDiagnostics, failedStatus, {
           errorCode: error.code,
           errorMessage: error.message,
           summaryMarkdown: state.summaryMarkdown
         }));
 
         const savedRecord = await persistRecord(failedRecord);
-        bindVisibleRecord(savedRecord);
+        bindSavedRecord(savedRecord, diagnostics);
       } finally {
         state.generating = false;
         state.cancelRequested = false;

@@ -110,7 +110,8 @@
     blog: '博客',
     doc: '文档',
     forum: '社区问答',
-    repo: '代码仓库'
+    repo: '代码仓库',
+    video: '视频'
   };
 
   const STATUS_TEXT = {

@@ -156,7 +156,7 @@
       input.meta?.language,
       Domain.inferLanguage(cleanText, 'zh')
     ]);
-    const sourceType = Domain.detectSiteType({
+    const sourceType = input.sourceType || Domain.detectSiteType({
       url: normalizedUrl || sourceUrl,
       host: sourceHost,
       title,
@@ -209,7 +209,7 @@
       allowHistory: true,
       allowShare: true,
       retentionHint: 'persistent',
-      diagnostics: {
+      diagnostics: Object.assign({
         rawLength: rawText.length,
         captureLimit,
         sourceType,
@@ -217,7 +217,7 @@
         strategyLabel: sourceStrategy.label,
         chunkMaxChars: sourceStrategy.chunkMaxChars,
         minChunkChars: sourceStrategy.minChunkChars
-      }
+      }, input.diagnostics || {})
     };
 
     snapshot.warnings = computeWarnings(snapshot);

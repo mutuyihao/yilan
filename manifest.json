@@ -76,6 +76,7 @@
         "shared/page-strategy.js",
         "shared/errors.js",
         "shared/article-utils.js",
+        "shared/bilibili-source.js",
         "shared/trust-policy.js",
         "shared/run-utils.js",
         "libs/purify.min.js",

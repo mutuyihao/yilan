@@ -3,6 +3,7 @@ if (!window.__aiSummaryInjected) {
 
   const Domain = window.AISummaryDomain;
   const ArticleUtils = window.AISummaryArticle;
+  const BilibiliSource = window.AISummaryBilibiliSource;
   const Constants = window.AISummaryConstants;
   const SIDEBAR_FRAME_ID = 'ai-summary-sidebar';
   const SIDEBAR_FRAME_WIDTH = 420;
@@ -88,6 +89,39 @@ if (!window.__aiSummaryInjected) {
       extractor: readabilityText.length >= 200 ? 'readability' : 'body_fallback',
       maxChars: 28000
     });
+  }
+
+  async function extractCurrentPageSnapshot() {
+    if (BilibiliSource?.isBilibiliVideoUrl?.(location.href)) {
+      try {
+        const source = await BilibiliSource.extractBilibiliVideoSource({
+          document,
+          url: location.href
+        });
+
+        if (source?.text) {
+          return ArticleUtils.buildArticleSnapshot({
+            title: source.title,
+            text: source.text,
+            excerpt: source.excerpt,
+            sourceUrl: source.sourceUrl,
+            meta: source.meta,
+            sourceType: 'video',
+            extractor: 'bilibili_' + (source.sourceKind || 'fallback'),
+            diagnostics: {
+              videoSource: 'bilibili',
+              videoSourceKind: source.sourceKind || 'fallback',
+              bilibili: source.diagnostics || null
+            },
+            maxChars: 42000
+          });
+        }
+      } catch (error) {
+        console.warn('[Yilan] Bilibili video extraction failed, falling back to page text.', error);
+      }
+    }
+
+    return extractArticleSnapshot();
   }
 
   function buildPageKey() {
@@ -259,10 +293,11 @@ if (!window.__aiSummaryInjected) {
     return activeSidebarPayloadType === 'articleData' && !!document.getElementById(SIDEBAR_FRAME_ID);
   }
 
-  function scheduleSidebarRefreshForNavigation() {
+  async function scheduleSidebarRefreshForNavigation() {
     if (!shouldTrackPageContext()) return;
 
-    const article = extractArticleSnapshot();
+    const article = await extractCurrentPageSnapshot();
+    if (!shouldTrackPageContext()) return;
     postToExistingSidebar({
       type: 'articleData',
       article,
@@ -352,9 +387,20 @@ if (!window.__aiSummaryInjected) {
     }
 
     if (message.action === 'extractAndSummarize') {
-      const article = extractArticleSnapshot();
-      injectSidebar({ type: 'articleData', article });
-      sendResponse({ status: 'ok', articleId: article.articleId });
+      extractCurrentPageSnapshot()
+        .then((article) => {
+          injectSidebar({ type: 'articleData', article });
+          sendResponse({ status: 'ok', articleId: article.articleId });
+        })
+        .catch((error) => {
+          const article = extractArticleSnapshot();
+          injectSidebar({ type: 'articleData', article });
+          sendResponse({
+            status: 'fallback',
+            articleId: article.articleId,
+            error: error?.message || String(error)
+          });
+        });
       return true;
     }
 

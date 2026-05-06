@@ -301,6 +301,9 @@ function createDraftRecord(article, settings, summaryMode, promptProfile, extra)
   const now = new Date().toISOString();
   const targetLanguage = getTargetLanguage(settings, article);
   const trustPolicy = Trust.buildTrustPolicy(article, settings);
+  const persistentArticle = RunUtils.sanitizeArticleSnapshotForPersistence
+    ? RunUtils.sanitizeArticleSnapshotForPersistence(article)
+    : article;
   const record = {
     recordId: Domain.createRuntimeId('sum'),
     articleId: article.articleId,
@@ -314,7 +317,7 @@ function createDraftRecord(article, settings, summaryMode, promptProfile, extra)
     titleSnapshot: article.title,
     languageSnapshot: article.language,
     contentHash: article.contentHash,
-    articleSnapshot: article,
+    articleSnapshot: persistentArticle,
     summaryMode,
     targetLanguage,
     promptProfile,

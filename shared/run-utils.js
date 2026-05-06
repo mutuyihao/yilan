@@ -86,6 +86,191 @@
     return '\u5df2\u5b8c\u6210 ' + completedChunks + '/' + totalChunks + ' \u4e2a\u5206\u6bb5\u3002';
   }
 
+  function getBilibiliDiagnostics(diagnostics) {
+    return diagnostics?.article?.diagnostics?.bilibili || null;
+  }
+
+  function getBilibiliSourceLabel(sourceKind) {
+    switch (sourceKind) {
+      case 'official_ai_summary':
+        return 'B 站官方 AI 总结';
+      case 'subtitle':
+        return '字幕转写';
+      case 'fallback':
+        return '标题/简介 fallback';
+      default:
+        return sourceKind || '未知';
+    }
+  }
+
+  function formatBilibiliStage(stage) {
+    if (!stage) return '';
+    const detail = [
+      stage.code !== undefined ? 'code=' + stage.code : '',
+      stage.dataCode !== undefined ? 'dataCode=' + stage.dataCode : '',
+      stage.resultType !== undefined ? 'resultType=' + stage.resultType : '',
+      stage.message ? 'message=' + stage.message : ''
+    ].filter(Boolean).join(', ');
+    return '- ' + (stage.name || 'unknown') + (detail ? ': ' + detail : '');
+  }
+
+  function buildBilibiliDebugSummary(diagnostics) {
+    const bilibili = getBilibiliDiagnostics(diagnostics);
+    if (!bilibili) return '';
+
+    const debug = bilibili.debug || {};
+    const official = debug.officialAiSummary || {};
+    const subtitles = debug.subtitles || {};
+    const lines = [
+      '',
+      'B 站视频提取调试',
+      '来源: ' + getBilibiliSourceLabel(debug.selectedSource || bilibili.sourceKind || 'fallback')
+    ];
+
+    if (Array.isArray(bilibili.stages) && bilibili.stages.length) {
+      lines.push('接口阶段:');
+      bilibili.stages.map(formatBilibiliStage).filter(Boolean).forEach((line) => lines.push(line));
+    }
+
+    if (official.called || official.summary || official.error) {
+      lines.push('');
+      lines.push('--- B 站官方 AI 总结接口 ---');
+      lines.push('调用: ' + (official.called ? '已调用' : '未调用'));
+      const status = [
+        official.rootCode !== undefined ? 'rootCode=' + official.rootCode : '',
+        official.dataCode !== undefined ? 'dataCode=' + official.dataCode : '',
+        official.resultType !== undefined ? 'resultType=' + official.resultType : '',
+        official.stid ? 'stid=' + official.stid : ''
+      ].filter(Boolean).join(', ');
+      if (status) lines.push('状态: ' + status);
+      if (official.rootMessage || official.dataMessage) {
+        lines.push('消息: ' + [official.rootMessage, official.dataMessage].filter(Boolean).join(' / '));
+      }
+      if (official.error) lines.push('错误: ' + official.error);
+      if (official.summary) {
+        lines.push('summary:');
+        lines.push(official.summary);
+      } else if (official.summaryPreview) {
+        lines.push('summary 预览（历史记录已裁剪）:');
+        lines.push(official.summaryPreview);
+      }
+      if (Array.isArray(official.outline) && official.outline.length) {
+        lines.push('outline:');
+        official.outline.forEach((item) => {
+          const prefix = item.time ? '[' + item.time + '] ' : '';
+          lines.push('- ' + prefix + (item.title || ''));
+        });
+      }
+    }
+
+    if (subtitles || bilibili.debug) {
+      lines.push('');
+      lines.push('--- B 站字幕抓取 ---');
+      lines.push('可用字幕数: ' + String(subtitles.availableCount || 0));
+      if (subtitles.lan || subtitles.lanDoc || subtitles.selectedLan || subtitles.selectedLanDoc) {
+        lines.push('选中字幕: ' + [
+          subtitles.lan || subtitles.selectedLan || '',
+          subtitles.lanDoc || subtitles.selectedLanDoc || ''
+        ].filter(Boolean).join(' / '));
+      }
+      if (subtitles.lineCount !== undefined) {
+        lines.push('字幕条数: ' + subtitles.lineCount + (subtitles.truncated ? '（展示已截断）' : ''));
+      }
+      if (subtitles.error) lines.push('错误: ' + subtitles.error);
+      if (!subtitles.attempted && !subtitles.availableCount && !subtitles.text && !subtitles.textPreview) {
+        lines.push('结果: 未发现可导出的字幕。');
+      }
+      if (subtitles.text) {
+        lines.push('全部字幕:');
+        lines.push(subtitles.text);
+      } else if (subtitles.textPreview) {
+        lines.push('字幕预览（历史记录已裁剪）:');
+        lines.push(subtitles.textPreview);
+      }
+    }
+
+    return lines.filter((line) => line !== null && line !== undefined).join('\n');
+  }
+
+  function clonePlainObject(value) {
+    if (value === null || value === undefined) return value;
+    try {
+      return JSON.parse(JSON.stringify(value));
+    } catch {
+      return value;
+    }
+  }
+
+  function buildTextPreview(value, maxChars) {
+    const text = String(value || '');
+    const limit = maxChars || 500;
+    return {
+      preview: text.length > limit ? text.slice(0, limit) + '...' : text,
+      length: text.length
+    };
+  }
+
+  function sanitizeBilibiliDebugForPersistence(debug, sourceKind) {
+    const copy = clonePlainObject(debug || {}) || {};
+    const selectedSource = copy.selectedSource || sourceKind || 'fallback';
+    copy.selectedSource = selectedSource;
+    copy.fullSourceDebugPersisted = false;
+
+    if (copy.officialAiSummary) {
+      const summaryInfo = buildTextPreview(copy.officialAiSummary.summary, 500);
+      if (summaryInfo.length) {
+        copy.officialAiSummary.summaryPreview = summaryInfo.preview;
+        copy.officialAiSummary.summaryLength = summaryInfo.length;
+        copy.officialAiSummary.fullSummaryInArticleContent = selectedSource === 'official_ai_summary';
+      }
+      delete copy.officialAiSummary.summary;
+    }
+
+    if (copy.subtitles) {
+      const textInfo = buildTextPreview(copy.subtitles.text, 500);
+      const jsonInfo = buildTextPreview(copy.subtitles.jsonText, 500);
+      if (textInfo.length) {
+        copy.subtitles.textPreview = textInfo.preview;
+        copy.subtitles.textLength = copy.subtitles.originalTextLength || textInfo.length;
+        copy.subtitles.fullTextInArticleContent = selectedSource === 'subtitle';
+      }
+      if (jsonInfo.length) {
+        copy.subtitles.jsonPreview = jsonInfo.preview;
+        copy.subtitles.jsonLength = copy.subtitles.jsonLength || jsonInfo.length;
+      }
+      delete copy.subtitles.text;
+      delete copy.subtitles.jsonText;
+      delete copy.subtitles.subtitleUrl;
+    }
+
+    return copy;
+  }
+
+  function sanitizeArticleDiagnosticsForPersistence(diagnostics) {
+    const copy = clonePlainObject(diagnostics || null);
+    if (!copy?.bilibili) return copy;
+
+    const sourceKind = copy.bilibili.sourceKind || copy.videoSourceKind || 'fallback';
+    copy.bilibili.debug = sanitizeBilibiliDebugForPersistence(copy.bilibili.debug || {}, sourceKind);
+    return copy;
+  }
+
+  function sanitizeArticleSnapshotForPersistence(article) {
+    const copy = clonePlainObject(article || null);
+    if (!copy) return copy;
+    copy.diagnostics = sanitizeArticleDiagnosticsForPersistence(copy.diagnostics);
+    return copy;
+  }
+
+  function sanitizeDiagnosticsForPersistence(diagnostics) {
+    const copy = clonePlainObject(diagnostics || null);
+    if (!copy) return copy;
+    if (copy.article?.diagnostics) {
+      copy.article.diagnostics = sanitizeArticleDiagnosticsForPersistence(copy.article.diagnostics);
+    }
+    return copy;
+  }
+
   function describeCancellation(diagnostics, options) {
     const safeDiagnostics = diagnostics || {};
     const finalRun = safeDiagnostics.finalRun || safeDiagnostics.error?.diagnostics || null;
@@ -168,6 +353,11 @@
       }
     }
 
+    const bilibiliDebug = buildBilibiliDebugSummary(safeDiagnostics);
+    if (bilibiliDebug) {
+      lines.push(bilibiliDebug);
+    }
+
     const modelInfo = [safeDiagnostics.provider || '', safeDiagnostics.model || ''].filter(Boolean).join(' / ');
     if (modelInfo) {
       lines.push('\u6a21\u578b: ' + modelInfo);
@@ -199,6 +389,10 @@
     getRunStageLabel,
     getRunStatusLabel,
     buildChunkProgressLabel,
+    buildBilibiliDebugSummary,
+    sanitizeArticleDiagnosticsForPersistence,
+    sanitizeArticleSnapshotForPersistence,
+    sanitizeDiagnosticsForPersistence,
     describeCancellation,
     buildDiagnosticsSummary
   };

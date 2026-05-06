@@ -47,6 +47,11 @@
     return '\u8fd0\u884c\u8bca\u65ad';
   }
 
+  function hasBilibiliSourceDebug(diagnostics) {
+    const bilibili = diagnostics?.article?.diagnostics?.bilibili || null;
+    return !!(bilibili?.debug || bilibili?.sourceKind || bilibili?.stages?.length);
+  }
+
   function buildDiagnosticsPanelModel(record, diagnostics, summaryMarkdownFallback) {
     if (!diagnostics) {
       return {
@@ -69,7 +74,7 @@
       status,
       toggleLabel: getDiagnosticsToggleLabel(status),
       summaryText: RunUtils.buildDiagnosticsSummary(diagnostics, options),
-      shouldAutoOpen: status === 'cancelled' || status === 'failed',
+      shouldAutoOpen: status === 'cancelled' || status === 'failed' || hasBilibiliSourceDebug(diagnostics),
       partial,
       options
     };
@@ -101,6 +106,7 @@
     buildDiagnosticsOptions,
     getDiagnosticsStatus,
     getDiagnosticsToggleLabel,
+    hasBilibiliSourceDebug,
     buildDiagnosticsPanelModel,
     buildCancelledStateModel
   };
