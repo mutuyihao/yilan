@@ -1,0 +1,4 @@
+{
+  "openai_official": "POST https://api.openai.com/v1/responses and GET https://api.openai.com/v1/models",
+  "mimo": "Metered endpoint https://api.xiaomimimo.com/v1/chat/completions Region matrix: CN OpenAI https://token-plan-cn.xiaomimimo.com/v1/chat/completions CN Anthropic https://token-plan-cn.xiaomimimo.com/anthropic/v1/messages SGP OpenAI https://token-plan-sgp.xiaomimimo.com/v1/chat/completions SGP Anthropic https://token-plan-sgp.xiaomimimo.com/anthropic/v1/messages AMS OpenAI https://token-plan-ams.xiaomimimo.com/v1/chat/completions AMS Anthropic https://token-plan-ams.xiaomimimo.com/anthropic/v1/messages"
+}

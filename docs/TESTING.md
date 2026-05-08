@@ -119,6 +119,7 @@ node tests/run-tests.js
 
 - popup 设置保存与连接测试
 - popup 自动保存
+- popup provider route 切换与多 Base URL 摘要
 - popup 连接错误态
 - popup 连接测试根据网关反馈自动补齐 `/v1`
 - popup 连接测试根据网关反馈自动去除 `/v1`

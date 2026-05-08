@@ -315,6 +315,9 @@ async function configurePopupSettings(page, origin, overrides) {
 
   await page.waitForSelector('#settingsForm');
   await page.selectOption('#providerPreset', settings.providerPreset);
+  await page.locator('#advancedConnectionSettings').evaluate((details) => {
+    details.open = true;
+  });
   await page.selectOption('#aiProvider', settings.aiProvider);
   await page.selectOption('#endpointMode', settings.endpointMode);
   await page.fill('#apiKey', settings.apiKey);

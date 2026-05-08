@@ -52,9 +52,9 @@ Last updated: 2026-05-05
 主要字段：
 
 - `配置方案`：可选，用来保存多套连接配置并快速切换。`当前配置（未绑定）` 表示只编辑当前设置；绑定到某个配置方案后，后续自动保存会同步更新该配置方案。可通过右侧 `⋯` 管理（新建 / 另存为 / 重命名 / 删除）。
-- `厂商预设`：给出更稳的默认 Provider、Endpoint Mode、Base URL 和模型名。
-- `Provider`：当前运行时支持 `OpenAI / OpenAI 兼容接口` 与 `Anthropic / Claude 兼容接口`。
-- `Endpoint Mode`：显式指定最终接口类型。OpenAI 兼容接口支持 `自动判断`、`Responses API`、`Chat Completions`、`Legacy Completions`；Anthropic / Claude 兼容接口使用 `Messages API`。
+- `Provider`：选择服务商，设置页会自动带出推荐协议、Endpoint Mode、Base URL 和模型名。
+- `更改地址`：当服务商提供多个 Base URL 时切换路线，例如按量 API、Token Plan、OpenAI 兼容或 Anthropic 兼容。
+- `高级兼容设置`：用于手动调整 `Provider` 协议类型、`Endpoint Mode` 和 `Base URL`。自定义兼容接口会默认展开。
 - `API Key`
 - `Base URL`
 - `模型名称`
@@ -63,10 +63,10 @@ Last updated: 2026-05-05
 建议流程：
 
 1.（可选）如果你需要保存多套连接配置，先用“配置方案”新建或另存为一个方案。
-2. 先选厂商预设。
-3. 再确认 Provider 和 Endpoint Mode。
+2. 先选 Provider 服务商。
+3. 如需代理、私有网关或多地址套餐，点击“更改地址”确认 Base URL。
 4. 填写 API Key。
-5. 按需覆盖 Base URL 和模型名称。
+5. 按需覆盖模型名称。
 6. 等待自动保存后点击“测试连接”。
 
 当前内置预设包括：`自定义兼容接口`、`OpenAI 官方`、`Anthropic 官方`、`DeepSeek`、`Gemini / Google`、`xAI / Grok`、`Qwen / 百炼`、`GLM / 智谱`、`MiniMax`、`Doubao / 火山方舟`、`Hunyuan / 腾讯混元`。
@@ -75,7 +75,8 @@ Last updated: 2026-05-05
 
 - `Gemini / Google` 当前走 OpenAI 兼容的 `Chat Completions`。
 - `xAI / Grok` 当前默认走 OpenAI 兼容的 `Responses API`，也可手动切到 `Chat Completions`。
-- `Base URL` 既可以填写根地址（例如 `https://api.openai.com/v1`），也可以直接填写完整 endpoint；设置页会显示“将请求 …”的预览，便于确认最终访问路径。
+- `MiMo / 小米` 同时提供按量 API 和 Token Plan 地域集群。Token Plan 可在“更改地址”中选择 CN、SGP、AMS 三个地域，每个地域都有 OpenAI 兼容和 Anthropic 兼容地址；不同地域的 Key 不通用。
+- `Base URL` 既可以使用 provider catalog 的推荐地址，也可以在高级兼容设置中填写根地址或完整 endpoint；设置页会显示结构化请求预览。
 - `Endpoint Mode = 自动判断` 会在 OpenAI 兼容自定义网关中尝试可用接口；连接测试可能缓存成功的 endpoint mode，并在网关错误足够明确时自动补齐或去除 `Base URL` 末尾的 `/v1`。
 - 如果“测试连接”失败，底部状态会显示简要错误；必要时可以展开“错误详情”查看更具体的诊断信息。
 

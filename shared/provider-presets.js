@@ -1,292 +1,106 @@
 (function (global) {
-  const OPENAI_ENDPOINT_MODES = ['auto', 'responses', 'chat_completions', 'legacy_completions'];
-  const ANTHROPIC_ENDPOINT_MODES = ['messages'];
+  const Catalog = global.AISummaryProviderCatalog || (typeof require === 'function' ? require('./provider-catalog.generated.js') : null);
 
-  const ENDPOINT_MODE_META = {
-    auto: {
-      label: '自动判断',
-      description: '按 Base URL 猜测最终接口；适合完全自定义的兼容网关。'
-    },
-    responses: {
-      label: 'Responses API',
-      description: '优先使用新式 `/responses` 接口；适合 OpenAI 官方与部分新兼容网关。'
-    },
-    chat_completions: {
-      label: 'Chat Completions',
-      description: '兼容面最广；多数国产 OpenAI 兼容接口优先走 `/chat/completions`。'
-    },
-    legacy_completions: {
-      label: 'Legacy Completions',
-      description: '仅用于老式 `/completions` 接口；现代服务通常不建议默认使用。'
-    },
-    messages: {
-      label: 'Messages API',
-      description: '适用于 Anthropic / Claude 兼容接口，最终请求通常为 `/v1/messages`。'
-    }
+  const FALLBACK_ENDPOINT_MODE_META = {
+    auto: { label: '自动判断', description: '按 Base URL 试探最终接口。' },
+    responses: { label: 'Responses API', description: '使用 `/responses` 接口。' },
+    chat_completions: { label: 'Chat Completions', description: '使用 `/chat/completions` 接口。' },
+    legacy_completions: { label: 'Legacy Completions', description: '使用 `/completions` 接口。' },
+    messages: { label: 'Messages API', description: '使用 `/v1/messages` 接口。' }
   };
-
-  const PRESETS = [
-    {
-      id: 'custom',
-      label: '自定义兼容接口',
-      hint: '自由填写 Base URL，适合自建代理、OneAPI 类网关或暂未内置的厂商。',
-      defaultProvider: 'openai',
-      providerProfiles: {
-        openai: {
-          endpointModes: OPENAI_ENDPOINT_MODES,
-          defaultEndpointMode: 'auto',
-          baseUrl: '',
-          defaultModel: 'gpt-4o-mini',
-          hint: '如果厂商文档给的是 SDK 根地址，建议同时显式选择 endpoint mode。'
-        },
-        anthropic: {
-          endpointModes: ANTHROPIC_ENDPOINT_MODES,
-          defaultEndpointMode: 'messages',
-          baseUrl: '',
-          defaultModel: 'claude-sonnet-4-20250514',
-          hint: '兼容 Anthropic 的第三方接口通常建议填写根地址，再由插件补成 `/v1/messages`。'
-        }
-      }
-    },
-    {
-      id: 'openai_official',
-      label: 'OpenAI 官方',
-      hint: '默认推荐 `/responses`；也可切到 `/chat/completions` 或旧 `/completions`。',
-      defaultProvider: 'openai',
-      providerProfiles: {
-        openai: {
-          endpointModes: ['responses', 'chat_completions', 'legacy_completions'],
-          defaultEndpointMode: 'responses',
-          baseUrl: 'https://api.openai.com/v1',
-          defaultModel: 'gpt-4o-mini',
-          hint: '填写根地址即可，插件会按显式 endpoint mode 补最终路径。'
-        }
-      }
-    },
-    {
-      id: 'anthropic_official',
-      label: 'Anthropic 官方',
-      hint: '使用 Claude 原生 Messages API，会自动保留官方 `anthropic-version` 头。',
-      defaultProvider: 'anthropic',
-      providerProfiles: {
-        anthropic: {
-          endpointModes: ANTHROPIC_ENDPOINT_MODES,
-          defaultEndpointMode: 'messages',
-          baseUrl: 'https://api.anthropic.com',
-          defaultModel: 'claude-sonnet-4-20250514',
-          hint: '填写根地址即可，插件会自动补成 `/v1/messages`。'
-        }
-      }
-    },
-    {
-      id: 'deepseek',
-      label: 'DeepSeek',
-      hint: '兼容 OpenAI 与 Anthropic；旧 OpenAI 生态优先推荐 Chat Completions。',
-      defaultProvider: 'openai',
-      providerProfiles: {
-        openai: {
-          endpointModes: ['chat_completions', 'legacy_completions'],
-          defaultEndpointMode: 'chat_completions',
-          baseUrl: 'https://api.deepseek.com',
-          defaultModel: 'deepseek-chat',
-          hint: '官方文档提供 `https://api.deepseek.com` 或 `/v1` 根地址，聊天接口走 `/chat/completions`。'
-        },
-        anthropic: {
-          endpointModes: ANTHROPIC_ENDPOINT_MODES,
-          defaultEndpointMode: 'messages',
-          baseUrl: 'https://api.deepseek.com/anthropic',
-          defaultModel: 'deepseek-chat',
-          hint: 'DeepSeek Anthropic 兼容根地址为 `/anthropic`。'
-        }
-      }
-    },
-    {
-      id: 'gemini',
-      label: 'Gemini / Google',
-      hint: 'Gemini API 已提供 OpenAI 兼容入口；当前建议直接走 Chat Completions。',
-      defaultProvider: 'openai',
-      providerProfiles: {
-        openai: {
-          endpointModes: ['chat_completions'],
-          defaultEndpointMode: 'chat_completions',
-          baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai',
-          defaultModel: 'gemini-2.5-flash',
-          hint: '官方 OpenAI 兼容根地址是 `https://generativelanguage.googleapis.com/v1beta/openai`。'
-        }
-      }
-    },
-    {
-      id: 'qwen',
-      label: 'Qwen / 百炼',
-      hint: '支持 OpenAI 兼容与 Anthropic 兼容；Anthropic 兼容不建议带官方 Anthropic 版本头。',
-      defaultProvider: 'openai',
-      providerProfiles: {
-        openai: {
-          endpointModes: ['chat_completions'],
-          defaultEndpointMode: 'chat_completions',
-          baseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
-          defaultModel: 'qwen-plus',
-          hint: '国内默认使用北京地域根地址；HTTP 最终端点为 `/compatible-mode/v1/chat/completions`。'
-        },
-        anthropic: {
-          endpointModes: ANTHROPIC_ENDPOINT_MODES,
-          defaultEndpointMode: 'messages',
-          baseUrl: 'https://dashscope.aliyuncs.com/apps/anthropic',
-          defaultModel: 'qwen-plus',
-          hint: 'Anthropic 兼容根地址为 `/apps/anthropic`，最终端点为 `/v1/messages`。'
-        }
-      }
-    },
-    {
-      id: 'glm',
-      label: 'GLM / 智谱',
-      hint: '同时提供 OpenAI 与 Claude 兼容接入，适合 Cline / Claude Code / 自定义插件统一配置。',
-      defaultProvider: 'openai',
-      providerProfiles: {
-        openai: {
-          endpointModes: ['chat_completions'],
-          defaultEndpointMode: 'chat_completions',
-          baseUrl: 'https://open.bigmodel.cn/api/paas/v4',
-          defaultModel: 'glm-5',
-          hint: '官方 OpenAI 兼容根地址是 `/api/paas/v4`。'
-        },
-        anthropic: {
-          endpointModes: ANTHROPIC_ENDPOINT_MODES,
-          defaultEndpointMode: 'messages',
-          baseUrl: 'https://open.bigmodel.cn/api/anthropic',
-          defaultModel: 'glm-5',
-          hint: 'Claude 兼容根地址是 `/api/anthropic`。'
-        }
-      }
-    },
-    {
-      id: 'mimo',
-      label: 'MiMo / 小米',
-      hint: '官方同时提供 OpenAI 与 Anthropic 兼容入口；这里默认预置按量 API 根地址。按量 API Key 以 `sk-` 开头，Token Plan API Key 以 `tp-` 开头，二者与对应域名不可混用。',
-      defaultProvider: 'openai',
-      providerProfiles: {
-        openai: {
-          endpointModes: ['chat_completions'],
-          defaultEndpointMode: 'chat_completions',
-          baseUrl: 'https://api.xiaomimimo.com/v1',
-          defaultModel: 'mimo-v2.5-pro',
-          hint: '官方 OpenAI 兼容根地址是 `https://api.xiaomimimo.com/v1`；Token Plan 对应 `https://token-plan-cn.xiaomimimo.com/v1`。聊天接口走 `/chat/completions`。'
-        },
-        anthropic: {
-          endpointModes: ANTHROPIC_ENDPOINT_MODES,
-          defaultEndpointMode: 'messages',
-          baseUrl: 'https://api.xiaomimimo.com/anthropic',
-          defaultModel: 'mimo-v2.5-pro',
-          hint: '官方 Anthropic 兼容根地址是 `https://api.xiaomimimo.com/anthropic`；Token Plan 对应 `https://token-plan-cn.xiaomimimo.com/anthropic`。最终端点为 `/v1/messages`。'
-        }
-      }
-    },
-    {
-      id: 'xai',
-      label: 'xAI / Grok',
-      hint: 'xAI 同时提供 Chat Completions 与 Responses；官方更偏向新的 Responses API。',
-      defaultProvider: 'openai',
-      providerProfiles: {
-        openai: {
-          endpointModes: ['responses', 'chat_completions'],
-          defaultEndpointMode: 'responses',
-          baseUrl: 'https://api.x.ai/v1',
-          defaultModel: 'grok-4-1-fast-reasoning',
-          hint: '官方 OpenAI 兼容根地址是 `https://api.x.ai/v1`，建议默认走 `/responses`。'
-        }
-      }
-    },
-    {
-      id: 'minimax',
-      label: 'MiniMax',
-      hint: '同时支持 OpenAI 与 Anthropic 兼容；官方文档更推荐 Anthropic 生态接入编码场景。',
-      defaultProvider: 'openai',
-      providerProfiles: {
-        openai: {
-          endpointModes: ['chat_completions'],
-          defaultEndpointMode: 'chat_completions',
-          baseUrl: 'https://api.minimaxi.com/v1',
-          defaultModel: 'MiniMax-M2.7',
-          hint: '国内默认根地址是 `https://api.minimaxi.com/v1`。'
-        },
-        anthropic: {
-          endpointModes: ANTHROPIC_ENDPOINT_MODES,
-          defaultEndpointMode: 'messages',
-          baseUrl: 'https://api.minimaxi.com/anthropic',
-          defaultModel: 'MiniMax-M2.7',
-          hint: 'Anthropic 兼容根地址是 `https://api.minimaxi.com/anthropic`。'
-        }
-      }
-    },
-    {
-      id: 'doubao',
-      label: 'Doubao / 火山方舟',
-      hint: '火山方舟已提供 Chat、Responses 与 Anthropic 兼容，适合后续继续扩展编程模型与视觉模型。',
-      defaultProvider: 'openai',
-      providerProfiles: {
-        openai: {
-          endpointModes: ['responses', 'chat_completions'],
-          defaultEndpointMode: 'chat_completions',
-          baseUrl: 'https://ark.cn-beijing.volces.com/api/v3',
-          defaultModel: 'doubao-seed-code-preview-251028',
-          hint: '按量接口 Chat / Responses 共用 `https://ark.cn-beijing.volces.com/api/v3` 根地址。'
-        },
-        anthropic: {
-          endpointModes: ANTHROPIC_ENDPOINT_MODES,
-          defaultEndpointMode: 'messages',
-          baseUrl: 'https://ark.cn-beijing.volces.com/api/compatible',
-          defaultModel: 'doubao-seed-code-preview-251028',
-          hint: 'Anthropic 兼容根地址是 `https://ark.cn-beijing.volces.com/api/compatible`。'
-        }
-      }
-    },
-    {
-      id: 'hunyuan',
-      label: 'Hunyuan / 腾讯混元',
-      hint: '支持 OpenAI 与 Anthropic 兼容；OpenAI 路线更通用，Anthropic 路线更适合 Claude 生态迁移。',
-      defaultProvider: 'openai',
-      providerProfiles: {
-        openai: {
-          endpointModes: ['chat_completions'],
-          defaultEndpointMode: 'chat_completions',
-          baseUrl: 'https://api.hunyuan.cloud.tencent.com/v1',
-          defaultModel: 'hunyuan-turbos-latest',
-          hint: '官方 OpenAI 兼容根地址是 `https://api.hunyuan.cloud.tencent.com/v1`。'
-        },
-        anthropic: {
-          endpointModes: ANTHROPIC_ENDPOINT_MODES,
-          defaultEndpointMode: 'messages',
-          baseUrl: 'https://api.hunyuan.cloud.tencent.com/anthropic',
-          defaultModel: 'hunyuan-2.0-instruct-20251111',
-          hint: '官方 Anthropic 兼容根地址是 `https://api.hunyuan.cloud.tencent.com/anthropic`。'
-        }
-      }
-    }
-  ];
 
   function cloneValue(value) {
     return JSON.parse(JSON.stringify(value));
   }
 
-  function getPreset(id) {
+  function listCatalogProviders() {
+    if (Catalog?.listProviders) return Catalog.listProviders();
+    return [];
+  }
+
+  function normalizeUrl(value) {
+    return String(value || '').trim().replace(/\/+$/, '').toLowerCase();
+  }
+
+  function getProviderEntry(id) {
     const key = String(id || '').trim();
-    return PRESETS.find((item) => item.id === key) || PRESETS[0];
+    const providers = listCatalogProviders();
+    return providers.find((item) => item.id === key) || providers[0] || {
+      id: 'custom',
+      label: '自定义兼容接口',
+      hint: '',
+      routes: []
+    };
+  }
+
+  function listRoutes(presetId) {
+    const provider = getProviderEntry(presetId);
+    return Array.isArray(provider.routes) ? provider.routes.slice() : [];
+  }
+
+  function routeToProfile(route) {
+    if (!route) return null;
+    return {
+      routeId: route.routeId || '',
+      label: route.label || '',
+      endpointModes: Array.isArray(route.endpointModes) ? route.endpointModes.slice() : [],
+      defaultEndpointMode: route.defaultEndpointMode || '',
+      baseUrl: route.baseUrl || '',
+      defaultModel: route.defaultModel || '',
+      keyHint: route.keyHint || '',
+      keyRule: route.keyRule ? cloneValue(route.keyRule) : null,
+      hint: route.hint || '',
+      sourceUrl: route.sourceUrl || ''
+    };
+  }
+
+  function getPreset(id) {
+    const entry = getProviderEntry(id);
+    const defaultRoute = getDefaultRoute(entry.id);
+    const providerProfiles = {};
+
+    listRoutes(entry.id).forEach((route) => {
+      const providerId = String(route.aiProvider || '').toLowerCase();
+      if (!providerId || providerProfiles[providerId]) return;
+      providerProfiles[providerId] = routeToProfile(route);
+    });
+
+    return {
+      id: entry.id,
+      label: entry.label,
+      hint: entry.hint || '',
+      sourceUrl: entry.sourceUrl || '',
+      verifiedAt: entry.verifiedAt || '',
+      defaultProvider: defaultRoute?.aiProvider || entry.defaultProvider || 'openai',
+      defaultRouteId: defaultRoute?.routeId || '',
+      providerProfiles
+    };
   }
 
   function listPresets() {
-    return PRESETS.map((item) => cloneValue(item));
+    return listCatalogProviders().map((item) => getPreset(item.id));
   }
 
-  function getProviderProfile(presetId, provider) {
-    const preset = getPreset(presetId);
-    const providerId = String(provider || '').toLowerCase();
-    const profile = preset.providerProfiles?.[providerId];
-    return profile ? cloneValue(profile) : null;
+  function getProviderRoutes(presetId) {
+    return listRoutes(presetId).map((route) => cloneValue(route));
+  }
+
+  function getProviderRoute(presetId, routeId) {
+    const id = String(routeId || '').trim();
+    const route = listRoutes(presetId).find((item) => item.routeId === id);
+    return route ? cloneValue(route) : null;
   }
 
   function getProviderOptions(presetId) {
-    const preset = getPreset(presetId);
-    return Object.keys(preset.providerProfiles || {});
+    const seen = new Set();
+    const output = [];
+    listRoutes(presetId).forEach((route) => {
+      const provider = String(route.aiProvider || '').toLowerCase();
+      if (!provider || seen.has(provider)) return;
+      seen.add(provider);
+      output.push(provider);
+    });
+    return output;
   }
 
   function normalizeProvider(provider, presetId) {
@@ -295,21 +109,36 @@
     return candidates.includes(normalized) ? normalized : (candidates[0] || 'openai');
   }
 
-  function getEndpointModes(presetId, provider) {
-    const normalizedProvider = normalizeProvider(provider, presetId);
-    const profile = getProviderProfile(presetId, normalizedProvider);
-    if (profile?.endpointModes?.length) {
-      return profile.endpointModes.slice();
+  function getDefaultRoute(presetId, provider) {
+    const routes = listRoutes(presetId);
+    const normalizedProvider = String(provider || '').toLowerCase();
+    const providerRoutes = normalizedProvider
+      ? routes.filter((route) => String(route.aiProvider || '').toLowerCase() === normalizedProvider)
+      : routes;
+    const candidates = providerRoutes.length ? providerRoutes : routes;
+    const route = candidates.find((item) => item.isDefault) || candidates[0] || null;
+    return route ? cloneValue(route) : null;
+  }
+
+function getProviderProfile(presetId, provider) {
+    const requestedProvider = String(provider || '').toLowerCase();
+    if (requestedProvider && !getProviderOptions(presetId).includes(requestedProvider)) {
+      return null;
     }
-    return normalizedProvider === 'anthropic' ? ANTHROPIC_ENDPOINT_MODES.slice() : OPENAI_ENDPOINT_MODES.slice();
+    const normalizedProvider = normalizeProvider(provider, presetId);
+    return routeToProfile(getDefaultRoute(presetId, normalizedProvider));
+  }
+
+  function getEndpointModes(presetId, provider) {
+    const profile = getProviderProfile(presetId, provider);
+    if (profile?.endpointModes?.length) return profile.endpointModes.slice();
+    return String(provider || '').toLowerCase() === 'anthropic' ? ['messages'] : ['auto', 'responses', 'chat_completions', 'legacy_completions'];
   }
 
   function normalizeEndpointMode(mode, provider, presetId) {
     const candidates = getEndpointModes(presetId, provider);
     const normalized = String(mode || '').trim();
-    if (candidates.includes(normalized)) {
-      return normalized;
-    }
+    if (candidates.includes(normalized)) return normalized;
 
     const profile = getProviderProfile(presetId, provider);
     if (profile?.defaultEndpointMode && candidates.includes(profile.defaultEndpointMode)) {
@@ -319,26 +148,60 @@
     return candidates[0] || (String(provider || '').toLowerCase() === 'anthropic' ? 'messages' : 'auto');
   }
 
+  function routeMatchesBaseUrl(route, baseUrl, provider) {
+    if (!route?.baseUrl || !baseUrl) return 0;
+    if (provider && String(route.aiProvider || '').toLowerCase() !== String(provider || '').toLowerCase()) return 0;
+
+    const routeUrl = normalizeUrl(route.baseUrl);
+    const targetUrl = normalizeUrl(baseUrl);
+    if (!routeUrl || !targetUrl) return 0;
+    if (targetUrl === routeUrl) return 100;
+    if (targetUrl.startsWith(routeUrl + '/')) return 90;
+
+    try {
+      const routeParsed = new URL(routeUrl);
+      const targetParsed = new URL(targetUrl);
+      if (routeParsed.host === targetParsed.host) return 40;
+    } catch {}
+
+    return 0;
+  }
+
+  function inferRouteFromSettings(settings, presetIdOverride) {
+    const presetId = String(presetIdOverride || settings?.providerPreset || inferPresetFromSettings(settings)).trim() || 'custom';
+    const provider = String(settings?.aiProvider || '').trim().toLowerCase();
+    const baseUrl = String(settings?.aiBaseURL || '').trim();
+    const routes = listRoutes(presetId);
+    let best = null;
+    let bestScore = 0;
+
+    routes.forEach((route) => {
+      const score = routeMatchesBaseUrl(route, baseUrl, provider);
+      if (score > bestScore) {
+        best = route;
+        bestScore = score;
+      }
+    });
+
+    if (best) return cloneValue(best);
+    return getDefaultRoute(presetId, normalizeProvider(provider, presetId));
+  }
+
   function validateCredentials(presetId, provider, baseUrl, apiKey) {
-    const preset = String(presetId || '').trim();
-    const endpoint = String(baseUrl || '').trim().toLowerCase();
     const key = String(apiKey || '').trim();
+    if (!key) return { valid: true, message: '' };
 
-    if (!preset || preset !== 'mimo' || !key) {
-      return { valid: true, message: '' };
-    }
+    const route = inferRouteFromSettings({
+      providerPreset: presetId,
+      aiProvider: provider,
+      aiBaseURL: baseUrl
+    }, presetId);
+    const rule = route?.keyRule;
 
-    if (endpoint.includes('token-plan-cn.xiaomimimo.com') && !key.startsWith('tp-')) {
+    if (rule?.prefix && !key.startsWith(rule.prefix)) {
       return {
         valid: false,
-        message: 'MiMo Token Plan 域名需要 `tp-` 开头的 API Key；按量 `sk-` 密钥不能混用。'
-      };
-    }
-
-    if (endpoint.includes('api.xiaomimimo.com') && !key.startsWith('sk-')) {
-      return {
-        valid: false,
-        message: 'MiMo 按量 API 域名需要 `sk-` 开头的 API Key；Token Plan `tp-` 密钥不能混用。'
+        message: rule.message || `当前地址需要 ${rule.prefix} 开头的 API Key。`
       };
     }
 
@@ -346,21 +209,23 @@
   }
 
   function inferPresetFromSettings(settings) {
-    const baseUrl = String(settings?.aiBaseURL || '').trim().toLowerCase();
+    const baseUrl = String(settings?.aiBaseURL || '').trim();
     const provider = String(settings?.aiProvider || '').toLowerCase();
     const model = String(settings?.modelName || '').trim().toLowerCase();
+    let bestPreset = '';
+    let bestScore = 0;
 
-    if (baseUrl.includes('api.anthropic.com')) return 'anthropic_official';
-    if (baseUrl.includes('api.openai.com')) return 'openai_official';
-    if (baseUrl.includes('api.deepseek.com')) return 'deepseek';
-    if (baseUrl.includes('generativelanguage.googleapis.com')) return 'gemini';
-    if (baseUrl.includes('dashscope.aliyuncs.com')) return 'qwen';
-    if (baseUrl.includes('api.xiaomimimo.com') || baseUrl.includes('token-plan-cn.xiaomimimo.com')) return 'mimo';
-    if (baseUrl.includes('api.x.ai')) return 'xai';
-    if (baseUrl.includes('open.bigmodel.cn')) return 'glm';
-    if (baseUrl.includes('api.minimaxi.com') || baseUrl.includes('api.minimax.io')) return 'minimax';
-    if (baseUrl.includes('ark.cn-beijing.volces.com')) return 'doubao';
-    if (baseUrl.includes('api.hunyuan.cloud.tencent.com')) return 'hunyuan';
+    listCatalogProviders().forEach((entry) => {
+      (entry.routes || []).forEach((route) => {
+        const score = routeMatchesBaseUrl(route, baseUrl, '');
+        if (score > bestScore) {
+          bestPreset = entry.id;
+          bestScore = score;
+        }
+      });
+    });
+
+    if (bestPreset) return bestPreset;
 
     if (provider === 'anthropic' && model.startsWith('claude')) return 'anthropic_official';
     if (provider === 'openai' && model.startsWith('gemini')) return 'gemini';
@@ -373,16 +238,20 @@
   }
 
   const api = {
-    ENDPOINT_MODE_META: cloneValue(ENDPOINT_MODE_META),
+    ENDPOINT_MODE_META: cloneValue(Catalog?.ENDPOINT_MODE_META || FALLBACK_ENDPOINT_MODE_META),
     listPresets,
     getPreset,
     getProviderProfile,
+    getProviderRoutes,
+    getProviderRoute,
+    getDefaultRoute,
     getProviderOptions,
     getEndpointModes,
     normalizeProvider,
     normalizeEndpointMode,
     validateCredentials,
-    inferPresetFromSettings
+    inferPresetFromSettings,
+    inferRouteFromSettings
   };
 
   global.AISummaryProviderPresets = api;

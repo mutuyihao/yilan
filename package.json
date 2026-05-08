@@ -10,7 +10,8 @@
     "test:e2e:headed": "playwright test --headed",
     "screenshots:landing": "node scripts/capture-landing-screenshots.js",
     "package:release": "node scripts/package-release.js",
-    "playwright:install": "playwright install chromium"
+    "playwright:install": "playwright install chromium",
+    "providers:update": "node scripts/update-provider-catalog.js"
   },
   "devDependencies": {
     "@playwright/test": "^1.59.1",

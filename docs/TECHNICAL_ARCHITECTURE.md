@@ -352,7 +352,8 @@ SPA 路由切换的当前默认策略：
 - `page-strategy.js`：页面类型到策略和推荐模式的映射
 - `article-utils.js`：文章快照构建、分段、prompt 生成
 - `trust-policy.js`：无痕和默认策略归一化
-- `provider-presets.js`：厂商 preset、Provider / Endpoint Mode 默认值
+- `provider-catalog.generated.js`：构建期生成的 provider catalog，包含服务商 route、Base URL、默认模型、key rule 和来源信息
+- `provider-presets.js`：provider catalog 的兼容适配层，继续暴露 preset / Provider / Endpoint Mode getter
 - `theme.js`：popup、侧栏、阅读页的主题同步
 - `ui-format.js`：popup、侧栏、阅读页共用的 HTML 转义和时间显示工具
 - `ui-labels.js`：popup、侧栏、阅读页共用的 provider、摘要模式、记录状态、策略和 warning 显示文案
@@ -382,7 +383,7 @@ provider-specific 逻辑集中在这里，而不是散落在 `background.js`：
 - OpenAI Compatible `legacy_completions`
 - Anthropic `messages`
 
-内置 preset 与运行时 Provider 是分开的：preset 用于提供默认 Base URL、默认模型和可选 Endpoint Mode；最终请求仍由 `aiProvider` 选择 `openai` 或 `anthropic` adapter。当前 preset 包括 `custom`、`openai_official`、`anthropic_official`、`deepseek`、`gemini`、`qwen`、`glm`、`xai`、`minimax`、`doubao`、`hunyuan`。
+内置 provider catalog 与运行时 Provider 是分开的：catalog route 用于提供推荐 Base URL、默认模型、key rule 和可选 Endpoint Mode；最终请求仍由 `aiProvider` 选择 `openai` 或 `anthropic` adapter。`providerPreset`、`aiProvider`、`endpointMode`、`aiBaseURL`、`modelName` 的存储结构保持兼容，非默认 route 通过 `aiBaseURL` 和 `aiProvider` 反推。当前 preset 包括 `custom`、`openai_official`、`anthropic_official`、`deepseek`、`gemini`、`qwen`、`glm`、`mimo`、`xai`、`minimax`、`doubao`、`hunyuan`。
 
 ## 数据模型
 

@@ -173,6 +173,26 @@ test.describe('Yilan extension E2E', () => {
     }
   });
 
+  test('popup provider route flow updates base url for multi-address providers', async () => {
+    const harness = await launchExtensionContext();
+    try {
+      await resetExtensionState(harness.serviceWorker);
+
+      const popupPage = await openExtensionPage(harness.context, harness.extensionId, 'popup.html');
+      await popupPage.selectOption('#providerPreset', 'mimo');
+      await expect(popupPage.locator('#connectionBaseUrlValue')).toContainText('api.xiaomimimo.com');
+
+      await popupPage.locator('#toggleRoutePanelBtn').click();
+      await expect(popupPage.locator('#providerRoute option')).toHaveCount(8);
+      await popupPage.selectOption('#providerRoute', 'mimo-openai-token-plan-sgp');
+      await expect(popupPage.locator('#baseURL')).toHaveValue('https://token-plan-sgp.xiaomimimo.com/v1');
+      await expect(popupPage.locator('#connectionBaseUrlValue')).toContainText('token-plan-sgp.xiaomimimo.com');
+      await expect(popupPage.locator('#apiKeyHint')).toContainText('tp-');
+    } finally {
+      await harness.close();
+    }
+  });
+
   test('popup shows endpoint compatibility errors from the background testConnection path', async () => {
     const harness = await launchExtensionContext();
     try {

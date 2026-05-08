@@ -171,6 +171,7 @@ test('manifest, HTML script tags, and imported resources point to existing files
   [
     'shared/domain.js',
     'shared/errors.js',
+    'shared/provider-catalog.generated.js',
     'shared/provider-presets.js',
     'adapters/openai-adapter.js',
     'adapters/anthropic-adapter.js',
@@ -372,6 +373,7 @@ test('popup DOM, tabs, autosave, provider settings, connection test, and entrypo
     'shared/ui-labels.js',
     'shared/errors.js',
     'shared/trust-policy.js',
+    'shared/provider-catalog.generated.js',
     'shared/provider-presets.js',
     'popup.js'
   ]);
@@ -389,6 +391,10 @@ test('popup DOM, tabs, autosave, provider settings, connection test, and entrypo
   assert.ok(js.includes("action: 'getEntrypointStatus'"));
   assert.ok(js.includes("action: 'openShortcutSettings'"));
   assert.ok(js.includes('ProviderPresets.listPresets()'));
+  assert.ok(js.includes('ProviderPresets.getProviderRoutes('));
+  ['providerRoute', 'providerRoutePanel', 'toggleRoutePanelBtn', 'advancedConnectionSettings', 'connectionSummary'].forEach((id) => {
+    assert.ok(ids.has(id), 'popup.html missing provider flow id: ' + id);
+  });
 });
 
 test('reader page DOM, markdown rendering, copy, diagnostics, and session lookup stay wired', [

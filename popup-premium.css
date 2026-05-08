@@ -273,6 +273,136 @@ code {
   margin-top: 6px;
 }
 
+.connection-card {
+  display: grid;
+  gap: 14px;
+}
+
+.connection-card .field {
+  margin-bottom: 0;
+}
+
+.connection-summary {
+  background: var(--surface-soft);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  padding: 12px;
+}
+
+.connection-summary > div,
+.route-summary > div {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.summary-label {
+  color: var(--text-soft);
+  font-size: var(--text-xs);
+}
+
+.connection-summary strong,
+.route-summary span:last-child {
+  color: var(--text);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.route-summary {
+  align-items: center;
+  background: var(--field);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  padding: 12px;
+}
+
+.text-btn {
+  background: transparent;
+  border-color: transparent;
+  color: var(--accent);
+  min-height: 0;
+  padding: 4px 0;
+  width: auto;
+}
+
+.text-btn:hover {
+  background: transparent;
+  border-color: transparent;
+  color: var(--accent-strong);
+  transform: none;
+}
+
+.route-panel {
+  background: var(--surface-soft);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+}
+
+.inline-help,
+.advanced-settings {
+  background: var(--surface-soft);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  color: var(--text-soft);
+  font-size: var(--text-sm);
+  line-height: 1.5;
+  padding: 10px 12px;
+}
+
+.inline-help summary,
+.advanced-settings summary {
+  color: var(--text);
+  cursor: pointer;
+  font-weight: 600;
+  user-select: none;
+}
+
+.inline-help > div {
+  margin-top: 8px;
+}
+
+.advanced-settings {
+  display: block;
+}
+
+.advanced-settings[open] {
+  display: grid;
+  gap: 12px;
+}
+
+.advanced-settings .field {
+  margin-bottom: 0;
+}
+
+.endpoint-preview {
+  background: color-mix(in srgb, var(--accent-soft) 35%, var(--surface-soft));
+  border: 1px solid color-mix(in srgb, var(--accent) 25%, var(--line));
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: 1.45;
+  margin-top: 8px;
+  padding: 10px;
+  word-break: break-all;
+}
+
+.endpoint-preview:empty {
+  display: none;
+}
+
 .palette-grid {
   display: grid;
   gap: 8px;

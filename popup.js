@@ -337,7 +337,11 @@ function buildEndpointPreview(provider, endpointMode) {
   if (endpointMode === 'responses') return '/responses';
   if (endpointMode === 'chat_completions') return '/chat/completions';
   if (endpointMode === 'legacy_completions') return '/completions';
-  return '按 Base URL 自动判断';
+  return '自动试探';
+}
+
+function getEndpointModeLabel(mode) {
+  return ProviderPresets?.ENDPOINT_MODE_META?.[mode]?.label || mode || '自动判断';
 }
 
 function pickEffectiveBaseURLInput(rawInput, fallbackBaseUrl) {
@@ -346,15 +350,24 @@ function pickEffectiveBaseURLInput(rawInput, fallbackBaseUrl) {
   return String(fallbackBaseUrl || '').trim();
 }
 
+function getConnectionFieldSettings() {
+  return {
+    providerPreset: $('providerPreset')?.value || 'custom',
+    aiProvider: $('aiProvider')?.value || '',
+    endpointMode: $('endpointMode')?.value || '',
+    aiBaseURL: normalizeBaseURLInput($('baseURL')?.value || ''),
+    modelName: $('modelName')?.value || ''
+  };
+}
+
 function renderEndpointPreview() {
   const previewNode = $('endpointPreview');
   if (!previewNode) return;
 
-  const { provider, endpointMode, profile } = getCurrentSelection();
+  const { provider, endpointMode, route, profile } = getCurrentSelection();
   const rawInput = $('baseURL')?.value || '';
-
   const defaultBaseUrl = provider === 'anthropic' ? 'https://api.anthropic.com' : 'https://api.openai.com/v1';
-  const baseRoot = pickEffectiveBaseURLInput(rawInput, profile?.baseUrl || defaultBaseUrl);
+  const baseRoot = pickEffectiveBaseURLInput(rawInput, route?.baseUrl || profile?.baseUrl || defaultBaseUrl);
   if (!baseRoot) {
     previewNode.textContent = '';
     return;
@@ -363,18 +376,22 @@ function renderEndpointPreview() {
   const openaiDetected = UrlUtils?.detectOpenAiEndpointModeFromUrl?.(baseRoot) || '';
   const anthropicDetected = UrlUtils?.detectAnthropicEndpointModeFromUrl?.(baseRoot) || '';
   const isFullEndpoint = !!(openaiDetected || anthropicDetected);
+  const lines = [];
 
   if (isFullEndpoint) {
-    const detectedLabel = openaiDetected
-      ? (ProviderPresets?.ENDPOINT_MODE_META?.[openaiDetected]?.label || openaiDetected)
-      : (ProviderPresets?.ENDPOINT_MODE_META?.[anthropicDetected]?.label || anthropicDetected);
-    previewNode.textContent = `将请求：${baseRoot}。已识别为完整 endpoint（${detectedLabel}），将以 URL 为准，忽略 endpointMode 拼接。`;
+    const detectedMode = openaiDetected || anthropicDetected;
+    lines.push(`实际请求地址：${baseRoot}`);
+    lines.push(`接口模式：${getEndpointModeLabel(detectedMode)}（已识别完整 endpoint）`);
+    lines.push('说明：完整 endpoint 会优先于 Endpoint Mode 拼接。');
+    previewNode.textContent = lines.join('\n');
     return;
   }
 
   if (provider === 'anthropic') {
     const root = UrlUtils?.stripAnthropicMessagesSuffix?.(baseRoot) || baseRoot;
-    previewNode.textContent = `将请求：${root}/v1/messages。`;
+    lines.push(`实际请求地址：${root}/v1/messages`);
+    lines.push(`接口模式：${getEndpointModeLabel('messages')}`);
+    previewNode.textContent = lines.join('\n');
     return;
   }
 
@@ -382,13 +399,19 @@ function renderEndpointPreview() {
   const hasV1 = /\/v1$/i.test(root);
 
   if (endpointMode === 'auto') {
-    previewNode.textContent = `将依次尝试：${root}/responses -> ${root}/chat/completions -> ${root}/completions。${hasV1 ? '当前 Base URL 包含 /v1。' : '当前 Base URL 不包含 /v1（如接口要求 /v1，可通过连接测试自动修正）。'}`;
+    lines.push(`实际请求地址：${root}/responses -> ${root}/chat/completions -> ${root}/completions`);
+    lines.push('接口模式：自动判断');
+    lines.push(hasV1 ? 'Base URL 已包含 /v1。' : 'Base URL 未包含 /v1，连接测试可在明确报错时自动修正。');
+    previewNode.textContent = lines.join('\n');
     return;
   }
 
   const path = buildEndpointPreview(provider, endpointMode);
   if (path && path.startsWith('/')) {
-    previewNode.textContent = `将请求：${root}${path}。${hasV1 ? '当前 Base URL 包含 /v1。' : '当前 Base URL 不包含 /v1（如接口要求 /v1，可通过连接测试自动修正）。'}`;
+    lines.push(`实际请求地址：${root}${path}`);
+    lines.push(`接口模式：${getEndpointModeLabel(endpointMode)}`);
+    lines.push(hasV1 ? 'Base URL 已包含 /v1。' : 'Base URL 未包含 /v1，连接测试可在明确报错时自动修正。');
+    previewNode.textContent = lines.join('\n');
     return;
   }
 
@@ -435,9 +458,42 @@ function renderPresetOptions() {
   });
 }
 
-function syncProviderOptions(presetId) {
+function syncRouteOptions(presetId, preferredRouteId, preferredProvider) {
+  const select = $('providerRoute');
+  const routes = ProviderPresets.getProviderRoutes(presetId);
+  select.innerHTML = '';
+
+  routes.forEach((route) => {
+    const option = document.createElement('option');
+    option.value = route.routeId;
+    option.textContent = route.label;
+    select.appendChild(option);
+  });
+
+  let route = preferredRouteId ? ProviderPresets.getProviderRoute(presetId, preferredRouteId) : null;
+  if (route && preferredProvider && route.aiProvider !== preferredProvider) {
+    route = null;
+  }
+  if (!route) {
+    route = ProviderPresets.inferRouteFromSettings(getConnectionFieldSettings(), presetId);
+  }
+  if (route && preferredProvider && route.aiProvider !== preferredProvider) {
+    route = ProviderPresets.getDefaultRoute(presetId, preferredProvider);
+  }
+  if (!route) {
+    route = ProviderPresets.getDefaultRoute(presetId);
+  }
+
+  if (route?.routeId) {
+    select.value = route.routeId;
+  }
+  return route;
+}
+
+function syncProviderOptions(presetId, preferredProvider) {
   const allowed = new Set(ProviderPresets.getProviderOptions(presetId));
   const providerSelect = $('aiProvider');
+  const candidate = preferredProvider || providerSelect.value;
 
   Array.from(providerSelect.options).forEach((option) => {
     const supported = allowed.has(option.value);
@@ -445,14 +501,19 @@ function syncProviderOptions(presetId) {
     option.textContent = UiLabels.getProviderLabel(option.value, { variant: 'settings', fallback: option.value });
   });
 
-  providerSelect.value = ProviderPresets.normalizeProvider(providerSelect.value, presetId);
+  providerSelect.value = ProviderPresets.normalizeProvider(candidate, presetId);
   return providerSelect.value;
 }
 
-function syncEndpointModeOptions(presetId, provider, preferredMode) {
+function syncEndpointModeOptions(presetId, provider, preferredMode, route) {
   const select = $('endpointMode');
-  const modes = ProviderPresets.getEndpointModes(presetId, provider);
-  const nextMode = ProviderPresets.normalizeEndpointMode(preferredMode, provider, presetId);
+  const routeModes = Array.isArray(route?.endpointModes) ? route.endpointModes : [];
+  const modes = routeModes.length ? routeModes : ProviderPresets.getEndpointModes(presetId, provider);
+  const fallbackMode = route?.defaultEndpointMode || '';
+  const requestedMode = preferredMode || fallbackMode;
+  const nextMode = modes.includes(requestedMode)
+    ? requestedMode
+    : ProviderPresets.normalizeEndpointMode(fallbackMode || requestedMode, provider, presetId);
   select.innerHTML = '';
 
   modes.forEach((mode) => {
@@ -463,21 +524,24 @@ function syncEndpointModeOptions(presetId, provider, preferredMode) {
     select.appendChild(option);
   });
 
-  select.value = nextMode;
-  return nextMode;
+  select.value = modes.includes(nextMode) ? nextMode : (modes[0] || nextMode);
+  return select.value;
 }
 
 function getCurrentSelection() {
   const presetId = $('providerPreset').value || 'custom';
-  const provider = ProviderPresets.normalizeProvider($('aiProvider').value, presetId);
-  const endpointMode = ProviderPresets.normalizeEndpointMode($('endpointMode').value, provider, presetId);
+  const selectedRouteId = $('providerRoute')?.value || '';
+  const route = ProviderPresets.getProviderRoute(presetId, selectedRouteId)
+    || ProviderPresets.inferRouteFromSettings(getConnectionFieldSettings(), presetId);
+  const provider = ProviderPresets.normalizeProvider($('aiProvider').value || route?.aiProvider || '', presetId);
+  const endpointMode = ProviderPresets.normalizeEndpointMode($('endpointMode').value || route?.defaultEndpointMode || '', provider, presetId);
   const preset = ProviderPresets.getPreset(presetId);
   const profile = ProviderPresets.getProviderProfile(presetId, provider);
-  return { presetId, provider, endpointMode, preset, profile };
+  return { presetId, provider, endpointMode, preset, profile, route };
 }
 
 function maybeApplySuggestedValue(fieldId, suggestedValue, options = {}) {
-  if (!suggestedValue) return;
+  if (typeof suggestedValue === 'undefined') return;
   const field = $(fieldId);
   const currentValue = String(field.value || '').trim();
   const autoKey = fieldId === 'baseURL' ? 'baseURL' : 'modelName';
@@ -485,23 +549,50 @@ function maybeApplySuggestedValue(fieldId, suggestedValue, options = {}) {
   const shouldApply = options.force || !currentValue || currentValue === previousAutoValue;
 
   if (shouldApply) {
-    field.value = suggestedValue;
+    field.value = String(suggestedValue || '');
+  }
+}
+
+function renderConnectionSummary(selection) {
+  const { preset, route, provider, endpointMode } = selection;
+  const baseUrl = normalizeBaseURLInput($('baseURL')?.value || '') || route?.baseUrl || '';
+  const model = String($('modelName')?.value || '').trim() || route?.defaultModel || selection.profile?.defaultModel || '默认模型';
+  const routeLabel = route?.label || '自定义地址';
+
+  $('connectionProviderValue').textContent = preset?.label || '自定义兼容接口';
+  $('connectionRouteValue').textContent = routeLabel;
+  $('connectionEndpointValue').textContent = `${UiLabels.getProviderLabel(provider, { variant: 'settings', fallback: provider })} · ${getEndpointModeLabel(endpointMode)}`;
+  $('connectionBaseUrlValue').textContent = baseUrl || '需要填写自定义 Base URL';
+  $('connectionModelValue').textContent = model;
+}
+
+function setAdvancedSettingsState(presetId) {
+  const details = $('advancedConnectionSettings');
+  if (!details) return;
+  if (presetId === 'custom') {
+    details.open = true;
   }
 }
 
 function updateHints() {
-  const { provider, endpointMode, preset, profile } = getCurrentSelection();
+  const selection = getCurrentSelection();
+  const { provider, endpointMode, preset, profile, route } = selection;
   const endpointMeta = ProviderPresets.ENDPOINT_MODE_META[endpointMode] || { description: '' };
   const endpointPreview = buildEndpointPreview(provider, endpointMode);
+  const sourceText = preset?.sourceUrl
+    ? `来源：${preset.sourceUrl}${preset.verifiedAt ? `（${preset.verifiedAt}）` : ''}`
+    : '';
 
-  $('presetHint').textContent = [preset.hint || '', profile?.hint || ''].filter(Boolean).join(' ');
+  $('presetHint').textContent = preset?.hint || '选择服务商后会自动填入推荐接口地址。';
+  $('routeHint').textContent = [route?.hint || '', route?.keyHint || ''].filter(Boolean).join(' ');
+  $('apiKeyHint').textContent = route?.keyHint || '填写所选服务商的 API Key。';
   $('endpointModeHint').textContent = [
     endpointMeta.description || '',
     endpointPreview ? `当前会按这个模式补最终路径：${endpointPreview}。` : ''
   ].filter(Boolean).join(' ');
 
-  const baseUrlHint = profile?.baseUrl
-    ? `推荐根地址：${profile.baseUrl}。也可以直接填写完整 endpoint。`
+  const baseUrlHint = route?.baseUrl
+    ? `推荐根地址：${route.baseUrl}。需要代理或私有网关时可直接覆盖。`
     : (PROVIDER_FALLBACK_HINTS[provider] || '');
   $('baseURLHint').textContent = [baseUrlHint, BASE_URL_SECURITY_HINT].filter(Boolean).join(' ');
 
@@ -509,32 +600,42 @@ function updateHints() {
     ? `推荐模型：${profile.defaultModel}。如果你有专属模型 ID，也可以直接覆盖。`
     : '请填写目标厂商实际可用的模型名称。';
 
-  $('baseURL').placeholder = profile?.baseUrl || '留空使用默认地址';
-  $('modelName').placeholder = profile?.defaultModel || (provider === 'anthropic' ? 'claude-sonnet-4-20250514' : 'gpt-4o-mini');
+  $('providerCatalogMeta').textContent = sourceText;
+  $('baseURL').placeholder = route?.baseUrl || profile?.baseUrl || '留空使用默认地址';
+  $('modelName').placeholder = route?.defaultModel || profile?.defaultModel || (provider === 'anthropic' ? 'claude-sonnet-4-20250514' : 'gpt-4o-mini');
+  setAdvancedSettingsState(selection.presetId);
+  renderConnectionSummary(selection);
   renderEndpointPreview();
 }
 
 function syncSelectionState(options = {}) {
   const presetId = $('providerPreset').value || 'custom';
-  const provider = syncProviderOptions(presetId);
+  let route = syncRouteOptions(presetId, options.preferredRouteId, options.preferredProvider);
+  const provider = syncProviderOptions(presetId, route?.aiProvider || options.preferredProvider);
+
+  if (!route || route.aiProvider !== provider) {
+    route = syncRouteOptions(presetId, '', provider);
+  }
+
   const endpointMode = syncEndpointModeOptions(
     presetId,
     provider,
-    options.preferredEndpointMode || $('endpointMode').value
+    options.preferredEndpointMode || route?.defaultEndpointMode || $('endpointMode').value,
+    route
   );
-  const profile = ProviderPresets.getProviderProfile(presetId, provider);
 
   $('aiProvider').value = provider;
   $('endpointMode').value = endpointMode;
+  if (route?.routeId) $('providerRoute').value = route.routeId;
 
   if (options.syncSuggestedValues) {
-    const shouldForce = !!options.forceSuggestedValues && presetId !== 'custom';
-    maybeApplySuggestedValue('baseURL', profile?.baseUrl || '', { force: shouldForce });
-    maybeApplySuggestedValue('modelName', profile?.defaultModel || '', { force: shouldForce });
+    const shouldForce = !!options.forceSuggestedValues;
+    maybeApplySuggestedValue('baseURL', route?.baseUrl || '', { force: shouldForce });
+    maybeApplySuggestedValue('modelName', route?.defaultModel || '', { force: shouldForce });
   }
 
-  autoFillState.baseURL = profile?.baseUrl || '';
-  autoFillState.modelName = profile?.defaultModel || '';
+  autoFillState.baseURL = route?.baseUrl || '';
+  autoFillState.modelName = route?.defaultModel || '';
   updateHints();
 }
 
@@ -578,7 +679,8 @@ function getProviderCredentialValidation(settings) {
   const presetId = String(settings?.providerPreset || '').trim();
   const provider = String(settings?.aiProvider || '').trim();
   const profile = ProviderPresets?.getProviderProfile?.(presetId, provider);
-  const baseUrl = String(settings?.aiBaseURL || profile?.baseUrl || '').trim();
+  const route = ProviderPresets?.inferRouteFromSettings?.(settings, presetId);
+  const baseUrl = String(settings?.aiBaseURL || route?.baseUrl || profile?.baseUrl || '').trim();
   const apiKey = String(settings?.apiKey || '').trim();
 
   if (!ProviderPresets?.validateCredentials) {
@@ -1078,7 +1180,7 @@ function bindAutoSaveControls() {
   const baseUrlField = $('baseURL');
   if (baseUrlField) {
     baseUrlField.addEventListener('input', () => {
-      renderEndpointPreview();
+      updateHints();
     });
     baseUrlField.addEventListener('blur', () => {
       const normalized = normalizeBaseURLInput(baseUrlField.value);
@@ -1258,13 +1360,38 @@ async function openShortcutSettings() {
 }
 
 function bindSelectionListeners() {
+  const toggleRoutePanelBtn = $('toggleRoutePanelBtn');
+  const routePanel = $('providerRoutePanel');
+  if (toggleRoutePanelBtn && routePanel) {
+    toggleRoutePanelBtn.addEventListener('click', () => {
+      const nextOpen = routePanel.hidden;
+      routePanel.hidden = !nextOpen;
+      toggleRoutePanelBtn.setAttribute('aria-expanded', nextOpen ? 'true' : 'false');
+      toggleRoutePanelBtn.textContent = nextOpen ? '收起地址' : '更改地址';
+    });
+  }
+
   $('providerPreset').addEventListener('change', () => {
     const presetId = $('providerPreset').value || 'custom';
-    const provider = ProviderPresets.normalizeProvider($('aiProvider').value, presetId);
-    const endpointMode = ProviderPresets.normalizeEndpointMode('', provider, presetId);
-    $('aiProvider').value = provider;
+    const route = ProviderPresets.getDefaultRoute(presetId);
     syncSelectionState({
-      preferredEndpointMode: endpointMode,
+      preferredRouteId: route?.routeId || '',
+      preferredProvider: route?.aiProvider || '',
+      preferredEndpointMode: route?.defaultEndpointMode || '',
+      syncSuggestedValues: true,
+      forceSuggestedValues: true
+    });
+    persistSettings();
+    loadCachedModelOptions(collectSettings());
+  });
+
+  $('providerRoute').addEventListener('change', () => {
+    const presetId = $('providerPreset').value || 'custom';
+    const route = ProviderPresets.getProviderRoute(presetId, $('providerRoute').value);
+    syncSelectionState({
+      preferredRouteId: route?.routeId || '',
+      preferredProvider: route?.aiProvider || '',
+      preferredEndpointMode: route?.defaultEndpointMode || '',
       syncSuggestedValues: true,
       forceSuggestedValues: true
     });
@@ -1273,9 +1400,15 @@ function bindSelectionListeners() {
   });
 
   $('aiProvider').addEventListener('change', () => {
+    const presetId = $('providerPreset').value || 'custom';
+    const provider = $('aiProvider').value;
+    const route = ProviderPresets.getDefaultRoute(presetId, provider);
     syncSelectionState({
-      preferredEndpointMode: $('endpointMode').value,
-      syncSuggestedValues: true
+      preferredRouteId: route?.routeId || '',
+      preferredProvider: provider,
+      preferredEndpointMode: route?.defaultEndpointMode || $('endpointMode').value,
+      syncSuggestedValues: true,
+      forceSuggestedValues: true
     });
     persistSettings();
     loadCachedModelOptions(collectSettings());
@@ -1457,6 +1590,11 @@ function bindModelControls() {
       });
     });
   }
+
+  const modelField = $('modelName');
+  if (modelField) {
+    modelField.addEventListener('input', updateHints);
+  }
 }
 
 window.addEventListener('DOMContentLoaded', () => {
@@ -1478,7 +1616,7 @@ window.addEventListener('DOMContentLoaded', () => {
         if (baseUrlField && document.activeElement !== baseUrlField) {
           baseUrlField.value = String(baseUrlChange.newValue || '');
           saveState.lastSavedSignature = createSettingsSignature(collectSettings());
-          renderEndpointPreview();
+          syncSelectionState({ preferredEndpointMode: $('endpointMode').value });
           loadCachedModelOptions(collectSettings());
         }
       }

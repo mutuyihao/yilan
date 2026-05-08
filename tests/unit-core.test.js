@@ -15,7 +15,9 @@ const DiagnosticsView = freshRequire('shared/diagnostics-view.js');
 const ReaderView = freshRequire('shared/reader-view.js');
 const HistoryView = freshRequire('shared/history-view.js');
 const SidebarMetaView = freshRequire('shared/sidebar-meta-view.js');
+const ProviderCatalog = freshRequire('shared/provider-catalog.generated.js');
 const ProviderPresets = freshRequire('shared/provider-presets.js');
+const ProviderCatalogUpdater = freshRequire('scripts/update-provider-catalog.js');
 const UrlUtils = freshRequire('shared/url-utils.js');
 
 test('domain utilities normalize URLs, hosts, hashes, language, dates, and site types', [
@@ -672,6 +674,11 @@ test('provider presets are immutable and infer provider profiles', [
   'settings.presets',
   'provider.registry'
 ], () => {
+  const catalogProviders = ProviderCatalog.listProviders();
+  assert.ok(catalogProviders.length >= 11);
+  catalogProviders[0].label = 'mutated catalog';
+  assert.notStrictEqual(ProviderCatalog.getProvider('custom').label, 'mutated catalog');
+
   const presets = ProviderPresets.listPresets();
   assert.ok(presets.length >= 11);
   presets[0].label = 'mutated';
@@ -682,6 +689,19 @@ test('provider presets are immutable and infer provider profiles', [
   assert.strictEqual(ProviderPresets.normalizeProvider('missing', 'deepseek'), 'openai');
   assert.strictEqual(ProviderPresets.normalizeEndpointMode('missing', 'openai', 'deepseek'), 'chat_completions');
   assert.deepStrictEqual(ProviderPresets.getEndpointModes('anthropic_official', 'anthropic'), ['messages']);
+  assert.strictEqual(ProviderPresets.getDefaultRoute('mimo').routeId, 'mimo-openai-metered');
+  assert.strictEqual(ProviderPresets.getProviderRoutes('mimo').length, 8);
+  assert.strictEqual(ProviderPresets.getProviderRoute('mimo', 'mimo-openai-token-plan').baseUrl, 'https://token-plan-cn.xiaomimimo.com/v1');
+  assert.strictEqual(ProviderPresets.getProviderRoute('mimo', 'mimo-openai-token-plan-sgp').baseUrl, 'https://token-plan-sgp.xiaomimimo.com/v1');
+  assert.strictEqual(ProviderPresets.getProviderRoute('mimo', 'mimo-anthropic-token-plan-ams').baseUrl, 'https://token-plan-ams.xiaomimimo.com/anthropic');
+  assert.strictEqual(
+    ProviderPresets.inferRouteFromSettings({
+      providerPreset: 'mimo',
+      aiProvider: 'openai',
+      aiBaseURL: 'https://token-plan-cn.xiaomimimo.com/v1'
+    }).routeId,
+    'mimo-openai-token-plan'
+  );
   assert.strictEqual(ProviderPresets.getProviderProfile('missing', 'openai').defaultModel, 'gpt-4o-mini');
   assert.strictEqual(ProviderPresets.getProviderProfile('mimo', 'openai').defaultModel, 'mimo-v2.5-pro');
   assert.strictEqual(ProviderPresets.getProviderProfile('gemini', 'anthropic'), null);
@@ -701,6 +721,14 @@ test('provider presets are immutable and infer provider profiles', [
     ProviderPresets.validateCredentials('mimo', 'anthropic', 'https://token-plan-cn.xiaomimimo.com/anthropic', 'sk-test').valid,
     false
   );
+  assert.strictEqual(
+    ProviderPresets.validateCredentials('mimo', 'anthropic', 'https://token-plan-cn.xiaomimimo.com/anthropic', 'tp-test').valid,
+    true
+  );
+  assert.strictEqual(
+    ProviderPresets.validateCredentials('mimo', 'openai', 'https://token-plan-sgp.xiaomimimo.com/v1', 'sk-test').valid,
+    false
+  );
 
   const cases = [
     ['https://api.anthropic.com', 'anthropic_official'],
@@ -710,6 +738,8 @@ test('provider presets are immutable and infer provider profiles', [
     ['https://dashscope.aliyuncs.com/compatible-mode/v1', 'qwen'],
     ['https://api.xiaomimimo.com/v1', 'mimo'],
     ['https://token-plan-cn.xiaomimimo.com/v1', 'mimo'],
+    ['https://token-plan-sgp.xiaomimimo.com/v1', 'mimo'],
+    ['https://token-plan-ams.xiaomimimo.com/anthropic', 'mimo'],
     ['https://api.x.ai/v1', 'xai'],
     ['https://open.bigmodel.cn/api/paas/v4', 'glm'],
     ['https://api.minimaxi.com/v1', 'minimax'],
@@ -727,6 +757,26 @@ test('provider presets are immutable and infer provider profiles', [
   assert.strictEqual(ProviderPresets.inferPresetFromSettings({ aiProvider: 'openai', modelName: 'grok-4' }), 'xai');
   assert.strictEqual(ProviderPresets.inferPresetFromSettings({ aiProvider: 'anthropic', modelName: 'mimo-v2.5-pro' }), 'mimo');
   assert.strictEqual(ProviderPresets.inferPresetFromSettings({ aiProvider: 'anthropic', modelName: 'claude-sonnet' }), 'anthropic_official');
+});
+
+test('provider catalog updater extracts allowlisted base urls from fixtures', 'settings.presets', () => {
+  const urls = ProviderCatalogUpdater.extractBaseUrls('Docs: https://api.example.com/v1/chat/completions and https://api.example.com/v1/models.');
+  assert.ok(urls.includes('https://api.example.com/v1/chat/completions'));
+
+  const fixture = require('./fixtures/provider-docs.json');
+  const catalog = ProviderCatalogUpdater.buildCatalogFromDocuments(ProviderCatalog, fixture, {
+    generatedAt: '2026-05-08T00:00:00.000Z',
+    verifiedAt: '2026-05-08'
+  });
+  const mimo = catalog.providers.find((provider) => provider.id === 'mimo');
+  const tokenRoute = mimo.routes.find((route) => route.routeId === 'mimo-openai-token-plan');
+  const sgpRoute = mimo.routes.find((route) => route.routeId === 'mimo-openai-token-plan-sgp');
+  const amsAnthropicRoute = mimo.routes.find((route) => route.routeId === 'mimo-anthropic-token-plan-ams');
+  assert.strictEqual(tokenRoute.baseUrl, 'https://token-plan-cn.xiaomimimo.com/v1');
+  assert.strictEqual(sgpRoute.baseUrl, 'https://token-plan-sgp.xiaomimimo.com/v1');
+  assert.strictEqual(amsAnthropicRoute.baseUrl, 'https://token-plan-ams.xiaomimimo.com/anthropic');
+  assert.strictEqual(mimo.verifiedAt, '2026-05-08');
+  assert.ok(ProviderCatalogUpdater.renderGeneratedCatalog(catalog).includes('AISummaryProviderCatalog'));
 });
 
 test('theme module resolves, saves, cycles, and notifies preferences', 'settings.theme', async () => {

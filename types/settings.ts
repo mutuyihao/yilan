@@ -35,16 +35,45 @@ export interface UserSettings {
 }
 
 export interface ProviderProfile {
+  routeId?: string;
+  label?: string;
   endpointModes?: EndpointMode[];
+  baseUrl?: string;
   defaultBaseUrl?: string;
   defaultModel?: string;
+  keyHint?: string;
+  keyRule?: {
+    prefix?: string;
+    message?: string;
+  } | null;
   requiresApiKey?: boolean;
   supportsStreaming?: boolean;
+}
+
+export interface ProviderRoute {
+  routeId: string;
+  label: string;
+  aiProvider: ProviderId;
+  baseUrl: string;
+  endpointModes: EndpointMode[];
+  defaultEndpointMode: EndpointMode;
+  defaultModel: string;
+  keyHint?: string;
+  keyRule?: {
+    prefix?: string;
+    message?: string;
+  };
+  isDefault?: boolean;
 }
 
 export interface ProviderPreset {
   id: string;
   label: string;
+  hint?: string;
+  sourceUrl?: string;
+  verifiedAt?: string;
+  defaultProvider?: ProviderId;
+  defaultRouteId?: string;
   providerProfiles: Record<string, ProviderProfile>;
 }
 

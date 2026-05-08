@@ -45,17 +45,18 @@ GitHub：<https://github.com/mutuyihao/yilan>
 
 1. 点击扩展图标打开设置页。
 2.（可选）创建 `配置方案`，保存多套连接配置并快速切换。
-3. 在 `连接` 标签中选择厂商预设、Provider 和 Endpoint Mode。
-4. 填写 `API Key`，按需覆盖 `Base URL` 和 `模型名称`。
-5. 等待自动保存完成后点击“测试连接”。
+3. 在 `连接` 标签中选择 Provider 服务商。
+4. 确认推荐 Base URL；多地址服务商可点“更改地址”切换。
+5. 填写 `API Key`，按需覆盖 `模型名称`。
+6. 等待自动保存完成后点击“测试连接”。
 
 说明：
 
 - 设置页默认自动保存，不需要先手动点击保存。
 - 文本输入项会在停顿后保存，`blur` 时也会立即保存。
 - 下拉框和开关会立即保存。
-- `Base URL` 既可以填根地址（例如 `https://api.openai.com/v1`），也可以直接填完整 endpoint；设置页会显示请求预览。
-- `Endpoint Mode` 可以显式指定，也可以在 OpenAI 兼容自定义网关里使用“自动判断”。连接测试可能缓存可用 endpoint mode，并在网关错误足够明确时自动补齐或去除 `/v1`。
+- `Base URL` 默认来自本地 provider catalog；需要代理、私有网关或多地址套餐时可更改。
+- `Provider` / `Endpoint Mode` 已收进“高级兼容设置”；自定义兼容接口默认展开高级项。连接测试可能缓存可用 endpoint mode，并在网关错误足够明确时自动补齐或去除 `/v1`。
 - 可在设置页为 OpenAI 兼容接口刷新模型列表（需要先填写 `API Key`）。Anthropic 兼容接口目前仍手动填写模型 ID。
 - 内置厂商预设目前包含自定义兼容接口、OpenAI 官方、Anthropic 官方、DeepSeek、Gemini / Google、xAI / Grok、Qwen / 百炼、GLM / 智谱、MiniMax、Doubao / 火山方舟、Hunyuan / 腾讯混元。
 

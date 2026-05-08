@@ -614,7 +614,7 @@
       role="tabpanel"
       aria-labelledby="tab-connection"
     >
-      <div class="card">
+      <div class="card connection-card">
         <div class="card-title">模型连接</div>
         <div class="field">
           <label for="profileSelect">配置方案</label>
@@ -644,35 +644,55 @@
           </div>
           <div id="profileHint" class="hint"></div>
         </div>
+
         <div class="field">
-          <label for="providerPreset">厂商预设</label>
-          <select id="providerPreset">
-          </select>
+          <label for="providerPreset">Provider</label>
+          <select id="providerPreset"></select>
           <div id="presetHint" class="hint"></div>
         </div>
-        <div class="field">
-          <label for="aiProvider">Provider</label>
-          <select id="aiProvider">
-            <option value="openai">OpenAI / OpenAI 兼容接口</option>
-            <option value="anthropic">Anthropic / Claude 兼容接口</option>
-          </select>
+
+        <div id="connectionSummary" class="connection-summary" aria-live="polite">
+          <div>
+            <span class="summary-label">服务商</span>
+            <strong id="connectionProviderValue">未选择</strong>
+          </div>
+          <div>
+            <span class="summary-label">地址</span>
+            <strong id="connectionRouteValue">使用推荐地址</strong>
+          </div>
+          <div>
+            <span class="summary-label">接口</span>
+            <strong id="connectionEndpointValue">自动判断</strong>
+          </div>
+          <div>
+            <span class="summary-label">模型</span>
+            <strong id="connectionModelValue">默认模型</strong>
+          </div>
         </div>
-        <div class="field">
-          <label for="endpointMode">Endpoint Mode</label>
-          <select id="endpointMode"></select>
-          <div id="endpointModeHint" class="hint"></div>
+
+        <div class="route-summary">
+          <div>
+            <span class="summary-label">Base URL</span>
+            <span id="connectionBaseUrlValue">使用推荐地址</span>
+          </div>
+          <button type="button" id="toggleRoutePanelBtn" class="text-btn" aria-expanded="false" aria-controls="providerRoutePanel">更改地址</button>
         </div>
+        <div id="providerRoutePanel" class="route-panel" hidden>
+          <label for="providerRoute">地址选项</label>
+          <select id="providerRoute"></select>
+          <div id="routeHint" class="hint"></div>
+        </div>
+
         <div class="field">
           <label for="apiKey">API Key</label>
           <input id="apiKey" type="password" placeholder="sk-..." autocomplete="off" data-autosave="debounced">
-          <div class="hint" style="color: var(--warning)">注意：API Key 会通过 Chrome 同步存储，可能同步到你的 Google 账号。如有顾虑，请在 Chrome 设置中关闭同步，或仅在不开启同步的浏览器配置中使用。</div>
+          <div id="apiKeyHint" class="hint">填写所选服务商的 API Key。</div>
+          <details class="inline-help">
+            <summary>密钥存储说明</summary>
+            <div>API Key 会通过 Chrome 同步存储，可能同步到你的 Google 账号。如有顾虑，请在 Chrome 设置中关闭同步，或仅在不开启同步的浏览器配置中使用。</div>
+          </details>
         </div>
-        <div class="field">
-          <label for="baseURL">Base URL</label>
-          <input id="baseURL" type="text" placeholder="留空使用默认地址" data-autosave="debounced">
-          <div id="baseURLHint" class="hint"></div>
-          <div id="endpointPreview" class="hint"></div>
-        </div>
+
         <div class="field">
           <label for="modelName">模型名称</label>
           <div class="inline-row">
@@ -683,12 +703,31 @@
           <div id="modelHint" class="hint"></div>
           <div id="modelListHint" class="hint"></div>
         </div>
-      </div>
 
-      <div class="card">
-        <div class="card-title">连接检查</div>
-        <div class="hint">自动保存完成后，就可以直接用当前配置发起连接测试。</div>
-        <div class="btn-row single">
+        <details id="advancedConnectionSettings" class="advanced-settings">
+          <summary>高级兼容设置</summary>
+          <div class="field">
+            <label for="aiProvider">协议类型</label>
+            <select id="aiProvider">
+              <option value="openai">OpenAI / OpenAI 兼容接口</option>
+              <option value="anthropic">Anthropic / Claude 兼容接口</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="endpointMode">Endpoint Mode</label>
+            <select id="endpointMode"></select>
+            <div id="endpointModeHint" class="hint"></div>
+          </div>
+          <div class="field">
+            <label for="baseURL">Base URL</label>
+            <input id="baseURL" type="text" placeholder="留空使用默认地址" data-autosave="debounced">
+            <div id="baseURLHint" class="hint"></div>
+            <div id="endpointPreview" class="endpoint-preview"></div>
+          </div>
+          <div id="providerCatalogMeta" class="hint"></div>
+        </details>
+
+        <div class="btn-row single connection-actions">
           <button type="button" id="testBtn" class="primary">测试连接</button>
         </div>
       </div>
@@ -886,6 +925,7 @@
 
   <script src="shared/errors.js"></script>
   <script src="shared/trust-policy.js"></script>
+  <script src="shared/provider-catalog.generated.js"></script>
   <script src="shared/provider-presets.js"></script>
   <script src="shared/constants.js"></script>
   <script src="shared/url-utils.js"></script>

@@ -1,6 +1,7 @@
 importScripts(
   'shared/domain.js',
   'shared/errors.js',
+  'shared/provider-catalog.generated.js',
   'shared/provider-presets.js',
   'shared/constants.js',
   'shared/adapter-utils.js',
