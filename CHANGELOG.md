@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.1.0 - 2026-05-08
+
+- Redesigned provider setup around provider selection, recommended Base URL routes, API Key entry, and connection testing.
+- Added a generated provider catalog and build-time catalog update script for official Base URL governance.
+- Added explicit MiMo Token Plan CN, SGP, and AMS route choices for both OpenAI-compatible and Anthropic-compatible endpoints.
+- Kept existing provider settings storage compatible while moving protocol and Endpoint Mode controls into advanced settings.
+
 ## 1.0.1 - 2026-05-08
 
 - Added Xiaomi MiMo provider preset with both OpenAI-compatible and Anthropic-compatible base URLs.
