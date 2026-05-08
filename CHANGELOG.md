@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.0.1 - 2026-05-08
+
+- Added Xiaomi MiMo provider preset with both OpenAI-compatible and Anthropic-compatible base URLs.
+- Added MiMo endpoint inference for both pay-as-you-go and Token Plan domains.
+- Added MiMo API key validation so `sk-` and `tp-` credentials do not get mixed across incompatible domains.
+
 ## 1.0.0 - 2026-05-05
 
 Yilan's first formal release.

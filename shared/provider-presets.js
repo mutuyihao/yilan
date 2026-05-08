@@ -160,6 +160,28 @@
       }
     },
     {
+      id: 'mimo',
+      label: 'MiMo / 小米',
+      hint: '官方同时提供 OpenAI 与 Anthropic 兼容入口；这里默认预置按量 API 根地址。按量 API Key 以 `sk-` 开头，Token Plan API Key 以 `tp-` 开头，二者与对应域名不可混用。',
+      defaultProvider: 'openai',
+      providerProfiles: {
+        openai: {
+          endpointModes: ['chat_completions'],
+          defaultEndpointMode: 'chat_completions',
+          baseUrl: 'https://api.xiaomimimo.com/v1',
+          defaultModel: 'mimo-v2.5-pro',
+          hint: '官方 OpenAI 兼容根地址是 `https://api.xiaomimimo.com/v1`；Token Plan 对应 `https://token-plan-cn.xiaomimimo.com/v1`。聊天接口走 `/chat/completions`。'
+        },
+        anthropic: {
+          endpointModes: ANTHROPIC_ENDPOINT_MODES,
+          defaultEndpointMode: 'messages',
+          baseUrl: 'https://api.xiaomimimo.com/anthropic',
+          defaultModel: 'mimo-v2.5-pro',
+          hint: '官方 Anthropic 兼容根地址是 `https://api.xiaomimimo.com/anthropic`；Token Plan 对应 `https://token-plan-cn.xiaomimimo.com/anthropic`。最终端点为 `/v1/messages`。'
+        }
+      }
+    },
+    {
       id: 'xai',
       label: 'xAI / Grok',
       hint: 'xAI 同时提供 Chat Completions 与 Responses；官方更偏向新的 Responses API。',
@@ -297,6 +319,32 @@
     return candidates[0] || (String(provider || '').toLowerCase() === 'anthropic' ? 'messages' : 'auto');
   }
 
+  function validateCredentials(presetId, provider, baseUrl, apiKey) {
+    const preset = String(presetId || '').trim();
+    const endpoint = String(baseUrl || '').trim().toLowerCase();
+    const key = String(apiKey || '').trim();
+
+    if (!preset || preset !== 'mimo' || !key) {
+      return { valid: true, message: '' };
+    }
+
+    if (endpoint.includes('token-plan-cn.xiaomimimo.com') && !key.startsWith('tp-')) {
+      return {
+        valid: false,
+        message: 'MiMo Token Plan 域名需要 `tp-` 开头的 API Key；按量 `sk-` 密钥不能混用。'
+      };
+    }
+
+    if (endpoint.includes('api.xiaomimimo.com') && !key.startsWith('sk-')) {
+      return {
+        valid: false,
+        message: 'MiMo 按量 API 域名需要 `sk-` 开头的 API Key；Token Plan `tp-` 密钥不能混用。'
+      };
+    }
+
+    return { valid: true, message: '' };
+  }
+
   function inferPresetFromSettings(settings) {
     const baseUrl = String(settings?.aiBaseURL || '').trim().toLowerCase();
     const provider = String(settings?.aiProvider || '').toLowerCase();
@@ -307,6 +355,7 @@
     if (baseUrl.includes('api.deepseek.com')) return 'deepseek';
     if (baseUrl.includes('generativelanguage.googleapis.com')) return 'gemini';
     if (baseUrl.includes('dashscope.aliyuncs.com')) return 'qwen';
+    if (baseUrl.includes('api.xiaomimimo.com') || baseUrl.includes('token-plan-cn.xiaomimimo.com')) return 'mimo';
     if (baseUrl.includes('api.x.ai')) return 'xai';
     if (baseUrl.includes('open.bigmodel.cn')) return 'glm';
     if (baseUrl.includes('api.minimaxi.com') || baseUrl.includes('api.minimax.io')) return 'minimax';
@@ -315,6 +364,7 @@
 
     if (provider === 'anthropic' && model.startsWith('claude')) return 'anthropic_official';
     if (provider === 'openai' && model.startsWith('gemini')) return 'gemini';
+    if ((provider === 'openai' || provider === 'anthropic') && model.startsWith('mimo')) return 'mimo';
     if (provider === 'openai' && model.startsWith('grok')) return 'xai';
     if (provider === 'openai' && (model.startsWith('gpt-') || model.startsWith('o'))) return 'openai_official';
     if (provider === 'anthropic') return 'anthropic_official';
@@ -331,6 +381,7 @@
     getEndpointModes,
     normalizeProvider,
     normalizeEndpointMode,
+    validateCredentials,
     inferPresetFromSettings
   };
 

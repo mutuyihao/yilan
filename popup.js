@@ -574,6 +574,20 @@ function normalizeBaseURLInput(value) {
   }
 }
 
+function getProviderCredentialValidation(settings) {
+  const presetId = String(settings?.providerPreset || '').trim();
+  const provider = String(settings?.aiProvider || '').trim();
+  const profile = ProviderPresets?.getProviderProfile?.(presetId, provider);
+  const baseUrl = String(settings?.aiBaseURL || profile?.baseUrl || '').trim();
+  const apiKey = String(settings?.apiKey || '').trim();
+
+  if (!ProviderPresets?.validateCredentials) {
+    return { valid: true, message: '' };
+  }
+
+  return ProviderPresets.validateCredentials(presetId, provider, baseUrl, apiKey);
+}
+
 function collectSettings() {
   const presetId = $('providerPreset').value || 'custom';
   const provider = ProviderPresets.normalizeProvider($('aiProvider').value, presetId);
@@ -895,6 +909,12 @@ async function refreshModelOptions(options = {}) {
       return;
     }
 
+    const credentialValidation = getProviderCredentialValidation(settings);
+    if (!credentialValidation.valid) {
+      renderModelOptions([], { message: credentialValidation.message });
+      return;
+    }
+
     const response = await runtimeSendMessage({ action: 'listModels', settings });
     if (!response.success) {
       renderModelOptions([], { message: '模型列表获取失败：' + getRuntimeErrorMessage(response.error) });
@@ -959,8 +979,11 @@ async function persistSettings(options = {}) {
     saveState.lastSavedSignature = signature;
     renderProfileHint();
     if (requestId === saveState.requestId && !options.skipSuccessStatus) {
+      const credentialValidation = getProviderCredentialValidation(settings);
       if (settings.aiBaseURL && !validateBaseURL(settings.aiBaseURL)) {
         setStatus(BASE_URL_INVALID_MESSAGE, 'warning');
+      } else if (!credentialValidation.valid) {
+        setStatus(credentialValidation.message, 'warning');
       } else {
         setStatus(getSaveSuccessText(settings), 'success');
       }
@@ -1144,6 +1167,12 @@ async function handleTestConnection() {
 
   if (settings.aiBaseURL && !validateBaseURL(settings.aiBaseURL)) {
     setStatus(BASE_URL_INVALID_MESSAGE, 'error');
+    return;
+  }
+
+  const credentialValidation = getProviderCredentialValidation(settings);
+  if (!credentialValidation.valid) {
+    setStatus(credentialValidation.message, 'error');
     return;
   }
 

@@ -673,16 +673,34 @@ test('provider presets are immutable and infer provider profiles', [
   'provider.registry'
 ], () => {
   const presets = ProviderPresets.listPresets();
-  assert.ok(presets.length >= 10);
+  assert.ok(presets.length >= 11);
   presets[0].label = 'mutated';
   assert.notStrictEqual(ProviderPresets.getPreset('custom').label, 'mutated');
 
   assert.deepStrictEqual(ProviderPresets.getProviderOptions('deepseek').sort(), ['anthropic', 'openai']);
+  assert.deepStrictEqual(ProviderPresets.getProviderOptions('mimo').sort(), ['anthropic', 'openai']);
   assert.strictEqual(ProviderPresets.normalizeProvider('missing', 'deepseek'), 'openai');
   assert.strictEqual(ProviderPresets.normalizeEndpointMode('missing', 'openai', 'deepseek'), 'chat_completions');
   assert.deepStrictEqual(ProviderPresets.getEndpointModes('anthropic_official', 'anthropic'), ['messages']);
   assert.strictEqual(ProviderPresets.getProviderProfile('missing', 'openai').defaultModel, 'gpt-4o-mini');
+  assert.strictEqual(ProviderPresets.getProviderProfile('mimo', 'openai').defaultModel, 'mimo-v2.5-pro');
   assert.strictEqual(ProviderPresets.getProviderProfile('gemini', 'anthropic'), null);
+  assert.strictEqual(
+    ProviderPresets.validateCredentials('mimo', 'openai', 'https://api.xiaomimimo.com/v1', 'sk-test').valid,
+    true
+  );
+  assert.strictEqual(
+    ProviderPresets.validateCredentials('mimo', 'openai', 'https://api.xiaomimimo.com/v1', 'tp-test').valid,
+    false
+  );
+  assert.strictEqual(
+    ProviderPresets.validateCredentials('mimo', 'openai', 'https://token-plan-cn.xiaomimimo.com/v1', 'tp-test').valid,
+    true
+  );
+  assert.strictEqual(
+    ProviderPresets.validateCredentials('mimo', 'anthropic', 'https://token-plan-cn.xiaomimimo.com/anthropic', 'sk-test').valid,
+    false
+  );
 
   const cases = [
     ['https://api.anthropic.com', 'anthropic_official'],
@@ -690,6 +708,8 @@ test('provider presets are immutable and infer provider profiles', [
     ['https://api.deepseek.com', 'deepseek'],
     ['https://generativelanguage.googleapis.com/v1beta/openai', 'gemini'],
     ['https://dashscope.aliyuncs.com/compatible-mode/v1', 'qwen'],
+    ['https://api.xiaomimimo.com/v1', 'mimo'],
+    ['https://token-plan-cn.xiaomimimo.com/v1', 'mimo'],
     ['https://api.x.ai/v1', 'xai'],
     ['https://open.bigmodel.cn/api/paas/v4', 'glm'],
     ['https://api.minimaxi.com/v1', 'minimax'],
@@ -703,7 +723,9 @@ test('provider presets are immutable and infer provider profiles', [
 
   assert.strictEqual(ProviderPresets.inferPresetFromSettings({ aiProvider: 'openai', modelName: 'gpt-4o-mini' }), 'openai_official');
   assert.strictEqual(ProviderPresets.inferPresetFromSettings({ aiProvider: 'openai', modelName: 'gemini-2.5-flash' }), 'gemini');
+  assert.strictEqual(ProviderPresets.inferPresetFromSettings({ aiProvider: 'openai', modelName: 'mimo-v2.5-pro' }), 'mimo');
   assert.strictEqual(ProviderPresets.inferPresetFromSettings({ aiProvider: 'openai', modelName: 'grok-4' }), 'xai');
+  assert.strictEqual(ProviderPresets.inferPresetFromSettings({ aiProvider: 'anthropic', modelName: 'mimo-v2.5-pro' }), 'mimo');
   assert.strictEqual(ProviderPresets.inferPresetFromSettings({ aiProvider: 'anthropic', modelName: 'claude-sonnet' }), 'anthropic_official');
 });
 
