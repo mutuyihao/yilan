@@ -1,13 +1,13 @@
 # Privacy Policy — Yilan
 
-**Last Updated: 2026-05-05**
+**Last Updated: 2026-05-24**
 
 Official website: https://yilan.app
 Source code: https://github.com/mutuyihao/yilan
 
 ## Overview
 
-Yilan is a browser extension that summarizes web articles using AI models. This policy explains how we handle your data.
+Yilan is a browser extension that summarizes web articles and supported video pages using AI models or page-provided summaries. This policy explains how we handle your data.
 
 ## Data Collection
 
@@ -26,6 +26,8 @@ When you generate a summary, the **article content from the current webpage** is
 - We have no access to your API key or the content you summarize.
 - Please review the privacy policy of your chosen AI provider to understand how they handle the data.
 
+On Bilibili video pages, Yilan may request Bilibili video metadata, official AI summary, player, and subtitle endpoints from your browser session after you trigger summarization. If Bilibili provides an official AI summary, Yilan can use that as the primary result without sending the video text to your configured AI provider. If no official summary is available, subtitle text or fallback video information may be sent to your configured AI provider to generate the summary.
+
 ## Permissions Explained
 
 | Permission | Reason |
@@ -35,7 +37,7 @@ When you generate a summary, the **article content from the current webpage** is
 | `storage` | Save your settings and preferences |
 | `contextMenus` | Add "Summarize this page with Yilan" to the right-click menu |
 | `clipboardWrite` | Copy summaries to your clipboard |
-| `host_permissions: <all_urls>` | Required to (1) extract content from arbitrary webpages after user action and (2) send API requests to user-configured AI endpoints at arbitrary URLs |
+| `host_permissions: <all_urls>` | Required to (1) extract content from arbitrary webpages after user action, (2) request Bilibili source data when summarizing Bilibili videos, and (3) send API requests to user-configured AI endpoints at arbitrary URLs |
 
 ## Privacy Mode
 

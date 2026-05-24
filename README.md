@@ -1,6 +1,6 @@
 # Yilan
 
-Last updated: 2026-05-05
+Last updated: 2026-05-24
 
 Language: English | [中文](README.zh-CN.md)
 
@@ -13,13 +13,14 @@ Yilan is a Manifest V3 Chromium extension for the full web reading workflow: ext
 The current version is no longer just a summarizer. It is a local-first web reading workspace:
 
 - Extracts article text, title, author, publish time, and site information automatically.
+- Handles Bilibili video pages with video metadata, official Bilibili AI summaries when available, subtitle fallback, and subtitle export.
 - Detects page type and recommends a summary strategy for that page.
 - Supports four primary summary modes: `Brief Summary`, `Standard Summary`, `Detailed Analysis`, and `Key Points`.
 - Supports three follow-up generation modes: `Action Items`, `Glossary`, and `Q&A Cards`.
 - Shows source metadata, trust and control state, history, favorites, and basic diagnostics in the sidebar.
 - Can reuse the current page's latest historical summary at entry time, while keeping `Regenerate` available to refresh the page result.
 - Refreshes sidebar context after same-document SPA route changes without automatically starting a new model request by default.
-- Opens the current summary in a standalone new-tab reader.
+- Opens the current summary in a standalone new-tab reader with document navigation generated from Markdown headings.
 - Copies the current summary, exports Markdown, and creates long screenshot share cards with source links.
 - Provides provider presets, explicit or automatic Endpoint Mode, model list refresh for OpenAI-compatible endpoints, light/dark/system mode, four palette presets, entry status checks, and auto-save in the settings page.
 - Uses a two-layer test baseline: `Node feature matrix + static contracts` and `Playwright browser main flow`, which protects future refactors and technical-debt cleanup.
@@ -27,7 +28,8 @@ The current version is no longer just a summarizer. It is a local-first web read
 ## Current Scope
 
 - Yilan is `local-first + BYOK`; it does not include built-in accounts or cloud sync.
-- Incognito mode only controls whether results are written to local history. It does not prevent page content from being sent to the model service you configure.
+- Incognito mode only controls whether results are written to local history. It does not prevent page content, video metadata, or subtitles from being sent to the model service you configure.
+- On Bilibili video pages, Yilan may request Bilibili metadata, official AI summary, player, and subtitle endpoints from the browser. If an official Bilibili AI summary is available, Yilan can use it directly without a model-provider request for that primary result.
 - History is stored only in IndexedDB for the current browser profile.
 - The extension currently targets Chromium browsers and uses the context menu plus `Alt + S` as the main entry points.
 
@@ -64,7 +66,7 @@ Notes:
 1. Open any web page.
 2. Right-click the page and choose the Yilan summary action, or press `Alt + S`.
 3. When the sidebar opens, it checks the entry configuration first. If history reuse is enabled and a completed result exists for the current page, the latest result is shown immediately. Otherwise, generation starts automatically, or the sidebar waits for manual action depending on your settings.
-4. Use the sidebar to read the summary, generate action items / glossary / Q&A cards, and manage history or favorites.
+4. Use the sidebar to read the summary, generate action items / glossary / Q&A cards, export Bilibili subtitles when available, and manage history or favorites.
 5. For focused reading, click the reader button at the top to open the result in a dedicated new tab.
 
 ## Development
@@ -97,7 +99,7 @@ For details about test scope, test layers, and requirements for new features, se
 
 ## Release Packaging
 
-The 1.0.0 release gate is:
+The current release gate is:
 
 ```powershell
 npm.cmd run typecheck
@@ -124,7 +126,7 @@ npm.cmd run package:release
 |   |-- highlight.min.js        # highlight.js for code block highlighting
 |   |-- github-dark.min.css     # Markdown / code block highlight styles
 |   `-- html2canvas.min.js      # Long screenshot share card generation
-|-- shared/                    # Domain utilities, page strategy, trust policy, theme, transport utilities, provider presets
+|-- shared/                    # Domain utilities, page strategy, Bilibili source extraction, trust policy, theme, transport utilities, provider presets
 |-- tests/                     # Node feature matrix, unit tests, static contracts
 |-- background.js              # Background orchestration, connection checks, model listing, entry state, run control, reader sessions
 |-- content.js                 # Page extraction and sidebar injection

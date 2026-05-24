@@ -208,6 +208,7 @@ test('sidebar generation stream runner posts startStream and resolves streamed t
 
 test('sidebar generation uses Bilibili official summary without model streaming', [
   'generation.primary',
+  'generation.bilibili_official',
   'content.extraction'
 ], async () => {
   const portBundle = createPort();

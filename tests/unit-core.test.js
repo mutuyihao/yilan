@@ -59,6 +59,7 @@ test('domain utilities normalize URLs, hosts, hashes, language, dates, and site 
 
 test('bilibili source helpers sign requests and format official summaries', [
   'content.extraction',
+  'content.bilibili_source',
   'page.strategy'
 ], async () => {
   assert.strictEqual(BilibiliSource.isBilibiliVideoUrl('https://www.bilibili.com/video/BV1KNokBuEYS/?spm_id_from=x'), true);

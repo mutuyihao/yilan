@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.2.0 - 2026-05-24
+
+- Added Bilibili video-page summaries with a dedicated extractor for video metadata, official Bilibili AI summaries, subtitles, and fallback page information.
+- Added a sidebar subtitle export action for Bilibili videos when subtitle JSON or plain text is available.
+- Added Bilibili extraction diagnostics, official-summary fast path, subtitle fallback coverage, and E2E/static contract coverage.
+- Updated release metadata and product copy for the new Bilibili video workflow.
+
 ## 1.1.1 - 2026-05-24
 
 - Added a floating document navigation panel to the standalone reader page based on rendered Markdown headings.

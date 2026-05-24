@@ -1,6 +1,6 @@
 # 一览
 
-Last updated: 2026-05-05
+Last updated: 2026-05-24
 
 语言：中文 | [English](README.md)
 
@@ -13,13 +13,14 @@ GitHub：<https://github.com/mutuyihao/yilan>
 当前版本已经不是单一的摘要工具，而是一个本地优先的网页阅读工作台：
 
 - 自动抽取网页正文、标题、作者、发布时间和站点信息。
+- 支持 Bilibili 视频页：识别视频元信息，优先使用 B 站官方 AI 总结，可回退到字幕或页面信息，并在字幕可用时导出字幕。
 - 识别页面类型，并按页面类型推荐摘要策略。
 - 支持 `简短总结`、`标准总结`、`详细分析`、`关键要点` 四种主摘要模式。
 - 支持 `行动项`、`术语表`、`问答卡片` 三种二次生成模式。
 - 在侧栏中查看来源信息、可信与控制状态、历史与收藏、基础诊断。
 - 入口可优先复用当前页面的历史摘要，命中后直接展示旧结果，并保留“重新生成”更新当前页。
 - 在同一页面的 SPA 路由切换中，侧栏会刷新页面上下文，但默认不会自动发起新的模型请求。
-- 支持把当前摘要打开到独立的新标签页阅读器。
+- 支持把当前摘要打开到独立的新标签页阅读器，并根据 Markdown 标题生成文档导航。
 - 支持复制当前摘要、Markdown 导出和带来源链接的长截图分享卡。
 - 设置页支持厂商预设、显式或自动 Endpoint Mode、OpenAI 兼容接口的模型列表刷新、明暗模式、四套色彩方案、入口状态检查，并且默认自动保存。
 - 当前测试基线已经分成 `Node 功能矩阵 + 静态契约` 与 `Playwright 浏览器主链路` 两层，用来给后续重构和技术债治理兜底。
@@ -27,7 +28,8 @@ GitHub：<https://github.com/mutuyihao/yilan>
 ## 当前边界
 
 - 项目是 `本地优先 + BYOK` 形态，没有内建账号体系或云同步。
-- 无痕模式只控制“是否写入本地历史”，不会阻止页面内容被发送到你配置的模型服务。
+- 无痕模式只控制“是否写入本地历史”，不会阻止页面内容、视频元信息或字幕被发送到你配置的模型服务。
+- 在 Bilibili 视频页，一览会从浏览器请求 B 站的视频信息、官方 AI 总结、播放器和字幕接口。如果官方 AI 总结可用，主摘要可以直接使用该结果，不再额外请求你配置的模型服务。
 - 历史只保存在当前浏览器 profile 的 IndexedDB 中。
 - 扩展目前面向 Chromium 浏览器，使用右键菜单和 `Alt + S` 作为主要入口。
 
@@ -65,7 +67,7 @@ GitHub：<https://github.com/mutuyihao/yilan>
 1. 打开任意网页。
 2. 右键页面选择“用一览总结此页”，或按 `Alt + S`。
 3. 侧栏打开后，会先按入口配置检查是否复用当前页面的历史摘要；命中时直接显示最近一次已完成结果，否则再自动开始生成，或只打开侧栏等待手动触发。
-4. 在侧栏中查看摘要、继续生成行动项/术语表/问答卡片、管理历史与收藏。
+4. 在侧栏中查看摘要、继续生成行动项/术语表/问答卡片、导出可用的 B 站字幕、管理历史与收藏。
 5. 如需更舒服地阅读，点击顶部“阅读”按钮，在新标签页打开专注阅读页面。
 
 ## 开发与验证
@@ -98,7 +100,7 @@ node tests/run-tests.js
 
 ## 发版打包
 
-1.0.0 正式版门禁：
+当前正式版门禁：
 
 ```powershell
 npm.cmd run typecheck
@@ -107,7 +109,7 @@ npm.cmd run test:e2e
 npm.cmd run package:release
 ```
 
-`npm.cmd run package:release` 会在 `release/` 下生成只包含扩展运行文件的发布包，排除测试、Playwright 产物、私有目录、依赖目录和源码文档。发布前按 [1.0.0 发版清单](docs/RELEASE_CHECKLIST.md) 和 [Chrome Web Store 文案](docs/STORE_LISTING.md) 检查。
+`npm.cmd run package:release` 会在 `release/` 下生成只包含扩展运行文件的发布包，排除测试、Playwright 产物、私有目录、依赖目录和源码文档。发布前按 [1.2.0 发版清单](docs/RELEASE_CHECKLIST.md) 和 [Chrome Web Store 文案](docs/STORE_LISTING.md) 检查。
 
 ## 目录结构
 
@@ -125,7 +127,7 @@ npm.cmd run package:release
 │  ├─ highlight.min.js        # highlight.js，用于代码块高亮
 │  ├─ github-dark.min.css     # Markdown / 代码块高亮样式
 │  └─ html2canvas.min.js      # 用于生成长截图分享卡
-├─ shared/                    # 领域工具、页面策略、可信策略、主题、传输工具、厂商 preset
+├─ shared/                    # 领域工具、页面策略、Bilibili 来源抽取、可信策略、主题、传输工具、厂商 preset
 ├─ tests/                     # Node 功能矩阵、单元测试、静态契约
 ├─ background.js              # 后台编排、连接检查、模型列表、入口状态、运行控制、reader 会话
 ├─ content.js                 # 页面抽取与侧栏注入
@@ -145,7 +147,7 @@ npm.cmd run package:release
 - [技术架构](docs/TECHNICAL_ARCHITECTURE.md)
 - [测试体系](docs/TESTING.md)
 - [开发者指南](docs/DEVELOPER_GUIDE.md)
-- [1.0.0 发版清单](docs/RELEASE_CHECKLIST.md)
+- [1.2.0 发版清单](docs/RELEASE_CHECKLIST.md)
 - [Chrome Web Store 文案](docs/STORE_LISTING.md)
 - [隐私政策](PRIVACY_POLICY.md)
 - [设计系统](DESIGN_SYSTEM.md)

@@ -113,6 +113,7 @@ test('sidebar events controller binds buttons, secondary actions, and scroll sta
   'generation.primary',
   'generation.secondary',
   'export.markdown',
+  'export.bilibili_subtitle',
   'export.share_card',
   'reader.session',
   'settings.theme',

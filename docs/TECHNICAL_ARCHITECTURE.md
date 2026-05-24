@@ -1,6 +1,6 @@
 # 技术架构
 
-Last updated: 2026-05-05
+Last updated: 2026-05-24
 
 这份文档描述当前仓库已经落地并仍然有效的运行时边界、数据模型，以及支撑重构的工程验证边界。TypeScript、构建链和 React 迁移属于规划草案，见 [TS + React 迁移评估与执行计划](TS_REACT_MIGRATION.md)。
 
@@ -9,7 +9,7 @@ Last updated: 2026-05-05
 当前主链路如下：
 
 1. `popup.html / popup.js` 负责设置页 UI、标签切换、自动保存、连接测试和入口状态检查。
-2. `content.js` 在网页中抽取正文和元信息，并注入侧栏容器。
+2. `content.js` 在网页中抽取正文和元信息，并在 Bilibili 视频页使用 `shared/bilibili-source.js` 抽取视频元信息、官方 AI 总结或字幕来源，然后注入侧栏容器。
 3. `shared/article-utils.js` 把抽取结果标准化为文章快照，并根据长度决定是否分段。
 4. `shared/page-strategy.js` 基于页面类型给出页面策略和推荐摘要模式。
 5. `sidebar/state.js` 负责侧栏初始状态、导航策略常量和 DOM 元素绑定；`sidebar.js` 负责侧栏编排和收藏；侧栏摘要渲染、来源/信任卡、状态提示和诊断展示由 `sidebar/render.js` 管理；历史面板由 `sidebar/history.js` 管理，Markdown 导出和分享卡由 `sidebar/export.js` 管理，阅读页快照和打开由 `sidebar/reader-session.js` 管理，主摘要、二次生成、取消和流式连接由 `sidebar/generation.js` 管理，摘要模式控件由 `sidebar/mode-control.js` 管理，按钮、键盘和入口消息事件由 `sidebar/events.js` 管理。
@@ -28,7 +28,7 @@ flowchart LR
   U((用户))
   Entry["入口层<br/>popup / 右键 / 快捷键"]
   BG["后台调度<br/>background.js<br/>入口状态 / 流式 / 取消 / reader session"]
-  Page["网页注入层<br/>content.js<br/>抽正文 / 创建 iframe"]
+  Page["网页注入层<br/>content.js<br/>抽正文 / Bilibili 视频来源 / 创建 iframe"]
   Side["侧栏工作台<br/>sidebar.html + sidebar.js<br/>生成 / 历史 / 导出 / 阅读"]
   AI["模型接口<br/>adapters -> provider"]
   Store[("本地状态<br/>storage.sync / storage.local / IndexedDB")]
@@ -49,7 +49,7 @@ flowchart LR
 
 ```mermaid
 flowchart TB
-  Shared["shared/*<br/>公共算法、文案、视图模型、错误、运行工具"]
+  Shared["shared/*<br/>公共算法、Bilibili 来源、文案、视图模型、错误、运行工具"]
   Libs["libs/*<br/>Readability / Markdown 渲染 / 截图"]
   DB["db.js<br/>IndexedDB 封装"]
   Adapters["adapters/*<br/>OpenAI / Anthropic 兼容协议"]
@@ -88,7 +88,7 @@ flowchart TB
   E["popup<br/>读写设置 / 测试连接 / 检查入口 / 打开历史"]
   F["右键或快捷键<br/>触发 extractAndSummarize"]
   G["5. 后台 ping 当前 tab<br/>必要时动态注入 CONTENT_SCRIPT_FILES"]
-  H["6. content.js 抽取文章<br/>创建 sidebar.html iframe"]
+  H["6. content.js 抽取文章或 Bilibili 视频来源<br/>创建 sidebar.html iframe"]
   I{"7. 侧栏是否命中当前页历史？"}
   J["直接展示历史摘要"]
   K["8. 侧栏通过 ai-stream 请求后台"]
@@ -196,6 +196,7 @@ flowchart TB
 职责：
 
 - 从当前网页读取 DOM、meta 信息和 Readability 结果
+- 在 Bilibili 视频页调用 `shared/bilibili-source.js`，按“官方 AI 总结 -> 字幕 -> 视频信息 fallback”的顺序构建来源文本
 - 构建文章快照输入
 - 注入侧栏容器和资源
 - 在入口触发时把数据发给侧栏
@@ -205,7 +206,7 @@ flowchart TB
 
 - `content.js` 使用 `libs/readability.js` 这个 vendored 的外部库做正文抽取。
 - `readability.js` 属于第三方依赖，不是项目自研模块。
-- 动态注入列表由 `background.js` 中的 `CONTENT_SCRIPT_FILES` 维护，当前包括 `shared/domain.js`、`shared/strings.js`、`shared/page-strategy.js`、`shared/article-utils.js`、`shared/constants.js`、`libs/readability.js` 和 `content.js`。
+- 动态注入列表由 `background.js` 中的 `CONTENT_SCRIPT_FILES` 维护，当前包括 `shared/domain.js`、`shared/strings.js`、`shared/page-strategy.js`、`shared/article-utils.js`、`shared/bilibili-source.js`、`shared/constants.js`、`libs/readability.js` 和 `content.js`。
 - 右键、快捷键和 popup 等显式入口仍通过 `injectSidebar()` 打开或重建侧栏。
 - SPA / 同文档路由切换不会重建 iframe；`content.js` 会向现有 iframe `postMessage` 发送 `articleData`，并带上 `source: 'navigation'` 与内部 `navigationPolicy`。
 
@@ -216,6 +217,7 @@ flowchart TB
 - 渲染主要工作台
 - 展示来源信息和可信与控制状态
 - 处理主摘要和二次生成
+- 当 Bilibili 官方 AI 总结可用时，主摘要可以直接落盘并展示，不再发起模型流式请求；否则继续走常规模型生成链路
 - 在入口触发时优先复用当前页面的历史摘要，并保留当前页上下文用于重新生成
 - 维护历史 / 收藏面板
 - 导出 Markdown

@@ -1,4 +1,4 @@
-# 1.1.1 Release Checklist
+# 1.2.0 Release Checklist
 
 Last updated: 2026-05-24
 
@@ -18,6 +18,7 @@ The release package script writes `release/yilan-<version>/`, `release/yilan-<ve
 - Load the packaged extension in a fresh Chromium profile.
 - Verify popup settings, auto-save, connection profiles, provider route selection, endpoint preview, model refresh, connection test, `/v1` auto-adjustment, `endpointMode=auto` fallback, and entry status checks.
 - Verify sidebar open via context menu and `Alt + S`, primary summary, secondary generation, cancel, diagnostics, history, favorites, and deletion.
+- Verify Bilibili video pages: official AI summary path, subtitle fallback path, fallback metadata path, diagnostics panel, and `导出字幕` when subtitles are available.
 - Verify reader page copy, source link behavior, diagnostics, and missing-session fallback.
 - Verify Markdown export and share-card image export.
 - Verify light, dark, system mode, and all four palettes: `jade`, `slate`, `copper`, `plum`.
@@ -34,6 +35,6 @@ The release package script writes `release/yilan-<version>/`, `release/yilan-<ve
 ## GitHub / Community Release
 
 - Attach `release/yilan-<version>-extension.zip`.
-- Include the `CHANGELOG.md` entry for `1.1.1`.
+- Include the `CHANGELOG.md` entry for `1.2.0`.
 - Include installation instructions for Load unpacked from the zip.
-- Include known limitations: restricted browser pages cannot be injected; API behavior depends on the user's configured provider; no-trace mode does not stop sending page content to the configured model.
+- Include known limitations: restricted browser pages cannot be injected; API behavior depends on the user's configured provider; no-trace mode does not stop sending page content to the configured model; Bilibili official summaries and subtitles depend on Bilibili page/API availability and login state.
