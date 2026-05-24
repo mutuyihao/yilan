@@ -585,7 +585,7 @@
           </div>
           <div class="hero-actions">
             <a id="openSourceBtn" class="hero-btn primary" href="#" target="_blank" rel="noreferrer noopener">打开原文</a>
-            <span class="reader-version version-pill" data-yilan-version>v1.0.1</span>
+            <span class="reader-version version-pill" data-yilan-version>v1.1.1</span>
             <button id="copyBtn" class="hero-btn" type="button">复制 Markdown</button>
           </div>
         </div>
@@ -601,6 +601,12 @@
       <main id="readerContent" class="reader-content hidden">
         <article id="summaryArticle" class="markdown-body"></article>
       </main>
+
+      <nav id="readerToc" class="reader-toc hidden" aria-label="文档结构">
+        <div class="reader-toc-kicker">结构</div>
+        <div class="reader-toc-title">文档导航</div>
+        <ol id="readerTocList" class="reader-toc-list"></ol>
+      </nav>
     </div>
 
     <section id="emptyState" class="reader-empty hidden">

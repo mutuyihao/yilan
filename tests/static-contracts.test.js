@@ -427,6 +427,8 @@ test('reader page DOM, markdown rendering, copy, diagnostics, and session lookup
   assert.ok(js.includes('DOMPurify.sanitize'));
   assert.ok(js.includes('marked.parse'));
   assert.ok(js.includes('readerDiagnostics'));
+  assert.ok(js.includes('initializeReaderToc'));
+  assert.ok(js.includes('readerTocList'));
 });
 
 test('background service worker exposes entrypoints, run actions, cancellation, reader sessions, and status checks', [

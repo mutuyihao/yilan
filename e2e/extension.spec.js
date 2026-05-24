@@ -1073,8 +1073,15 @@ test.describe('Yilan extension E2E', () => {
             favorite: false,
             allowHistory: true,
             privacyMode: false,
-            summaryMarkdown: '## Snapshot Summary\n- Loaded from session snapshot fallback.',
-            summaryPlainText: 'Snapshot Summary Loaded from session snapshot fallback.'
+            summaryMarkdown: [
+              '# Snapshot Summary',
+              'Loaded from session snapshot fallback.',
+              '## Context',
+              'The reader page keeps this section available for quick jumping.',
+              '### Decision Notes',
+              'This deeper heading verifies nested document navigation.'
+            ].join('\n\n'),
+            summaryPlainText: 'Snapshot Summary Loaded from session snapshot fallback. Context The reader page keeps this section available for quick jumping. Decision Notes This deeper heading verifies nested document navigation.'
           }
         }
       });
@@ -1089,6 +1096,13 @@ test.describe('Yilan extension E2E', () => {
       await expect(readerPage.locator('#readerTitle')).toContainText('Orphan Snapshot Reader');
       await expect(readerPage.locator('#readerSourceLink')).toHaveAttribute('href', 'https://archive.example.com/orphan-reader');
       await expect(readerPage.locator('#summaryArticle')).toContainText('Loaded from session snapshot fallback.');
+      await expect(readerPage.locator('#readerToc')).toBeVisible();
+      await expect(readerPage.locator('#readerTocList .reader-toc-link')).toHaveCount(3);
+      await expect(readerPage.locator('#readerTocList')).toContainText('Decision Notes');
+      const decisionLink = readerPage.locator('#readerTocList .reader-toc-link', { hasText: 'Decision Notes' });
+      await decisionLink.click();
+      await expect(decisionLink).toHaveAttribute('aria-current', 'true');
+      await expect(readerPage).toHaveURL(/#reader-section-/);
       await expect(readerPage.locator('#emptyState')).toBeHidden();
     } finally {
       await harness.close();

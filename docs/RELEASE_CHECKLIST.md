@@ -1,6 +1,6 @@
-# 1.1.0 Release Checklist
+# 1.1.1 Release Checklist
 
-Last updated: 2026-05-08
+Last updated: 2026-05-24
 
 This checklist is the gate for both Chrome Web Store submission and the GitHub/community release package.
 
@@ -34,6 +34,6 @@ The release package script writes `release/yilan-<version>/`, `release/yilan-<ve
 ## GitHub / Community Release
 
 - Attach `release/yilan-<version>-extension.zip`.
-- Include the `CHANGELOG.md` entry for `1.1.0`.
+- Include the `CHANGELOG.md` entry for `1.1.1`.
 - Include installation instructions for Load unpacked from the zip.
 - Include known limitations: restricted browser pages cannot be injected; API behavior depends on the user's configured provider; no-trace mode does not stop sending page content to the configured model.

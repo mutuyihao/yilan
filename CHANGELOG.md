@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.1.1 - 2026-05-24
+
+- Added a floating document navigation panel to the standalone reader page based on rendered Markdown headings.
+- Improved reader navigation behavior with heading anchors, active-section highlighting, and long-title handling.
+- Removed the landing page header version pill for a cleaner navigation layout.
+
 ## 1.1.0 - 2026-05-08
 
 - Redesigned provider setup around provider selection, recommended Base URL routes, API Key entry, and connection testing.

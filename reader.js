@@ -29,6 +29,9 @@ const escapeHtml = UiFormat.escapeHtml;
 const normalizeExternalUrl = ReaderView.normalizeExternalUrl;
 const mergeSnapshotWithRecord = ReaderView.mergeSnapshotWithRecord;
 
+let readerTocScrollHandler = null;
+let readerTocFrame = 0;
+
 function getStatusLabel(status) {
   return UiLabels.getRecordStatusLabel(status, { variant: 'reader', fallback: '已完成' });
 }
@@ -85,6 +88,7 @@ function renderEmpty(title, detail) {
   $('readerHero').classList.add('hidden');
   $('readerContent').classList.add('hidden');
   $('readerDiagnostics').classList.add('hidden');
+  clearReaderToc();
   $('emptyTitle').textContent = title;
   $('emptyDetail').textContent = detail;
   $('emptyState').classList.remove('hidden');
@@ -134,6 +138,7 @@ function renderReader(snapshot) {
 
   $('summaryArticle').dataset.markdown = snapshot.summaryMarkdown || '';
   renderSanitizedMarkdownFragment($('summaryArticle'), snapshot.summaryMarkdown || '');
+  initializeReaderToc($('summaryArticle'));
 
   const diagnosticsBlock = $('readerDiagnostics');
   const diagnosticsPre = $('diagnosticsPre');
@@ -166,6 +171,144 @@ function renderSanitizedMarkdownFragment(container, markdown) {
     RETURN_DOM_FRAGMENT: true
   });
   container.replaceChildren(fragment);
+}
+
+function clearReaderToc() {
+  const toc = $('readerToc');
+  const tocList = $('readerTocList');
+
+  if (readerTocScrollHandler) {
+    window.removeEventListener('scroll', readerTocScrollHandler);
+    readerTocScrollHandler = null;
+  }
+
+  if (readerTocFrame) {
+    cancelAnimationFrame(readerTocFrame);
+    readerTocFrame = 0;
+  }
+
+  if (tocList) {
+    tocList.replaceChildren();
+  }
+
+  if (toc) {
+    toc.classList.add('hidden');
+  }
+}
+
+function getHeadingLevel(heading) {
+  return Number(String(heading.tagName || '').replace(/^H/i, '')) || 2;
+}
+
+function resolveHeadingId(heading, index, usedIds) {
+  const currentId = String(heading.id || '').trim();
+  const currentOwner = currentId ? document.getElementById(currentId) : null;
+  if (currentId && !usedIds.has(currentId) && (!currentOwner || currentOwner === heading)) {
+    usedIds.add(currentId);
+    return currentId;
+  }
+
+  let serial = index + 1;
+  let id = `reader-section-${serial}`;
+  while (usedIds.has(id)) {
+    serial += 1;
+    id = `reader-section-${serial}`;
+  }
+
+  heading.id = id;
+  usedIds.add(id);
+  return id;
+}
+
+function collectReaderHeadings(container) {
+  const usedIds = new Set();
+  return Array.from(container.querySelectorAll('h1, h2, h3, h4'))
+    .map((heading, index) => {
+      const label = String(heading.textContent || '').replace(/\s+/g, ' ').trim();
+      if (!label) return null;
+      return {
+        id: resolveHeadingId(heading, index, usedIds),
+        label,
+        level: getHeadingLevel(heading),
+        node: heading
+      };
+    })
+    .filter(Boolean);
+}
+
+function setActiveTocLink(id) {
+  const links = Array.from($('readerTocList').querySelectorAll('.reader-toc-link'));
+  links.forEach((link) => {
+    const active = link.dataset.targetId === id;
+    link.classList.toggle('active', active);
+    if (active) {
+      link.setAttribute('aria-current', 'true');
+    } else {
+      link.removeAttribute('aria-current');
+    }
+  });
+}
+
+function getReaderActivationLine() {
+  const rawValue = getComputedStyle(document.querySelector(':root')).getPropertyValue('--reader-header-height');
+  const headerHeight = Number.parseFloat(rawValue) || 64;
+  return headerHeight + Math.min(360, Math.max(180, window.innerHeight * 0.28));
+}
+
+function syncActiveTocLink(headings) {
+  if (!headings.length) return;
+
+  const activationLine = getReaderActivationLine();
+  let activeHeading = headings[0];
+  headings.forEach((heading) => {
+    if (heading.node.getBoundingClientRect().top <= activationLine) {
+      activeHeading = heading;
+    }
+  });
+  setActiveTocLink(activeHeading.id);
+}
+
+function initializeReaderToc(container) {
+  clearReaderToc();
+
+  const toc = $('readerToc');
+  const tocList = $('readerTocList');
+  const headings = collectReaderHeadings(container);
+  if (!toc || !tocList || headings.length < 2) {
+    return;
+  }
+
+  headings.forEach((heading) => {
+    const item = document.createElement('li');
+    const link = document.createElement('a');
+    item.className = 'reader-toc-item';
+    link.className = `reader-toc-link level-${Math.min(Math.max(heading.level, 1), 4)}`;
+    link.href = '#' + heading.id;
+    link.dataset.targetId = heading.id;
+    link.textContent = heading.label;
+    link.addEventListener('click', (event) => {
+      event.preventDefault();
+      heading.node.scrollIntoView({
+        behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth',
+        block: 'start'
+      });
+      history.replaceState(null, '', '#' + encodeURIComponent(heading.id));
+      setActiveTocLink(heading.id);
+    });
+    item.append(link);
+    tocList.appendChild(/** @type {any} */ (item));
+  });
+
+  toc.classList.remove('hidden');
+  readerTocScrollHandler = () => {
+    if (readerTocFrame) return;
+    readerTocFrame = requestAnimationFrame(() => {
+      readerTocFrame = 0;
+      syncActiveTocLink(headings);
+    });
+  };
+  window.addEventListener('scroll', readerTocScrollHandler, { passive: true });
+  syncActiveTocLink(headings);
 }
 
 function initializeReaderChromeState() {
