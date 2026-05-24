@@ -44,6 +44,7 @@ interface Window {
   AISummaryOpenAIAdapter: any;
   AISummaryAnthropicAdapter: any;
   AISummaryAdapterRegistry: any;
+  AISummaryBilibiliSource: any;
   YilanEntrypoints: any;
   YilanRunState: any;
   YilanReaderSessions: any;

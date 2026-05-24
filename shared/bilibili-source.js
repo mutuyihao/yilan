@@ -578,6 +578,11 @@
     ].filter(Boolean).join('\n'));
   }
 
+  function getSettledErrorMessage(settled) {
+    if (settled.status !== 'rejected') return '';
+    return settled.reason?.message || String(settled.reason || '');
+  }
+
   async function extractBilibiliVideoSource(options) {
     const doc = options?.document || global.document;
     const url = options?.url || global.location?.href || '';
@@ -625,8 +630,8 @@
 
     const navJson = navSettled.status === 'fulfilled' ? navSettled.value : null;
     const playerJson = playerSettled.status === 'fulfilled' ? playerSettled.value : null;
-    diagnostics.stages.push({ name: 'nav', code: navJson?.code, message: navJson?.message || navSettled.reason?.message || '' });
-    diagnostics.stages.push({ name: 'player', code: playerJson?.code, message: playerJson?.message || playerSettled.reason?.message || '' });
+    diagnostics.stages.push({ name: 'nav', code: navJson?.code, message: navJson?.message || getSettledErrorMessage(navSettled) });
+    diagnostics.stages.push({ name: 'player', code: playerJson?.code, message: playerJson?.message || getSettledErrorMessage(playerSettled) });
 
     let sourceText = '';
     let sourceKind = 'fallback';
