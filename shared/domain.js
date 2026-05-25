@@ -91,12 +91,26 @@
     const url = String(input?.url || '').toLowerCase();
     const host = String(input?.host || getSourceHost(url) || '').toLowerCase();
     const title = String(input?.title || '').toLowerCase();
+    const isYoutubeVideo = (
+      (host.includes('youtube.com') || host.includes('youtube-nocookie.com')) &&
+      (
+        (/\/watch(?:\?|$)/.test(url) && /[?&]v=[0-9a-z_-]{11}/i.test(url)) ||
+        /\/(?:shorts|embed|live)\/[0-9a-z_-]{11}/i.test(url)
+      )
+    ) || (
+      host.includes('youtu.be') &&
+      /\/[0-9a-z_-]{11}(?:[/?#]|$)/i.test(url)
+    );
 
     if (host.includes('github.com')) {
       return url.includes('/issues') || url.includes('/discussions') ? 'forum' : 'repo';
     }
 
     if (host.includes('bilibili.com') && /\/video\/bv[0-9a-z]{10}/i.test(url)) {
+      return 'video';
+    }
+
+    if (isYoutubeVideo) {
       return 'video';
     }
 

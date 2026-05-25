@@ -45,6 +45,7 @@ interface Window {
   AISummaryAnthropicAdapter: any;
   AISummaryAdapterRegistry: any;
   AISummaryBilibiliSource: any;
+  AISummaryYoutubeSource: any;
   YilanEntrypoints: any;
   YilanRunState: any;
   YilanReaderSessions: any;

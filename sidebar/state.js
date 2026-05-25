@@ -64,6 +64,7 @@
     copyBtn: 'copyBtn',
     shareBtn: 'shareBtn',
     exportBtn: 'exportBtn',
+    subtitleTrackSelect: 'subtitleTrackSelect',
     subtitleExportBtn: 'subtitleExportBtn',
     contentPanel: 'content',
     summaryRoot: 'summaryRoot',

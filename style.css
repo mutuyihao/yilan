@@ -584,6 +584,18 @@ body {
   white-space: nowrap;
 }
 
+.subtitle-track-select {
+  min-height: 28px;
+  min-width: 150px;
+  max-width: 100%;
+  padding: 4px 8px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text);
+  font-size: 11.5px;
+  line-height: 1.2;
+}
+
 .action-btn-primary {
   background: linear-gradient(135deg, rgba(62, 192, 160, 0.98), rgba(83, 143, 241, 0.92));
   color: #03111d;

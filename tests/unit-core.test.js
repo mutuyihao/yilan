@@ -5,6 +5,7 @@ const Strings = freshRequire('shared/strings.js');
 const PageStrategy = freshRequire('shared/page-strategy.js');
 const ArticleUtils = freshRequire('shared/article-utils.js');
 const BilibiliSource = freshRequire('shared/bilibili-source.js');
+const YoutubeSource = freshRequire('shared/youtube-source.js');
 const Trust = freshRequire('shared/trust-policy.js');
 const Errors = freshRequire('shared/errors.js');
 const AbortUtils = freshRequire('shared/abort-utils.js');
@@ -33,6 +34,8 @@ test('domain utilities normalize URLs, hosts, hashes, language, dates, and site 
   assert.strictEqual(Domain.getSourceHost('https://docs.example.com/a'), 'docs.example.com');
   assert.strictEqual(Domain.getSourceHost('not a url'), '');
   assert.strictEqual(Domain.detectSiteType({ url: 'https://www.bilibili.com/video/BV1KNokBuEYS' }), 'video');
+  assert.strictEqual(Domain.detectSiteType({ url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' }), 'video');
+  assert.strictEqual(Domain.detectSiteType({ url: 'https://youtu.be/dQw4w9WgXcQ' }), 'video');
   assert.strictEqual(
     Domain.normalizeUrl('https://example.com/post?b=2&utm_source=x&a=1&fbclid=y#section'),
     'https://example.com/post?a=1&b=2'
@@ -122,6 +125,211 @@ test('bilibili source helpers sign requests and format official summaries', [
   });
   assert.strictEqual(subtitleDebug.lineCount, 2);
   assert.ok(subtitleDebug.text.includes('[00:03] 第二条字幕'));
+});
+
+test('youtube source helpers parse video urls, captions, and player payloads', [
+  'content.extraction',
+  'content.youtube_source',
+  'page.strategy'
+], async () => {
+  const videoId = 'dQw4w9WgXcQ';
+  const playerResponse = {
+    videoDetails: {
+      videoId,
+      title: 'Demo video',
+      author: 'Demo channel',
+      channelId: 'UCdemo',
+      lengthSeconds: '125',
+      shortDescription: 'A captioned demo video.'
+    },
+    microformat: {
+      playerMicroformatRenderer: {
+        publishDate: '2026-05-01'
+      }
+    },
+    captions: {
+      playerCaptionsTracklistRenderer: {
+        captionTracks: [
+          {
+            baseUrl: 'https://www.youtube.com/api/timedtext?v=' + videoId + '&lang=en',
+            languageCode: 'en',
+            name: { simpleText: 'English' },
+            kind: 'asr',
+            vssId: 'a.en'
+          },
+          {
+            baseUrl: 'https://www.youtube.com/api/timedtext?v=' + videoId + '&lang=zh-CN',
+            languageCode: 'zh-CN',
+            name: { simpleText: 'Chinese' },
+            vssId: '.zh-CN'
+          }
+        ]
+      }
+    }
+  };
+  const doc = {
+    title: 'Demo video - YouTube',
+    querySelectorAll(selector) {
+      return selector === 'script'
+        ? [{ textContent: 'var ytInitialPlayerResponse = ' + JSON.stringify(playerResponse) + ';' }]
+        : [];
+    },
+    querySelector() {
+      return null;
+    }
+  };
+
+  assert.strictEqual(YoutubeSource.isYoutubeVideoUrl('https://www.youtube.com/watch?v=' + videoId), true);
+  assert.strictEqual(YoutubeSource.isYoutubeVideoUrl('https://www.youtube.com/playlist?list=demo'), false);
+  assert.strictEqual(YoutubeSource.extractVideoId('https://youtu.be/' + videoId + '?si=demo'), videoId);
+  assert.deepStrictEqual(YoutubeSource.readPlayerResponseFromDom(doc).videoDetails, playerResponse.videoDetails);
+  assert.deepStrictEqual(
+    YoutubeSource.parsePlayerResponseFromText('var ytInitialPlayerResponse = ' + JSON.stringify(playerResponse) + ';').videoDetails,
+    playerResponse.videoDetails
+  );
+
+  const tracks = YoutubeSource.collectCaptionTracks(playerResponse);
+  assert.strictEqual(tracks.length, 2);
+  const selected = YoutubeSource.selectCaption(tracks, { preferredLanguages: ['zh-CN'] });
+  assert.strictEqual(selected.languageCode, 'zh-CN');
+  assert.strictEqual(selected.isAutomatic, false);
+  assert.deepStrictEqual(
+    YoutubeSource.rankCaptionTracks(tracks, { preferredLanguages: ['zh-CN'] }).map((track) => track.languageCode),
+    ['zh-CN', 'en']
+  );
+
+  const jsonCaption = YoutubeSource.parseCaptionResponse(JSON.stringify({
+    events: [
+      { tStartMs: 1000, dDurationMs: 2000, segs: [{ utf8: 'Hello ' }, { utf8: 'world' }] }
+    ]
+  }));
+  assert.strictEqual(jsonCaption.format, 'json3');
+  assert.strictEqual(jsonCaption.lines[0].text, 'Hello world');
+
+  const xmlCaption = YoutubeSource.parseCaptionResponse('<transcript><text start="3" dur="1">Tom &amp; Jerry</text></transcript>');
+  assert.strictEqual(xmlCaption.format, 'xml');
+  assert.strictEqual(xmlCaption.lines[0].text, 'Tom & Jerry');
+  const singleQuoteXmlCaption = YoutubeSource.parseCaptionResponse("<transcript><text start='4' dur='1'>&#x110000;Safe</text></transcript>");
+  assert.strictEqual(singleQuoteXmlCaption.lines[0].startSeconds, 4);
+  assert.strictEqual(singleQuoteXmlCaption.lines[0].text, 'Safe');
+
+  const formatted = YoutubeSource.formatCaptionText(
+    { videoId, title: 'Demo video', author: 'Demo channel', duration: 125, description: 'A captioned demo video.' },
+    jsonCaption,
+    selected
+  );
+  assert.ok(formatted.includes('# Transcript'));
+  assert.ok(formatted.includes('[00:01] Hello world'));
+
+  const previousFetch = global.fetch;
+  let requestedUrl = '';
+  global.fetch = async (url) => {
+    requestedUrl = String(url);
+    return {
+      ok: true,
+      status: 200,
+      text: async () => JSON.stringify({
+        events: [{ tStartMs: 1000, dDurationMs: 2000, segs: [{ utf8: '你好 YouTube' }] }]
+      })
+    };
+  };
+  try {
+    const source = await YoutubeSource.extractYoutubeVideoSource({
+      document: doc,
+      url: 'https://www.youtube.com/watch?v=' + videoId,
+      preferredLanguages: ['zh-CN']
+    });
+    assert.strictEqual(source.sourceKind, 'caption');
+    assert.strictEqual(source.title, 'Demo video');
+    assert.ok(source.text.includes('[00:01] 你好 YouTube'));
+    assert.strictEqual(source.diagnostics.debug.captions.usedAsSource, true);
+    assert.ok(source.diagnostics.debug.captions.candidates[0].captionUrl.includes('api/timedtext'));
+    assert.ok(requestedUrl.includes('fmt=json3'));
+  } finally {
+    global.fetch = previousFetch;
+  }
+
+  const previousFetchForCaptionFallback = global.fetch;
+  const captionFallbackUrls = [];
+  global.fetch = async (url) => {
+    captionFallbackUrls.push(String(url));
+    if (String(url).includes('lang=zh-CN')) {
+      return {
+        ok: false,
+        status: 403,
+        text: async () => 'forbidden'
+      };
+    }
+
+    return {
+      ok: true,
+      status: 200,
+      text: async () => JSON.stringify({
+        events: [{ tStartMs: 3000, dDurationMs: 1000, segs: [{ utf8: 'English fallback captions' }] }]
+      })
+    };
+  };
+  try {
+    const fallbackSource = await YoutubeSource.extractYoutubeVideoSource({
+      document: doc,
+      url: 'https://www.youtube.com/watch?v=' + videoId,
+      preferredLanguages: ['zh-CN']
+    });
+    assert.strictEqual(fallbackSource.sourceKind, 'caption');
+    assert.ok(fallbackSource.text.includes('[00:03] English fallback captions'));
+    assert.strictEqual(fallbackSource.diagnostics.debug.captions.selectedLanguageCode, 'en');
+    assert.strictEqual(fallbackSource.diagnostics.debug.captions.attemptedCount, 2);
+    assert.ok(fallbackSource.diagnostics.debug.captions.errors[0].includes('zh-CN'));
+    assert.strictEqual(captionFallbackUrls.length, 2);
+  } finally {
+    global.fetch = previousFetchForCaptionFallback;
+  }
+
+  const fallbackDoc = {
+    title: 'YouTube',
+    querySelectorAll() {
+      return [];
+    },
+    querySelector() {
+      return null;
+    }
+  };
+  const previousFetchForWatchHtml = global.fetch;
+  const requests = [];
+  global.fetch = async (url) => {
+    requests.push(String(url));
+    if (requests.length === 1) {
+      return {
+        ok: true,
+        status: 200,
+        text: async () => '<!doctype html><script>var ytInitialPlayerResponse = ' + JSON.stringify(playerResponse) + ';</script>'
+      };
+    }
+
+    return {
+      ok: true,
+      status: 200,
+      text: async () => JSON.stringify({
+        events: [{ tStartMs: 2000, dDurationMs: 1000, segs: [{ utf8: 'Fetched watch HTML captions' }] }]
+      })
+    };
+  };
+  try {
+    const source = await YoutubeSource.extractYoutubeVideoSource({
+      document: fallbackDoc,
+      url: 'https://www.youtube.com/watch?v=' + videoId,
+      preferredLanguages: ['zh-CN']
+    });
+    assert.strictEqual(source.sourceKind, 'caption');
+    assert.strictEqual(source.title, 'Demo video');
+    assert.strictEqual(source.diagnostics.debug.playerResponseSource, 'watch_html');
+    assert.strictEqual(source.diagnostics.debug.watchHtml.ok, true);
+    assert.ok(requests[0].includes('/watch?v=' + videoId));
+    assert.ok(requests[1].includes('api/timedtext'));
+    assert.ok(source.text.includes('[00:02] Fetched watch HTML captions'));
+  } finally {
+    global.fetch = previousFetchForWatchHtml;
+  }
 });
 
 test('page strategies cover all page types and fall back safely', 'page.strategy', () => {
@@ -429,6 +637,61 @@ test('run utilities describe cancellation, progress, diagnostics, and terminal p
   assert.strictEqual(Object.prototype.hasOwnProperty.call(persistedDebug.subtitles, 'text'), false);
   assert.ok(persistedDebug.subtitles.textPreview.includes('[00:01]'));
   assert.strictEqual(Object.prototype.hasOwnProperty.call(persistedDebug.subtitles, 'subtitleUrl'), false);
+
+  const youtubeDiagnostics = {
+    article: {
+      sourceHost: 'www.youtube.com',
+      sourceType: 'video',
+      diagnostics: {
+        youtube: {
+          sourceKind: 'caption',
+          stages: [{ name: 'caption', code: 'ok', languageCode: 'en', languageName: 'English' }],
+          debug: {
+            selectedSource: 'caption',
+            video: {
+              videoId: 'dQw4w9WgXcQ',
+              title: 'Demo video',
+              author: 'Demo channel'
+            },
+            captions: {
+              attempted: true,
+              availableCount: 1,
+              selectedLanguageCode: 'en',
+              selectedLanguageName: 'English',
+              lineCount: 1,
+              text: '[00:01] Hello YouTube',
+              jsonText: '{"lines":[{"text":"Hello YouTube"}]}',
+              captionUrl: 'https://www.youtube.com/api/timedtext?v=dQw4w9WgXcQ',
+              candidates: [
+                {
+                  languageCode: 'en',
+                  languageName: 'English',
+                  captionUrl: 'https://www.youtube.com/api/timedtext?v=dQw4w9WgXcQ&lang=en'
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    finalRun: {
+      status: 'starting',
+      stage: 'primary'
+    }
+  };
+  const youtubeSummary = RunUtils.buildDiagnosticsSummary(youtubeDiagnostics, {});
+  assert.ok(youtubeSummary.includes('YouTube video extraction debug'));
+  assert.ok(youtubeSummary.includes('Full captions'));
+  assert.ok(youtubeSummary.includes('[00:01] Hello YouTube'));
+
+  const persistentYoutubeDiagnostics = RunUtils.sanitizeDiagnosticsForPersistence(youtubeDiagnostics);
+  const youtubeDebug = persistentYoutubeDiagnostics.article.diagnostics.youtube.debug;
+  assert.strictEqual(youtubeDebug.fullSourceDebugPersisted, false);
+  assert.strictEqual(Object.prototype.hasOwnProperty.call(youtubeDebug.captions, 'text'), false);
+  assert.strictEqual(Object.prototype.hasOwnProperty.call(youtubeDebug.captions, 'jsonText'), false);
+  assert.strictEqual(Object.prototype.hasOwnProperty.call(youtubeDebug.captions, 'captionUrl'), false);
+  assert.strictEqual(Object.prototype.hasOwnProperty.call(youtubeDebug.captions.candidates[0], 'captionUrl'), false);
+  assert.ok(youtubeDebug.captions.textPreview.includes('[00:01]'));
 
   const patch = RunUtils.buildTerminalRecordPatch({ provider: 'fallback' }, diagnostics, 'failed', { errorCode: 'X' });
   assert.strictEqual(patch.status, 'failed');
