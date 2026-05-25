@@ -406,6 +406,9 @@ button {
 
 .proof-strip,
 .feature-card,
+.source-card,
+.source-note,
+.limit-card,
 .shot-frame,
 .faq-card,
 .cta-band,
@@ -473,8 +476,10 @@ button {
 }
 
 .section-grid,
+.bilibili-section,
 .workflow-section,
 .shots-section,
+.limits-section,
 .faq-section {
   padding-top: 84px;
 }
@@ -512,6 +517,8 @@ button {
 }
 
 .feature-card h3,
+.source-card h3,
+.limit-card h3,
 .faq-card h3 {
   margin-top: 0;
   margin-bottom: 10px;
@@ -520,8 +527,74 @@ button {
 }
 
 .feature-card p,
+.source-card p,
+.source-note p,
+.limit-card p,
 .faq-card p {
   margin: 0;
+}
+
+.source-flow-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.source-card,
+.limit-card {
+  border-radius: var(--radius-lg);
+  padding: 24px;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--accent) 9%, transparent), transparent 64%),
+    var(--surface);
+}
+
+.source-card {
+  min-height: 260px;
+}
+
+.source-step {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  min-height: 32px;
+  margin-bottom: 18px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+
+.source-note {
+  display: grid;
+  grid-template-columns: 0.34fr 0.66fr;
+  gap: 18px;
+  align-items: center;
+  margin-top: 18px;
+  border-radius: var(--radius-xl);
+  padding: 22px 24px;
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--accent) 12%, transparent), transparent 70%),
+    var(--surface);
+}
+
+.source-note strong {
+  display: block;
+  font-size: 20px;
+  letter-spacing: -0.02em;
+}
+
+.limit-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.limit-card {
+  min-height: 190px;
 }
 
 .workflow-grid {
@@ -595,8 +668,11 @@ button {
   .hero-section,
   .proof-strip,
   .feature-grid,
+  .source-flow-grid,
+  .source-note,
   .workflow-grid,
   .shots-grid,
+  .limit-grid,
   .faq-grid,
   .cta-band {
     grid-template-columns: 1fr;
@@ -646,6 +722,9 @@ button {
 
   .proof-item,
   .feature-card,
+  .source-card,
+  .source-note,
+  .limit-card,
   .faq-card,
   .workflow-copy,
   .cta-band,
