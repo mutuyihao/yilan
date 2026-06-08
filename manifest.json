@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "一览 - AI 阅读工作台",
-  "description": "一览：稳定的网页与 B 站视频 AI 摘要扩展，支持长文分段、字幕导出、历史记录、分享卡与多接口适配。",
+  "description": "一览：稳定的网页、YouTube 与 B 站视频 AI 摘要扩展，支持长文分段、字幕导出、历史记录、分享卡与多接口适配。",
   "version": "1.3.0",
   "icons": {
     "16": "icon/icon16.png",
