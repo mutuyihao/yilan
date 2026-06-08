@@ -82,7 +82,7 @@
       strategyId: 'video_digest',
       label: '视频速览',
       description: '优先视频主题、官方 AI 总结、字幕要点、时间线与可复看片段。',
-      promptFocus: '请优先整理视频主题、核心观点、关键事实、分段时间线和可复看的重点片段；如果内容来自 Bilibili 官方 AI 总结或字幕，请说明依据边界，不要补充视频中没有的信息。',
+      promptFocus: '请优先整理视频主题、核心观点、关键事实、分段时间线和可复看的重点片段；如果内容来自 Bilibili 官方 AI 总结、B 站字幕或 YouTube 字幕，请说明依据边界，不要补充视频中没有的信息。',
       chunkPromptFocus: '请只总结当前字幕或视频片段中的观点、事实、例子和时间点，保留重要时间戳。',
       synthesisPromptFocus: '请把分段结果整合成一份视频速览，按核心结论、时间线、关键片段和后续可复看点组织。',
       secondaryPromptFocus: '二次生成时优先把视频内容转成行动项、问答卡片或复盘清单，并保留必要时间戳。',

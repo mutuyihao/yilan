@@ -4,6 +4,7 @@ if (!window.__aiSummaryInjected) {
   const Domain = window.AISummaryDomain;
   const ArticleUtils = window.AISummaryArticle;
   const BilibiliSource = window.AISummaryBilibiliSource;
+  const YoutubeSource = window.AISummaryYoutubeSource;
   const Constants = window.AISummaryConstants;
   const SIDEBAR_FRAME_ID = 'ai-summary-sidebar';
   const SIDEBAR_FRAME_WIDTH = 420;
@@ -92,6 +93,54 @@ if (!window.__aiSummaryInjected) {
   }
 
   async function extractCurrentPageSnapshot() {
+    if (YoutubeSource?.isYoutubeVideoUrl?.(location.href)) {
+      try {
+        let playerResponse = null;
+        try {
+          const response = await new Promise((resolve, reject) => {
+            chrome.runtime.sendMessage({ action: 'getYoutubePlayerResponse' }, (res) => {
+              if (chrome.runtime.lastError) {
+                reject(new Error(chrome.runtime.lastError.message));
+              } else {
+                resolve(res);
+              }
+            });
+          });
+          if (response?.success && response.playerResponse) {
+            playerResponse = response.playerResponse;
+          }
+        } catch (err) {
+          console.warn('[Yilan] Failed to get player response from background:', err);
+        }
+
+        const source = await YoutubeSource.extractYoutubeVideoSource({
+          document,
+          url: location.href,
+          playerResponse
+        });
+
+        if (source?.text) {
+          return ArticleUtils.buildArticleSnapshot({
+            title: source.title,
+            text: source.text,
+            excerpt: source.excerpt,
+            sourceUrl: source.sourceUrl,
+            meta: source.meta,
+            sourceType: 'video',
+            extractor: 'youtube_' + (source.sourceKind || 'fallback'),
+            diagnostics: {
+              videoSource: 'youtube',
+              videoSourceKind: source.sourceKind || 'fallback',
+              youtube: source.diagnostics || null
+            },
+            maxChars: 42000
+          });
+        }
+      } catch (error) {
+        console.warn('[Yilan] YouTube video extraction failed, falling back to page text.', error);
+      }
+    }
+
     if (BilibiliSource?.isBilibiliVideoUrl?.(location.href)) {
       try {
         const source = await BilibiliSource.extractBilibiliVideoSource({

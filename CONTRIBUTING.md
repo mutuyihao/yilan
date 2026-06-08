@@ -81,7 +81,7 @@ npm run typecheck
 
 出现以下变化时，需要同步更新：
 
-- 用户操作流程变化：更新 `README.md` 和 `docs/USER_GUIDE.md`
+- 用户操作流程变化：更新 `README.md`、`README.en.md`、`README.zh-CN.md` 和 `docs/USER_GUIDE.md`
 - 架构、消息链路、数据模型变化：更新 `docs/TECHNICAL_ARCHITECTURE.md`
 - 验证方式和开发流程变化：更新 `docs/DEVELOPER_GUIDE.md`
 - 贡献流程或公开仓库边界变化：更新 `CONTRIBUTING.md`

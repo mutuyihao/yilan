@@ -6,7 +6,7 @@
   <title>一览 Yilan | 把网页变成可回看的工作台</title>
   <meta
     name="description"
-    content="一览是一个面向 Chromium 浏览器的 AI 阅读与摘要扩展，支持网页抽取、结构化总结、二次生成、历史沉淀与专注阅读。"
+    content="一览是一个面向 Chromium 浏览器的 AI 阅读与摘要扩展，支持网页抽取、Bilibili 视频总结、结构化摘要、二次生成、历史沉淀与专注阅读。"
   >
   <meta name="theme-color" content="#F7FAF7">
   <link rel="icon" type="image/svg+xml" href="./assets/brand/favicon.svg">
@@ -14,7 +14,7 @@
   <meta property="og:title" content="一览 Yilan | 把网页变成可回看的工作台">
   <meta
     property="og:description"
-    content="网页抽取、结构化总结、行动项、术语表、问答卡片、历史沉淀与专注阅读，一页看懂一览能做什么。"
+    content="网页抽取、Bilibili 官方 AI 总结或字幕回退、结构化总结、行动项、术语表、问答卡片、历史沉淀与专注阅读。"
   >
   <meta property="og:type" content="website">
   <meta
@@ -74,8 +74,10 @@
       </a>
       <nav class="site-nav" aria-label="主导航">
         <a href="#features">能力</a>
+        <a href="#bilibili">B 站</a>
         <a href="#workflow">流程</a>
         <a href="#shots">产品细节</a>
+        <a href="#limits">边界</a>
         <a href="#faq">FAQ</a>
       </nav>
       <div class="header-actions">
@@ -105,6 +107,7 @@
           </div>
           <ul class="hero-points">
             <li>BYOK：使用你自己的 API Key</li>
+            <li>Bilibili：官方 AI 总结、字幕回退与字幕导出</li>
             <li>结构化总结 + 二次生成（行动项 / 术语表 / 问答卡片）</li>
             <li>本地历史、收藏与检索</li>
           </ul>
@@ -151,7 +154,7 @@
         <div class="feature-grid">
           <article class="feature-card accent-a">
             <h3>自动理解网页上下文</h3>
-            <p>提取正文、标题、作者、发布时间和站点信息；Bilibili 视频页会优先使用官方 AI 总结或字幕来源。</p>
+            <p>提取正文、标题、作者、发布时间和站点信息；Bilibili 视频页会按官方 AI 总结、字幕、标题/简介回退的顺序构建来源。</p>
           </article>
           <article class="feature-card accent-b">
             <h3>多种摘要与二次生成模式</h3>
@@ -165,6 +168,34 @@
             <h3>专注阅读与分享</h3>
             <p>支持带文档导航的独立阅读页、Markdown 导出、B 站字幕导出，以及带来源链接的长截图分享卡。</p>
           </article>
+        </div>
+      </section>
+
+      <section id="bilibili" class="bilibili-section">
+        <div class="section-heading compact">
+          <div class="eyebrow">Bilibili</div>
+          <h2>视频页不只抓标题，而是优先拿到最可靠的可读来源</h2>
+        </div>
+        <div class="source-flow-grid">
+          <article class="source-card">
+            <span class="source-step">01</span>
+            <h3>官方 AI 总结优先</h3>
+            <p>在 <code>bilibili.com/video/BV...</code> 页面触发后，一览会先尝试读取 B 站官方 AI 总结和分段大纲。可用时，主摘要可直接使用官方结果，不额外请求你的模型服务。</p>
+          </article>
+          <article class="source-card">
+            <span class="source-step">02</span>
+            <h3>字幕回退</h3>
+            <p>官方总结不可用时，会读取播放器和视频接口中的字幕轨道，优先选择中文或中文相关字幕，再交给你配置的模型服务生成结构化摘要。</p>
+          </article>
+          <article class="source-card">
+            <span class="source-step">03</span>
+            <h3>元信息兜底</h3>
+            <p>如果官方总结和字幕都不可用，会退回到标题、UP 主、分 P、时长、简介和页面可见信息，给出明确标注边界的视频信息概要。</p>
+          </article>
+        </div>
+        <div class="source-note">
+          <strong>可导出字幕，也可看诊断。</strong>
+          <p>当字幕内容可用时，侧栏会显示“导出字幕”；诊断面板会记录 <code>view</code>、<code>nav</code>、<code>player</code>、<code>official_ai_summary</code>、<code>subtitle</code> 等来源阶段，方便判断本次摘要到底来自哪里。</p>
         </div>
       </section>
 
@@ -182,7 +213,7 @@
               </li>
               <li>
                 <strong>得到结构化结果</strong>
-                <p>根据网页或 Bilibili 视频来源生成摘要，也可以继续转成行动项、术语表或问答卡片。</p>
+                <p>根据网页正文或 Bilibili 视频来源生成摘要，也可以继续转成行动项、术语表或问答卡片。</p>
               </li>
               <li>
                 <strong>沉淀下来继续使用</strong>
@@ -239,6 +270,31 @@
         </div>
       </section>
 
+      <section id="limits" class="limits-section">
+        <div class="section-heading compact">
+          <div class="eyebrow">Limits & Disclaimer</div>
+          <h2>使用边界说清楚：哪些能做，哪些不能承诺</h2>
+        </div>
+        <div class="limit-grid">
+          <article class="limit-card">
+            <h3>B 站支持范围</h3>
+            <p>当前稳定支持 <code>bilibili.com/video/BV...</code> 视频页。番剧、直播、专栏、动态、收藏夹、搜索页等页面可能降级为普通网页处理，或无法拿到视频级来源。</p>
+          </article>
+          <article class="limit-card">
+            <h3>接口与登录态限制</h3>
+            <p>官方 AI 总结、字幕、分 P 信息和播放器数据依赖 B 站页面/API、视频是否支持、地区与权限、当前浏览器登录态。接口变化或无可用字幕时，结果可能降级或失败。</p>
+          </article>
+          <article class="limit-card">
+            <h3>数据发送边界</h3>
+            <p>官方总结可用时主结果可不请求你的模型服务；走字幕或页面信息回退时，相关文本会发送给你配置的模型服务。无痕模式只控制是否写入本地历史。</p>
+          </article>
+          <article class="limit-card">
+            <h3>免责说明</h3>
+            <p>一览不是 Bilibili 官方产品，也不代表 Bilibili 授权或背书。摘要和字幕导出仅用于个人阅读辅助，不是官方转写或事实准确性保证；请遵守版权、平台规则和原作者权益。</p>
+          </article>
+        </div>
+      </section>
+
       <section class="cta-band">
         <div>
           <div class="eyebrow">KEEP OPENSOURCE</div>
@@ -267,6 +323,10 @@
           <article class="faq-card">
             <h3>生成成功了，为什么历史里没有？</h3>
             <p>通常是因为开启了无痕模式，或者关闭了“默认写入历史”。在这两种情况下，结果只会停留在当前侧栏，不会进入本地历史，也不能加入收藏。</p>
+          </article>
+          <article class="faq-card">
+            <h3>Bilibili 视频没有官方总结或字幕怎么办？</h3>
+            <p>一览会自动降级到标题、简介、UP 主、分 P 和页面可见信息。此时结果更像视频信息概要，不等同于完整内容总结。</p>
           </article>
           <article class="faq-card">
             <h3>哪些网页可能无法提取？</h3>

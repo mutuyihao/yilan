@@ -200,7 +200,9 @@ node tests/run-tests.js
 
 稳定说明：
 
-- `README.md`：项目概览、快速开始、验证入口
+- `README.md`：中文默认项目概览、快速开始、验证入口
+- `README.en.md`：英文项目概览
+- `README.zh-CN.md`：中文兼容入口，保留给旧链接使用
 - `docs/README.md`：文档索引与文档分工
 - `docs/USER_GUIDE.md`：用户视角的功能和行为
 - `docs/TECHNICAL_ARCHITECTURE.md`：代码边界、数据模型、存储和运行链路
@@ -214,10 +216,10 @@ node tests/run-tests.js
 
 出现以下变化时，需要同步更新：
 
-- 用户操作流程变化：更新 `README.md` 和 `docs/USER_GUIDE.md`
+- 用户操作流程变化：更新 `README.md`、`README.en.md`、`README.zh-CN.md` 和 `docs/USER_GUIDE.md`
 - 架构边界、消息链路、数据模型变化：更新 `docs/TECHNICAL_ARCHITECTURE.md`
 - 测试命令、覆盖策略、验证入口变化：更新 `docs/TESTING.md` 和 `docs/DEVELOPER_GUIDE.md`
-- 文档入口或文档分工变化：更新 `README.md` 和 `docs/README.md`
+- 文档入口或文档分工变化：更新 `README.md`、`README.en.md`、`README.zh-CN.md` 和 `docs/README.md`
 - 产品升级方向、行为等价重构路线变化：更新 `docs/UPGRADE_DESIGN.md`
 - TypeScript、构建链、框架迁移变化：更新 `docs/TS_REACT_MIGRATION.md`
 - 贡献约定变化：更新 `CONTRIBUTING.md`

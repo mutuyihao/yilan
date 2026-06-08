@@ -146,6 +146,7 @@ test('manifest declares MV3 shell, entrypoints, permissions, and accessible reso
     'shared/domain.js',
     'shared/article-utils.js',
     'shared/bilibili-source.js',
+    'shared/youtube-source.js',
     'shared/trust-policy.js',
     'libs/purify.min.js',
     'libs/marked.min.js',
@@ -261,8 +262,13 @@ test('sidebar page DOM, scripts, actions, history, export, share, and reader con
   assert.ok(js.includes('SidebarExport.createExportController'));
   assert.ok(js.includes('exportController.exportMarkdown'));
   assert.ok(js.includes('exportController.exportShareImage'));
+  assert.ok(js.includes('exportController.exportVideoSubtitle'));
+  assert.ok(js.includes('exportController.getVideoSubtitleOptions'));
   assert.ok(exportJs.includes('global.YilanSidebarExport = api'));
   assert.ok(exportJs.includes('function exportMarkdown()'));
+  assert.ok(exportJs.includes('function exportVideoSubtitle()'));
+  assert.ok(exportJs.includes('function getVideoSubtitleOptions()'));
+  assert.ok(exportJs.includes('function hasVideoSubtitleArtifact()'));
   assert.ok(exportJs.includes('function exportShareImage()'));
   assert.ok(exportJs.includes('html2canvasImpl(card'));
   assert.strictEqual(countMatches(js, /function exportMarkdown\(/g), 0);
@@ -510,7 +516,9 @@ test('content script extraction, sidebar injection, and SPA navigation contracts
   assert.ok(js.includes('new Readability'));
   assert.ok(js.includes('ArticleUtils.buildArticleSnapshot'));
   assert.ok(js.includes('BilibiliSource.extractBilibiliVideoSource'));
+  assert.ok(js.includes('YoutubeSource.extractYoutubeVideoSource'));
   assert.ok(readText('background.js').includes("'shared/bilibili-source.js'"));
+  assert.ok(readText('background.js').includes("'shared/youtube-source.js'"));
   assert.ok(js.includes('createSidebarFrame'));
   assert.ok(js.includes('injectSidebar'));
   assert.ok(js.includes('postToExistingSidebar'));

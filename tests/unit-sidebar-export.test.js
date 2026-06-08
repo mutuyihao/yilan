@@ -34,3 +34,183 @@ test('sidebar export helpers sanitize filenames and build bounded source quotes'
     '模型：custom-model'
   );
 });
+
+test('sidebar export controller resolves current video subtitle artifacts generically', [
+  'export.bilibili_subtitle',
+  'export.video_subtitle',
+  'content.youtube_source'
+], async () => {
+  const SidebarExport = freshRequire('sidebar/export.js');
+  const subtitleTrackSelect = { value: '' };
+  let state = {
+    article: {
+      sourceType: 'video',
+      title: 'YouTube clip',
+      diagnostics: {
+        videoSource: 'youtube',
+        youtube: {
+          debug: {
+            captions: {
+              attempted: true,
+              textPreview: '[00:01] trimmed only'
+            }
+          }
+        }
+      }
+    },
+    lastDiagnostics: {
+      article: {
+        diagnostics: {
+          youtube: {
+            debug: {
+              captions: {
+                languageCode: 'en',
+                languageName: 'English',
+                isAutomatic: true,
+                text: '[00:01] trimmed only'
+              }
+            }
+          },
+          bilibili: {
+            debug: {
+              subtitles: {
+                text: '[00:01] stale subtitle'
+              }
+            }
+          }
+        }
+      }
+    },
+    summaryMarkdown: ''
+  };
+  const controller = SidebarExport.createExportController({
+    getState: () => state,
+    getElements: () => ({ summaryModeSelect: { value: 'medium' }, subtitleTrackSelect }),
+    getCurrentArticle: () => state.article,
+    getCurrentRecord: () => null,
+    createArticleFromRecord: () => null,
+    getShareCardThemePalette: () => ({}),
+    sanitizeMarkdownToHtml: (value) => value,
+    getStrategyLabel: () => '',
+    getModeLabel: () => '',
+    formatDateTime: () => '',
+    escapeHtml: (value) => String(value || ''),
+    setStatus: () => {},
+    wait: async () => {}
+  });
+
+  assert.strictEqual(controller.hasVideoSubtitleArtifact(), true);
+  assert.deepStrictEqual(
+    controller.getVideoSubtitleOptions().map((option) => option.key),
+    ['youtube-current']
+  );
+
+  state = {
+    article: {
+      sourceType: 'video',
+      title: 'YouTube clip without captions',
+      diagnostics: {
+        videoSource: 'youtube',
+        youtube: {
+          debug: {
+            captions: {
+              attempted: false
+            }
+          }
+        }
+      }
+    },
+    lastDiagnostics: {
+      article: {
+        diagnostics: {
+          bilibili: {
+            debug: {
+              subtitles: {
+                text: '[00:01] stale subtitle'
+              }
+            }
+          }
+        }
+      }
+    },
+    summaryMarkdown: ''
+  };
+
+  assert.strictEqual(controller.hasVideoSubtitleArtifact(), false);
+
+  state = {
+    article: {
+      sourceType: 'video',
+      title: 'YouTube translated track',
+      sourceUrl: 'https://www.youtube.com/watch?v=demo',
+      diagnostics: {
+        videoSource: 'youtube',
+        youtube: {
+          debug: {
+            captions: {
+              attempted: true,
+              languageCode: 'zh-Hans',
+              languageName: 'Chinese',
+              isAutomatic: true,
+              isTranslated: true,
+              sourceLanguageCode: 'en',
+              sourceLanguageName: 'English',
+              translationLanguageCode: 'zh-Hans',
+              translationLanguageName: 'Chinese',
+              text: '[00:02] summary-used caption',
+              jsonText: '{"lines":[{"startSeconds":2,"text":"summary-used caption"}]}'
+            }
+          }
+        }
+      }
+    },
+    summaryMarkdown: ''
+  };
+  subtitleTrackSelect.value = 'stale-option';
+  const originalDocumentForSingle = global.document;
+  const originalFetchForSingle = global.fetch;
+  const originalCreateObjectURLForSingle = global.URL.createObjectURL;
+  const originalRevokeObjectURLForSingle = global.URL.revokeObjectURL;
+  const singleDownloads = [];
+  let singleBlob = null;
+  global.document = {
+    body: {
+      appendChild() {}
+    },
+    createElement() {
+      return {
+        href: '',
+        download: '',
+        click() {
+          singleDownloads.push(this.download);
+        },
+        remove() {}
+      };
+    }
+  };
+  global.URL.createObjectURL = (blob) => {
+    singleBlob = blob;
+    return 'blob:single';
+  };
+  global.URL.revokeObjectURL = () => {};
+  global.fetch = async () => {
+    throw new Error('subtitle export should not fetch YouTube again');
+  };
+
+  try {
+    assert.deepStrictEqual(
+      controller.getVideoSubtitleOptions().map((option) => option.key),
+      ['youtube-current']
+    );
+    await controller.exportVideoSubtitle();
+    assert.strictEqual(singleDownloads.length, 1);
+    assert.ok(singleDownloads[0].endsWith('-subtitle-zh-Hans.txt'));
+    const singleText = await singleBlob.text();
+    assert.strictEqual(singleText, '[00:02] summary-used caption');
+  } finally {
+    global.document = originalDocumentForSingle;
+    global.fetch = originalFetchForSingle;
+    global.URL.createObjectURL = originalCreateObjectURLForSingle;
+    global.URL.revokeObjectURL = originalRevokeObjectURLForSingle;
+  }
+});

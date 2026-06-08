@@ -1,6 +1,6 @@
 # Privacy Policy — Yilan
 
-**Last Updated: 2026-05-24**
+**Last Updated: 2026-05-25**
 
 Official website: https://yilan.app
 Source code: https://github.com/mutuyihao/yilan
@@ -27,6 +27,8 @@ When you generate a summary, the **article content from the current webpage** is
 - Please review the privacy policy of your chosen AI provider to understand how they handle the data.
 
 On Bilibili video pages, Yilan may request Bilibili video metadata, official AI summary, player, and subtitle endpoints from your browser session after you trigger summarization. If Bilibili provides an official AI summary, Yilan can use that as the primary result without sending the video text to your configured AI provider. If no official summary is available, subtitle text or fallback video information may be sent to your configured AI provider to generate the summary.
+
+Bilibili support depends on Bilibili page/API availability, video support, permissions, region behavior, and the current browser login state. Yilan is not an official Bilibili product and is not affiliated with, endorsed by, or warranted by Bilibili.
 
 ## Permissions Explained
 

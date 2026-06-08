@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.3.0 - 2026-06-08
+
+- Added YouTube video summaries with caption-based source extraction, player-response discovery, and metadata fallback.
+- Improved YouTube caption recovery across DOM, watch HTML, InnerTube, JSON/XML formats, translated candidates, and stale SPA player responses.
+- Simplified YouTube subtitle export to reuse the summary-selected subtitle artifact and preserve translated track metadata.
+- Added unit coverage for YouTube extraction, diagnostics persistence, and video subtitle export behavior.
+
 ## 1.2.0 - 2026-05-24
 
 - Added Bilibili video-page summaries with a dedicated extractor for video metadata, official Bilibili AI summaries, subtitles, and fallback page information.

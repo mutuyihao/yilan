@@ -69,41 +69,222 @@
       return getCurrentArticle() || createArticleFromRecord(getCurrentRecord());
     }
 
-    function getBilibiliDiagnostics() {
+    function getVideoDiagnosticsList() {
       const state = getState() || {};
       const article = resolveArticle();
-      return state.lastDiagnostics?.article?.diagnostics?.bilibili ||
-        article?.diagnostics?.bilibili ||
-        getCurrentRecord()?.diagnostics?.article?.diagnostics?.bilibili ||
-        null;
+      const record = getCurrentRecord();
+      return [
+        article?.diagnostics,
+        record?.articleSnapshot?.diagnostics,
+        record?.diagnostics?.article?.diagnostics,
+        state.lastDiagnostics?.article?.diagnostics
+      ].filter(Boolean);
     }
 
-    function getBilibiliSubtitleArtifact() {
-      const subtitles = getBilibiliDiagnostics()?.debug?.subtitles || null;
-      if (!subtitles) return null;
-      const jsonText = String(subtitles.jsonText || '').trim();
-      if (jsonText) {
-        return {
-          text: jsonText,
-          extension: 'json',
-          mimeType: 'application/json;charset=utf-8'
-        };
-      }
-
-      const text = String(subtitles.text || '').trim();
-      if (text) {
-        return {
-          text,
-          extension: 'txt',
-          mimeType: 'text/plain;charset=utf-8'
-        };
+    function getVideoDiagnostics(provider) {
+      for (const diagnostics of getVideoDiagnosticsList()) {
+        if (provider && diagnostics?.[provider]) return diagnostics[provider];
+        if (!provider && (diagnostics?.youtube || diagnostics?.bilibili)) {
+          return diagnostics.youtube || diagnostics.bilibili;
+        }
       }
 
       return null;
     }
 
+    function getCurrentVideoProvider() {
+      const article = resolveArticle();
+      const record = getCurrentRecord();
+      const diagnostics = article?.diagnostics ||
+        record?.articleSnapshot?.diagnostics ||
+        record?.diagnostics?.article?.diagnostics ||
+        null;
+      if (diagnostics?.videoSource) return String(diagnostics.videoSource);
+      if (diagnostics?.youtube) return 'youtube';
+      if (diagnostics?.bilibili) return 'bilibili';
+      return '';
+    }
+
+    function getBilibiliDiagnostics() {
+      return getVideoDiagnostics('bilibili');
+    }
+
+    function getYoutubeDiagnostics() {
+      return getVideoDiagnostics('youtube');
+    }
+
+    function buildSubtitleArtifact(payload, provider, extra) {
+      if (!payload) return null;
+      const text = String(payload.text || '').trim();
+      if (provider === 'youtube' && text) {
+        return Object.assign({
+          text,
+          extension: 'txt',
+          mimeType: 'text/plain;charset=utf-8',
+          provider
+        }, extra || {});
+      }
+
+      const jsonText = String(payload.jsonText || '').trim();
+      if (jsonText) {
+        return Object.assign({
+          text: jsonText,
+          extension: 'json',
+          mimeType: 'application/json;charset=utf-8',
+          provider
+        }, extra || {});
+      }
+
+      if (text) {
+        return Object.assign({
+          text,
+          extension: 'txt',
+          mimeType: 'text/plain;charset=utf-8',
+          provider
+        }, extra || {});
+      }
+
+      return null;
+    }
+
+    function getProviderLabelForSubtitle(provider) {
+      if (provider === 'youtube') return 'YouTube';
+      if (provider === 'bilibili') return 'Bilibili';
+      return provider || 'video';
+    }
+
+    function getCaptionLanguageLabel(payload) {
+      return [
+        payload?.selectedLanguageName || payload?.languageName || '',
+        payload?.selectedLanguageCode || payload?.languageCode || ''
+      ].filter(Boolean).join(' / ');
+    }
+
+    function getSubtitleArtifactForProvider(provider) {
+      for (const diagnostics of getVideoDiagnosticsList()) {
+        const payload = provider === 'youtube'
+          ? diagnostics?.youtube?.debug?.captions
+          : diagnostics?.bilibili?.debug?.subtitles;
+        const artifact = buildSubtitleArtifact(payload || null, provider, {
+          languageCode: payload?.selectedLanguageCode || payload?.languageCode || '',
+          languageName: payload?.selectedLanguageName || payload?.languageName || '',
+          isAutomatic: !!payload?.isAutomatic,
+          isTranslated: !!payload?.isTranslated,
+          sourceLanguageCode: payload?.sourceLanguageCode || '',
+          sourceLanguageName: payload?.sourceLanguageName || '',
+          translationLanguageCode: payload?.translationLanguageCode || '',
+          translationLanguageName: payload?.translationLanguageName || '',
+          suffix: [
+            'subtitle',
+            payload?.selectedLanguageCode || payload?.languageCode || payload?.selectedLanguageName || payload?.languageName || ''
+          ].filter(Boolean).join('-')
+        });
+        if (artifact) return artifact;
+      }
+
+      return null;
+    }
+
+    function getCurrentSubtitleOption(provider) {
+      const artifact = provider === 'youtube'
+        ? getYoutubeSubtitleArtifact()
+        : getBilibiliSubtitleArtifact();
+      if (!artifact) return null;
+
+      const language = getCaptionLanguageLabel(artifact);
+      return {
+        key: provider + '-current',
+        type: 'artifact',
+        provider,
+        label: ['当前字幕', getProviderLabelForSubtitle(provider), language].filter(Boolean).join(' · '),
+        artifact
+      };
+    }
+
+    function getVideoSubtitleOptions() {
+      const provider = getCurrentVideoProvider();
+      const options = [];
+
+      if (provider === 'youtube') {
+        const current = getCurrentSubtitleOption('youtube');
+        return current ? [current] : [];
+      }
+
+      if (provider === 'bilibili') {
+        const current = getCurrentSubtitleOption('bilibili');
+        return current ? [current] : [];
+      }
+
+      const youtubeCurrent = getCurrentSubtitleOption('youtube');
+      const bilibiliCurrent = getCurrentSubtitleOption('bilibili');
+      if (youtubeCurrent) options.push(youtubeCurrent);
+      if (bilibiliCurrent) options.push(bilibiliCurrent);
+      return options;
+    }
+
+    function getBilibiliSubtitleArtifact() {
+      return getSubtitleArtifactForProvider('bilibili');
+    }
+
+    function getYoutubeSubtitleArtifact() {
+      return getSubtitleArtifactForProvider('youtube');
+    }
+
+    function getVideoSubtitleArtifact() {
+      const provider = getCurrentVideoProvider();
+      if (provider === 'youtube') return getYoutubeSubtitleArtifact();
+      if (provider === 'bilibili') return getBilibiliSubtitleArtifact();
+      return getYoutubeSubtitleArtifact() || getBilibiliSubtitleArtifact();
+    }
+
     function hasBilibiliSubtitleArtifact() {
       return !!getBilibiliSubtitleArtifact();
+    }
+
+    function hasVideoSubtitleArtifact() {
+      return getVideoSubtitleOptions().length > 0;
+    }
+
+    async function buildArtifactFromOption(option) {
+      if (!option) return null;
+      if (option.type === 'artifact') return option.artifact || null;
+      return null;
+    }
+
+    function downloadSubtitleArtifact(artifact) {
+      const text = String(artifact?.text || '');
+      if (!text.trim()) {
+        setStatus('\u9009\u4e2d\u7684\u5b57\u5e55\u8f68\u9053\u8fd4\u56de\u4e86\u7a7a\u5185\u5bb9\uff0c\u672a\u5bfc\u51fa\u3002', 'warning');
+        return false;
+      }
+
+      const article = resolveArticle();
+      const blob = new Blob([text], { type: artifact.mimeType });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = sanitizeFilename((article?.title || artifact.provider || 'video') + '-' + (artifact.suffix || 'subtitle')) + '.' + artifact.extension;
+      document.body?.appendChild?.(link);
+      link.click();
+      link.remove?.();
+      const revokeObjectURL = URL.revokeObjectURL.bind(URL);
+      setTimeout(() => revokeObjectURL(url), 1000);
+      return true;
+    }
+
+    async function exportVideoSubtitle() {
+      const options = getVideoSubtitleOptions();
+      const selectedKey = String(getElements()?.subtitleTrackSelect?.value || '');
+      const option = options.find((item) => item.key === selectedKey) || options[0] || null;
+      const artifact = await buildArtifactFromOption(option);
+      if (!artifact) {
+        setStatus('\u5f53\u524d\u89c6\u9891\u8fd8\u6ca1\u6709\u53ef\u5bfc\u51fa\u7684\u5b57\u5e55\u3002', 'warning');
+        return;
+      }
+
+      if (downloadSubtitleArtifact(artifact)) {
+        setStatus('\u5b57\u5e55\u5df2\u5bfc\u51fa\u3002', 'success');
+      }
     }
 
     function exportBilibiliSubtitle() {
@@ -298,7 +479,10 @@
 
     return {
       exportMarkdown,
+      exportVideoSubtitle,
       exportBilibiliSubtitle,
+      getVideoSubtitleOptions,
+      hasVideoSubtitleArtifact,
       hasBilibiliSubtitleArtifact,
       createShareCardElement,
       exportShareImage

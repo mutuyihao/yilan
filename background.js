@@ -36,6 +36,7 @@ const CONTENT_SCRIPT_FILES = [
   'shared/page-strategy.js',
   'shared/article-utils.js',
   'shared/bilibili-source.js',
+  'shared/youtube-source.js',
   'shared/constants.js',
   'libs/readability.js',
   'content.js'
@@ -1129,6 +1130,34 @@ chrome.runtime.onConnect.addListener((port) => {
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   const rawSendResponse = sendResponse;
   sendResponse = (payload) => safeSendResponse(rawSendResponse, payload);
+
+  if (message.action === 'getYoutubePlayerResponse') {
+    if (!sender.tab?.id) {
+      sendResponse({ success: false, error: 'no_tab' });
+      return false;
+    }
+    chrome.scripting.executeScript({
+      target: { tabId: sender.tab.id },
+      world: 'MAIN',
+      func: () => {
+        try {
+          const player = /** @type {{ getPlayerResponse?: () => unknown } | null} */ (
+            document.getElementById('movie_player') || document.querySelector('.html5-video-player')
+          );
+          const youtubeWindow = /** @type {Window & { ytInitialPlayerResponse?: unknown }} */ (window);
+          return player?.getPlayerResponse?.() || youtubeWindow.ytInitialPlayerResponse || null;
+        } catch (e) {
+          return null;
+        }
+      }
+    }).then((results) => {
+      sendResponse({ success: true, playerResponse: results?.[0]?.result || null });
+    }).catch((error) => {
+      console.warn('[Yilan] executeScript failed:', error);
+      sendResponse({ success: false, error: error.message });
+    });
+    return true;
+  }
 
   if (message.action === 'testConnection') {
     const runId = Domain.createRuntimeId('test');

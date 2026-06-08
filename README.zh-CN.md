@@ -1,8 +1,8 @@
 # 一览
 
-Last updated: 2026-05-24
+Last updated: 2026-05-25
 
-语言：中文 | [English](README.md)
+语言：中文 | [English](README.en.md)
 
 官网：<https://yilan.app>
 GitHub：<https://github.com/mutuyihao/yilan>
@@ -13,7 +13,7 @@ GitHub：<https://github.com/mutuyihao/yilan>
 当前版本已经不是单一的摘要工具，而是一个本地优先的网页阅读工作台：
 
 - 自动抽取网页正文、标题、作者、发布时间和站点信息。
-- 支持 Bilibili 视频页：识别视频元信息，优先使用 B 站官方 AI 总结，可回退到字幕或页面信息，并在字幕可用时导出字幕。
+- 支持 Bilibili 视频页：识别视频元信息，按“B 站官方 AI 总结 -> 可用字幕 -> 标题/简介等页面信息”的顺序构建摘要来源，并在字幕可用时支持导出字幕。
 - 识别页面类型，并按页面类型推荐摘要策略。
 - 支持 `简短总结`、`标准总结`、`详细分析`、`关键要点` 四种主摘要模式。
 - 支持 `行动项`、`术语表`、`问答卡片` 三种二次生成模式。
@@ -29,7 +29,10 @@ GitHub：<https://github.com/mutuyihao/yilan>
 
 - 项目是 `本地优先 + BYOK` 形态，没有内建账号体系或云同步。
 - 无痕模式只控制“是否写入本地历史”，不会阻止页面内容、视频元信息或字幕被发送到你配置的模型服务。
-- 在 Bilibili 视频页，一览会从浏览器请求 B 站的视频信息、官方 AI 总结、播放器和字幕接口。如果官方 AI 总结可用，主摘要可以直接使用该结果，不再额外请求你配置的模型服务。
+- Bilibili 总结目前只面向 `bilibili.com/video/BV...` 视频页；番剧、直播、专栏、动态、收藏夹、搜索页等其他 B 站页面不属于稳定支持范围。
+- 在 Bilibili 视频页，一览会从浏览器请求 B 站的视频信息、官方 AI 总结、播放器和字幕接口。如果官方 AI 总结可用，主摘要可以直接使用该结果，不再额外请求你配置的模型服务；如果需要走字幕或页面信息回退，相关文本可能会发送给你配置的模型服务。
+- Bilibili 官方 AI 总结、字幕、分 P 信息和登录态依赖 B 站页面与接口可用性；接口变更、权限限制、地区限制、未登录或视频未提供字幕时，结果可能降级、失败或只能基于标题/简介生成。
+- 一览不是 Bilibili 官方产品，也不代表 Bilibili 对本扩展的授权、背书或保证。摘要和导出的字幕只用于个人阅读辅助，不应视为官方转写、完整内容替代或事实准确性保证；请遵守视频版权、平台规则和原作者权益。
 - 历史只保存在当前浏览器 profile 的 IndexedDB 中。
 - 扩展目前面向 Chromium 浏览器，使用右键菜单和 `Alt + S` 作为主要入口。
 
@@ -109,7 +112,7 @@ npm.cmd run test:e2e
 npm.cmd run package:release
 ```
 
-`npm.cmd run package:release` 会在 `release/` 下生成只包含扩展运行文件的发布包，排除测试、Playwright 产物、私有目录、依赖目录和源码文档。发布前按 [1.2.0 发版清单](docs/RELEASE_CHECKLIST.md) 和 [Chrome Web Store 文案](docs/STORE_LISTING.md) 检查。
+`npm.cmd run package:release` 会在 `release/` 下生成只包含扩展运行文件的发布包，排除测试、Playwright 产物、私有目录、依赖目录和源码文档。发布前按 [1.3.0 发版清单](docs/RELEASE_CHECKLIST.md) 和 [Chrome Web Store 文案](docs/STORE_LISTING.md) 检查。
 
 ## 目录结构
 
@@ -147,7 +150,7 @@ npm.cmd run package:release
 - [技术架构](docs/TECHNICAL_ARCHITECTURE.md)
 - [测试体系](docs/TESTING.md)
 - [开发者指南](docs/DEVELOPER_GUIDE.md)
-- [1.2.0 发版清单](docs/RELEASE_CHECKLIST.md)
+- [1.3.0 发版清单](docs/RELEASE_CHECKLIST.md)
 - [Chrome Web Store 文案](docs/STORE_LISTING.md)
 - [隐私政策](PRIVACY_POLICY.md)
 - [设计系统](DESIGN_SYSTEM.md)

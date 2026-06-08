@@ -1,6 +1,6 @@
 # Chrome Web Store Listing Draft
 
-Last updated: 2026-05-24
+Last updated: 2026-05-25
 
 ## Title
 
@@ -52,4 +52,11 @@ Key features:
 - Provider compatibility depends on the chosen API endpoint and its CORS behavior.
 - Custom API endpoints must use HTTPS unless they point to localhost or a LAN address.
 - Bilibili official summaries and subtitles depend on Bilibili page/API availability, video support, and the current browser login state.
+- Bilibili support currently targets `bilibili.com/video/BV...` video pages and may degrade to title/description-only summaries when official summaries or subtitles are unavailable.
 - No-trace mode prevents local history writes but does not prevent sending page content to the configured model provider.
+
+## Disclaimer Notes
+
+- Yilan is not an official Bilibili product and is not affiliated with, endorsed by, or warranted by Bilibili.
+- Summaries and exported subtitles are personal reading aids, not official transcripts, complete substitutes for source videos, or guarantees of factual accuracy.
+- Users should follow copyright rules, platform terms, and creator rights when using or sharing exported text.

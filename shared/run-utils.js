@@ -90,6 +90,10 @@
     return diagnostics?.article?.diagnostics?.bilibili || null;
   }
 
+  function getYoutubeDiagnostics(diagnostics) {
+    return diagnostics?.article?.diagnostics?.youtube || null;
+  }
+
   function getBilibiliSourceLabel(sourceKind) {
     switch (sourceKind) {
       case 'official_ai_summary':
@@ -192,6 +196,81 @@
     return lines.filter((line) => line !== null && line !== undefined).join('\n');
   }
 
+  function getYoutubeSourceLabel(sourceKind) {
+    switch (sourceKind) {
+      case 'caption':
+        return 'caption transcript';
+      case 'fallback':
+        return 'title/description fallback';
+      default:
+        return sourceKind || 'unknown';
+    }
+  }
+
+  function formatYoutubeStage(stage) {
+    if (!stage) return '';
+    const detail = [
+      stage.code !== undefined ? 'code=' + stage.code : '',
+      stage.source ? 'source=' + stage.source : '',
+      stage.languageCode ? 'languageCode=' + stage.languageCode : '',
+      stage.languageName ? 'languageName=' + stage.languageName : '',
+      stage.message ? 'message=' + stage.message : ''
+    ].filter(Boolean).join(', ');
+    return '- ' + (stage.name || 'unknown') + (detail ? ': ' + detail : '');
+  }
+
+  function buildYoutubeDebugSummary(diagnostics) {
+    const youtube = getYoutubeDiagnostics(diagnostics);
+    if (!youtube) return '';
+
+    const debug = youtube.debug || {};
+    const captions = debug.captions || {};
+    const lines = [
+      '',
+      'YouTube video extraction debug',
+      'Source: ' + getYoutubeSourceLabel(debug.selectedSource || youtube.sourceKind || 'fallback')
+    ];
+
+    if (debug.video) {
+      lines.push('Video: ' + [
+        debug.video.videoId || '',
+        debug.video.title || '',
+        debug.video.author || ''
+      ].filter(Boolean).join(' / '));
+    }
+
+    if (Array.isArray(youtube.stages) && youtube.stages.length) {
+      lines.push('Stages:');
+      youtube.stages.map(formatYoutubeStage).filter(Boolean).forEach((line) => lines.push(line));
+    }
+
+    lines.push('');
+    lines.push('--- YouTube captions ---');
+    lines.push('Available captions: ' + String(captions.availableCount || 0));
+    if (captions.selectedLanguageCode || captions.selectedLanguageName) {
+      lines.push('Selected caption: ' + [
+        captions.selectedLanguageCode || captions.languageCode || '',
+        captions.selectedLanguageName || captions.languageName || ''
+      ].filter(Boolean).join(' / '));
+    }
+    if (captions.lineCount !== undefined) {
+      lines.push('Caption lines: ' + captions.lineCount + (captions.truncated ? ' (truncated)' : ''));
+    }
+    if (captions.error) lines.push('Error: ' + captions.error);
+    if (!captions.attempted && !captions.availableCount && !captions.text && !captions.textPreview) {
+      lines.push('Result: no exportable captions found.');
+    }
+    if (captions.text) {
+      lines.push('Full captions:');
+      lines.push(captions.text);
+    } else if (captions.textPreview) {
+      lines.push('Caption preview (history record was trimmed):');
+      lines.push(captions.textPreview);
+    }
+
+    return lines.filter((line) => line !== null && line !== undefined).join('\n');
+  }
+
   function clonePlainObject(value) {
     if (value === null || value === undefined) return value;
     try {
@@ -246,12 +325,53 @@
     return copy;
   }
 
+  function sanitizeYoutubeDebugForPersistence(debug, sourceKind) {
+    const copy = clonePlainObject(debug || {}) || {};
+    const selectedSource = copy.selectedSource || sourceKind || 'fallback';
+    copy.selectedSource = selectedSource;
+    copy.fullSourceDebugPersisted = false;
+
+    if (copy.captions) {
+      const textInfo = buildTextPreview(copy.captions.text, 500);
+      const jsonInfo = buildTextPreview(copy.captions.jsonText, 500);
+      if (textInfo.length) {
+        copy.captions.textPreview = textInfo.preview;
+        copy.captions.textLength = copy.captions.originalTextLength || textInfo.length;
+        copy.captions.fullTextInArticleContent = selectedSource === 'caption';
+      }
+      if (jsonInfo.length) {
+        copy.captions.jsonPreview = jsonInfo.preview;
+        copy.captions.jsonLength = copy.captions.jsonLength || jsonInfo.length;
+      }
+      delete copy.captions.text;
+      delete copy.captions.jsonText;
+      delete copy.captions.captionUrl;
+      if (Array.isArray(copy.captions.candidates)) {
+        copy.captions.candidates = copy.captions.candidates.map((candidate) => {
+          const safeCandidate = clonePlainObject(candidate || {}) || {};
+          delete safeCandidate.captionUrl;
+          return safeCandidate;
+        });
+      }
+    }
+
+    return copy;
+  }
+
   function sanitizeArticleDiagnosticsForPersistence(diagnostics) {
     const copy = clonePlainObject(diagnostics || null);
-    if (!copy?.bilibili) return copy;
+    if (!copy) return copy;
 
-    const sourceKind = copy.bilibili.sourceKind || copy.videoSourceKind || 'fallback';
-    copy.bilibili.debug = sanitizeBilibiliDebugForPersistence(copy.bilibili.debug || {}, sourceKind);
+    if (copy.bilibili) {
+      const sourceKind = copy.bilibili.sourceKind || copy.videoSourceKind || 'fallback';
+      copy.bilibili.debug = sanitizeBilibiliDebugForPersistence(copy.bilibili.debug || {}, sourceKind);
+    }
+
+    if (copy.youtube) {
+      const sourceKind = copy.youtube.sourceKind || copy.videoSourceKind || 'fallback';
+      copy.youtube.debug = sanitizeYoutubeDebugForPersistence(copy.youtube.debug || {}, sourceKind);
+    }
+
     return copy;
   }
 
@@ -358,6 +478,11 @@
       lines.push(bilibiliDebug);
     }
 
+    const youtubeDebug = buildYoutubeDebugSummary(safeDiagnostics);
+    if (youtubeDebug) {
+      lines.push(youtubeDebug);
+    }
+
     const modelInfo = [safeDiagnostics.provider || '', safeDiagnostics.model || ''].filter(Boolean).join(' / ');
     if (modelInfo) {
       lines.push('\u6a21\u578b: ' + modelInfo);
@@ -390,6 +515,7 @@
     getRunStatusLabel,
     buildChunkProgressLabel,
     buildBilibiliDebugSummary,
+    buildYoutubeDebugSummary,
     sanitizeArticleDiagnosticsForPersistence,
     sanitizeArticleSnapshotForPersistence,
     sanitizeDiagnosticsForPersistence,

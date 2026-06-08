@@ -71,7 +71,9 @@
       });
       elements.copyBtn.addEventListener('click', copySummary);
       elements.exportBtn.addEventListener('click', exportMarkdown);
-      elements.subtitleExportBtn?.addEventListener('click', exportBilibiliSubtitle);
+      elements.subtitleExportBtn?.addEventListener('click', () => {
+        Promise.resolve(exportBilibiliSubtitle()).catch(reportStatusError);
+      });
       elements.shareBtn.addEventListener('click', exportShareImage);
       documentRef.querySelectorAll('.secondary-btn').forEach((button) => {
         button.addEventListener('click', () => {

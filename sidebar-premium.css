@@ -532,6 +532,16 @@ body {
   padding-inline: 4px;
 }
 
+.action-row .subtitle-track-select {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  font-size: 11px;
+  grid-column: span 4;
+  min-height: 31px;
+  min-width: 0;
+  width: 100%;
+}
+
 .action-btn-primary {
   background: var(--accent);
   border-color: transparent;

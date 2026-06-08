@@ -431,14 +431,38 @@ function refreshActionStates() {
   elements.shareBtn.disabled = !hasSummary || !allowShare;
   elements.exportBtn.disabled = !hasSummary;
   if (elements.subtitleExportBtn) {
-    const isBilibiliVideo = state.article?.diagnostics?.videoSource === 'bilibili' ||
-      !!state.article?.diagnostics?.bilibili ||
-      !!state.lastDiagnostics?.article?.diagnostics?.bilibili;
-    const hasSubtitleExport = !!exportController?.hasBilibiliSubtitleArtifact?.();
-    elements.subtitleExportBtn.hidden = !isBilibiliVideo;
+    const currentVideoDiagnostics = state.article?.diagnostics ||
+      state.visibleRecord?.articleSnapshot?.diagnostics ||
+      state.visibleRecord?.diagnostics?.article?.diagnostics ||
+      null;
+    const isVideoPage = state.article?.sourceType === 'video' ||
+      !!currentVideoDiagnostics?.videoSource ||
+      !!currentVideoDiagnostics?.bilibili ||
+      !!currentVideoDiagnostics?.youtube;
+    const hasSubtitleExport = exportController?.hasVideoSubtitleArtifact
+      ? !!exportController.hasVideoSubtitleArtifact()
+      : !!exportController?.hasBilibiliSubtitleArtifact?.();
+    const subtitleOptions = getVideoSubtitleOptions();
+    if (elements.subtitleTrackSelect) {
+      const previousValue = elements.subtitleTrackSelect.value;
+      elements.subtitleTrackSelect.innerHTML = '';
+      subtitleOptions.forEach((option) => {
+        const item = document.createElement('option');
+        item.value = option.key;
+        item.textContent = option.label || option.key;
+        elements.subtitleTrackSelect.appendChild(item);
+      });
+      if (subtitleOptions.some((option) => option.key === previousValue)) {
+        elements.subtitleTrackSelect.value = previousValue;
+      }
+      elements.subtitleTrackSelect.hidden = !isVideoPage || subtitleOptions.length <= 1;
+      elements.subtitleTrackSelect.disabled = processing || subtitleOptions.length <= 1;
+      elements.subtitleTrackSelect.title = subtitleOptions.length > 1 ? '选择要导出的字幕轨道' : '';
+    }
+    elements.subtitleExportBtn.hidden = !isVideoPage;
     elements.subtitleExportBtn.disabled = processing || !hasSubtitleExport;
     elements.subtitleExportBtn.textContent = hasSubtitleExport ? '导出字幕' : '无字幕';
-    elements.subtitleExportBtn.title = hasSubtitleExport ? '导出 B 站原始字幕 JSON' : '当前 B 站视频未发现可导出的字幕';
+    elements.subtitleExportBtn.title = hasSubtitleExport ? '导出选中的视频字幕' : '当前视频未发现可导出的字幕';
   }
   elements.privacyToggleBtn.disabled = processing;
   elements.statusText.classList.toggle('status-active', processing);
@@ -752,7 +776,8 @@ const exportController = SidebarExport.createExportController({
 });
 const exportMarkdown = exportController.exportMarkdown;
 const exportShareImage = exportController.exportShareImage;
-const exportBilibiliSubtitle = exportController.exportBilibiliSubtitle;
+const getVideoSubtitleOptions = exportController.getVideoSubtitleOptions || (() => []);
+const exportBilibiliSubtitle = exportController.exportVideoSubtitle || exportController.exportBilibiliSubtitle;
 
 async function togglePrivacyMode() {
   const nextPrivacyMode = !Trust.normalizeSettings(state.settings).privacyMode;
