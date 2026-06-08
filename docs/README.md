@@ -13,7 +13,7 @@ Last updated: 2026-05-24
 - [技术架构](TECHNICAL_ARCHITECTURE.md)：当前运行链路、Mermaid 架构图、模块依赖图、启动顺序、数据模型和稳定约束。
 - [测试体系](TESTING.md)：Node / Playwright 分层、覆盖口径、运行命令和新增功能要求。
 - [开发者指南](DEVELOPER_GUIDE.md)：本地开发、回归流程和文档维护规则。
-- [1.2.0 发版清单](RELEASE_CHECKLIST.md)：双渠道发布门禁、打包命令、自动化与人工验收项。
+- [1.3.0 发版清单](RELEASE_CHECKLIST.md)：双渠道发布门禁、打包命令、自动化与人工验收项。
 - [Chrome Web Store 文案](STORE_LISTING.md)：商店标题、描述、权限解释和隐私问答草案。
 - [隐私政策](../PRIVACY_POLICY.md)：BYOK 数据流、权限解释、本地历史和 API Key 存储边界。
 - [设计系统](../DESIGN_SYSTEM.md)：主题 token、四套色彩方案、popup / 侧栏 / 阅读页 / 官网的视觉约束。

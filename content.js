@@ -95,9 +95,28 @@ if (!window.__aiSummaryInjected) {
   async function extractCurrentPageSnapshot() {
     if (YoutubeSource?.isYoutubeVideoUrl?.(location.href)) {
       try {
+        let playerResponse = null;
+        try {
+          const response = await new Promise((resolve, reject) => {
+            chrome.runtime.sendMessage({ action: 'getYoutubePlayerResponse' }, (res) => {
+              if (chrome.runtime.lastError) {
+                reject(new Error(chrome.runtime.lastError.message));
+              } else {
+                resolve(res);
+              }
+            });
+          });
+          if (response?.success && response.playerResponse) {
+            playerResponse = response.playerResponse;
+          }
+        } catch (err) {
+          console.warn('[Yilan] Failed to get player response from background:', err);
+        }
+
         const source = await YoutubeSource.extractYoutubeVideoSource({
           document,
-          url: location.href
+          url: location.href,
+          playerResponse
         });
 
         if (source?.text) {

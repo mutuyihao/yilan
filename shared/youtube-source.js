@@ -8,6 +8,16 @@
   const DEFAULT_DEBUG_TEXT_LIMIT = 120000;
   const DEFAULT_FETCH_TIMEOUT_MS = 12000;
   const DEFAULT_MAX_CAPTION_ATTEMPTS = 3;
+  const DEFAULT_CAPTION_FORMATS = ['json3', '', 'srv3', 'vtt'];
+  const DEFAULT_MAX_TRANSLATION_TARGETS = 2;
+  const DEFAULT_MAX_TRANSLATION_SOURCE_TRACKS = 2;
+  const INNERTUBE_API_URL = 'https://www.youtube.com/youtubei/v1/player';
+  const INNERTUBE_CONTEXT = {
+    client: {
+      clientName: 'WEB',
+      clientVersion: '2.20240313'
+    }
+  };
 
   function normalizeWhitespace(input) {
     return Domain?.normalizeWhitespace
@@ -195,6 +205,22 @@
     return findJsonObjectAfterToken(text, 'ytInitialPlayerResponse');
   }
 
+  function extractInnertubeApiKeyFromText(text) {
+    const match = String(text || '').match(/"INNERTUBE_API_KEY"\s*:\s*"([0-9A-Za-z_-]+)"/);
+    return match?.[1] || '';
+  }
+
+  function readInnertubeApiKeyFromDom(doc) {
+    const scripts = Array.from(doc?.querySelectorAll?.('script') || []);
+    for (const script of scripts) {
+      const text = script.textContent || '';
+      if (!text.includes('INNERTUBE_API_KEY')) continue;
+      const apiKey = extractInnertubeApiKeyFromText(text);
+      if (apiKey) return apiKey;
+    }
+    return '';
+  }
+
   function readPlayerResponseFromDom(doc) {
     if (global.ytInitialPlayerResponse?.videoDetails) {
       return global.ytInitialPlayerResponse;
@@ -210,6 +236,34 @@
     }
 
     return null;
+  }
+
+  function getPlayerResponseVideoId(playerResponse) {
+    const candidates = [
+      playerResponse?.videoDetails?.videoId,
+      playerResponse?.microformat?.playerMicroformatRenderer?.externalVideoId,
+      playerResponse?.microformat?.playerMicroformatRenderer?.videoId
+    ];
+    return candidates.find((value) => isValidVideoId(value)) || '';
+  }
+
+  function getPlayerResponseMatch(playerResponse, expectedVideoId) {
+    if (!playerResponse?.videoDetails) {
+      return {
+        actualVideoId: '',
+        isStale: false,
+        matches: false
+      };
+    }
+
+    const actualVideoId = getPlayerResponseVideoId(playerResponse);
+    const expected = isValidVideoId(expectedVideoId) ? expectedVideoId : '';
+    const isStale = !!expected && !!actualVideoId && actualVideoId !== expected;
+    return {
+      actualVideoId,
+      isStale,
+      matches: !isStale
+    };
   }
 
   function buildWatchPageFetchUrl(videoId, sourceUrl) {
@@ -260,11 +314,37 @@
 
     const html = await response.text();
     const playerResponse = parsePlayerResponseFromText(html);
+    const apiKey = extractInnertubeApiKeyFromText(html);
     return {
       url,
       htmlLength: html.length,
+      apiKey,
       playerResponse: playerResponse?.videoDetails ? playerResponse : null
     };
+  }
+
+  async function fetchPlayerResponseFromInnertube(videoId, apiKey, sourceUrl, options) {
+    const parsed = new URL(INNERTUBE_API_URL);
+    parsed.searchParams.set('key', apiKey);
+    const response = await fetchWithTimeout(parsed.toString(), {
+      method: 'POST',
+      credentials: 'include',
+      headers: {
+        Accept: 'application/json',
+        'Content-Type': 'application/json'
+      },
+      referrer: sourceUrl || 'https://www.youtube.com/watch?v=' + encodeURIComponent(videoId || ''),
+      body: JSON.stringify({
+        context: INNERTUBE_CONTEXT,
+        videoId
+      })
+    }, options?.innertubeTimeoutMs);
+
+    if (!response.ok) {
+      throw new Error(`YouTube InnerTube player request failed: HTTP ${response.status}`);
+    }
+
+    return response.json();
   }
 
   function normalizeVideoPayload(playerResponse, videoId, doc) {
@@ -303,13 +383,13 @@
     return [minutes, secs].map((value) => String(value).padStart(2, '0')).join(':');
   }
 
-  function normalizeCaptionTrack(track, index) {
+  function normalizeCaptionTrack(track, index, extra) {
     const languageCode = String(track?.languageCode || '').trim();
     const name = normalizeWhitespace(getSimpleText(track?.name) || languageCode);
     const baseUrl = decodeTextEntities(track?.baseUrl || '');
     const kind = String(track?.kind || '').trim();
     const vssId = String(track?.vssId || '').trim();
-    return {
+    return Object.assign({
       index: Number.isFinite(Number(index)) ? Number(index) : 0,
       baseUrl,
       languageCode,
@@ -317,9 +397,9 @@
       kind,
       vssId,
       isAutomatic: kind === 'asr' || /^a\./i.test(vssId),
-      isTranslatable: !!track?.isTranslatable,
+      isTranslatable: track?.isTranslatable !== false,
       raw: track
-    };
+    }, extra || {});
   }
 
   function collectCaptionTracks(playerResponse) {
@@ -330,24 +410,151 @@
       .filter((track) => track.baseUrl && track.languageCode);
   }
 
+  function collectTranslationLanguages(playerResponse) {
+    const languages = playerResponse?.captions?.playerCaptionsTracklistRenderer?.translationLanguages || [];
+    if (!Array.isArray(languages)) return [];
+    return languages
+      .map((language, index) => ({
+        index,
+        languageCode: String(language?.languageCode || '').trim(),
+        languageName: normalizeWhitespace(getSimpleText(language?.languageName) || language?.languageCode || '')
+      }))
+      .filter((language) => language.languageCode);
+  }
+
+  function normalizeLanguageCode(value) {
+    return String(value || '').toLowerCase().replace(/_/g, '-');
+  }
+
+  function getLanguageBase(value) {
+    return normalizeLanguageCode(value).split('-')[0];
+  }
+
+  function languageMatchesPreference(languageCode, preference) {
+    const code = normalizeLanguageCode(languageCode);
+    const preferred = normalizeLanguageCode(preference);
+    if (!code || !preferred) return false;
+    if (code === preferred || code.startsWith(preferred + '-')) return true;
+    const codeBase = getLanguageBase(code);
+    const preferredBase = getLanguageBase(preferred);
+    if (codeBase !== preferredBase) return false;
+    if (preferredBase !== 'zh') return true;
+    if (/hans|cn|sg/.test(preferred)) return /hans|cn|sg/.test(code);
+    if (/hant|tw|hk|mo/.test(preferred)) return /hant|tw|hk|mo/.test(code);
+    return true;
+  }
+
+  function collectPreferredLanguages(options) {
+    const navigatorLanguage = global.navigator?.language || '';
+    return [
+      ...(options?.preferredLanguages || []),
+      navigatorLanguage,
+      'zh-CN',
+      'zh-Hans',
+      'zh',
+      'en'
+    ].filter(Boolean);
+  }
+
+  function selectTranslationTargets(playerResponse, preferredLanguages, options) {
+    if (options?.includeTranslatedCaptions === false) return [];
+    const translationLanguages = collectTranslationLanguages(playerResponse);
+    if (!translationLanguages.length) return [];
+
+    const seen = new Set();
+    const targets = [];
+    const maxTargets = Math.max(0, Number(options?.maxTranslationTargets || DEFAULT_MAX_TRANSLATION_TARGETS));
+    for (const preferredLanguage of preferredLanguages || []) {
+      const matched = translationLanguages.find((language) => languageMatchesPreference(language.languageCode, preferredLanguage));
+      if (!matched || seen.has(matched.languageCode)) continue;
+      seen.add(matched.languageCode);
+      targets.push(matched);
+      if (targets.length >= maxTargets) break;
+    }
+
+    return targets;
+  }
+
+  function buildTranslatedCaptionUrl(sourceTrack, targetLanguage) {
+    const parsed = new URL(sourceTrack.baseUrl);
+    parsed.searchParams.set('tlang', targetLanguage.languageCode);
+    return parsed.toString();
+  }
+
+  function buildTranslatedCaptionTrack(sourceTrack, targetLanguage, index) {
+    const baseUrl = buildTranslatedCaptionUrl(sourceTrack, targetLanguage);
+    return normalizeCaptionTrack({
+      baseUrl,
+      languageCode: targetLanguage.languageCode,
+      name: { simpleText: targetLanguage.languageName || targetLanguage.languageCode },
+      kind: sourceTrack.kind || '',
+      vssId: sourceTrack.vssId || '',
+      isTranslatable: false
+    }, index, {
+      isAutomatic: sourceTrack.isAutomatic,
+      isTranslatable: false,
+      isTranslated: true,
+      sourceLanguageCode: sourceTrack.languageCode,
+      sourceLanguageName: sourceTrack.name,
+      translationLanguageCode: targetLanguage.languageCode,
+      translationLanguageName: targetLanguage.languageName,
+      sourceTrackIndex: sourceTrack.index,
+      raw: sourceTrack.raw
+    });
+  }
+
+  function collectCaptionCandidates(playerResponse, options) {
+    const nativeTracks = collectCaptionTracks(playerResponse);
+    if (!nativeTracks.length) return nativeTracks;
+
+    const preferredLanguages = collectPreferredLanguages(options);
+    const translationTargets = selectTranslationTargets(playerResponse, preferredLanguages, options);
+    if (!translationTargets.length) return nativeTracks;
+
+    const sourceLimit = Math.max(1, Number(options?.maxTranslationSourceTracks || DEFAULT_MAX_TRANSLATION_SOURCE_TRACKS));
+    const sourceTracks = rankCaptionTracks(nativeTracks, Object.assign({}, options, {
+      preferredLanguages: [
+        ...(options?.sourceCaptionLanguages || []),
+        ...preferredLanguages,
+        'en'
+      ]
+    }))
+      .filter((track) => track.isTranslatable)
+      .slice(0, sourceLimit);
+
+    const translatedTracks = [];
+    sourceTracks.forEach((sourceTrack) => {
+      translationTargets.forEach((targetLanguage) => {
+        if (languageMatchesPreference(sourceTrack.languageCode, targetLanguage.languageCode)) return;
+        translatedTracks.push(buildTranslatedCaptionTrack(
+          sourceTrack,
+          targetLanguage,
+          nativeTracks.length + translatedTracks.length
+        ));
+      });
+    });
+
+    return nativeTracks.concat(translatedTracks);
+  }
+
   function scoreLanguage(track, preferredLanguages) {
-    const code = String(track?.languageCode || '').toLowerCase();
+    const code = normalizeLanguageCode(track?.languageCode || track?.translationLanguageCode || '');
     const name = String(track?.name || '').toLowerCase();
-    const preferred = (preferredLanguages || []).map((item) => String(item || '').toLowerCase()).filter(Boolean);
+    const preferred = (preferredLanguages || []).map(normalizeLanguageCode).filter(Boolean);
     let score = 0;
 
     preferred.forEach((language, index) => {
-      const normalized = language.split('-')[0];
       if (code === language || code.startsWith(language + '-')) {
-        score = Math.max(score, 1000 - index * 20);
-      } else if (normalized && code.split('-')[0] === normalized) {
-        score = Math.max(score, 900 - index * 20);
+        score = Math.max(score, 1000 - index * 80);
+      } else if (languageMatchesPreference(code, language)) {
+        score = Math.max(score, 900 - index * 80);
       }
     });
 
     if (/^zh/i.test(code) || /chinese|mandarin/i.test(name)) score = Math.max(score, 850);
     if (/^en/i.test(code) || /english/i.test(name)) score = Math.max(score, 800);
     if (!track?.isAutomatic) score += 40;
+    if (track?.isTranslated) score -= 80;
     return score;
   }
 
@@ -386,10 +593,48 @@
     }
   }
 
-  function buildCaptionFetchUrl(track) {
+  function normalizeCaptionFormats(options) {
+    const requested = Array.isArray(options?.captionFormats) && options.captionFormats.length
+      ? options.captionFormats
+      : DEFAULT_CAPTION_FORMATS;
+    const seen = new Set();
+    return requested
+      .map((format) => String(format || '').trim())
+      .filter((format) => {
+        const key = format || 'default';
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+  }
+
+  function buildCaptionFetchUrl(track, format, options) {
     const parsed = new URL(track.baseUrl);
-    parsed.searchParams.set('fmt', 'json3');
+    if (format) {
+      parsed.searchParams.set('fmt', format);
+    } else {
+      parsed.searchParams.delete('fmt');
+    }
+    if (options?.stripVariant) {
+      parsed.searchParams.delete('variant');
+    }
     return parsed.toString();
+  }
+
+  function buildCaptionFetchRequests(track, options) {
+    const formats = normalizeCaptionFormats(options);
+    const variants = [false];
+    try {
+      if (new URL(track.baseUrl).searchParams.has('variant')) {
+        variants.push(true);
+      }
+    } catch {}
+
+    return formats.flatMap((format) => variants.map((stripVariant) => ({
+      format,
+      stripVariant,
+      url: buildCaptionFetchUrl(track, format, { stripVariant })
+    })));
   }
 
   function parseJson3Caption(text) {
@@ -433,8 +678,78 @@
       });
     }
 
+    if (lines.length) {
+      return {
+        format: 'xml',
+        lines,
+        rawText: text
+      };
+    }
+
+    const srv3Regex = /<p\b([^>]*)>([\s\S]*?)<\/p>/gi;
+    while ((match = srv3Regex.exec(String(text || '')))) {
+      const attrs = match[1] || '';
+      const content = normalizeWhitespace(decodeTextEntities(
+        String(match[2] || '')
+          .replace(/<br\s*\/?>/gi, '\n')
+          .replace(/<[^>]+>/g, '')
+      ));
+      if (!content) continue;
+      const startMs = Number(readXmlAttr(attrs, 't') || 0);
+      const durationMs = Number(readXmlAttr(attrs, 'd') || 0);
+      lines.push({
+        startSeconds: startMs / 1000,
+        durationSeconds: durationMs / 1000,
+        text: content
+      });
+    }
+
     return {
-      format: 'xml',
+      format: lines.length ? 'srv3' : 'xml',
+      lines,
+      rawText: text
+    };
+  }
+
+  function parseVttTimestamp(input) {
+    const parts = String(input || '').trim().split(':');
+    if (parts.length < 2) return 0;
+    const secondsPart = Number(parts.pop() || 0);
+    const minutes = Number(parts.pop() || 0);
+    const hours = Number(parts.pop() || 0);
+    return hours * 3600 + minutes * 60 + secondsPart;
+  }
+
+  function cleanVttCueText(input) {
+    return normalizeWhitespace(decodeTextEntities(
+      String(input || '')
+        .replace(/<[^>]+>/g, '')
+        .replace(/\{\\[^}]+\}/g, '')
+    ));
+  }
+
+  function parseWebVttCaption(text) {
+    const lines = [];
+    const blocks = String(text || '').replace(/\r\n?/g, '\n').split(/\n{2,}/);
+    blocks.forEach((block) => {
+      const cueLines = block.split('\n').map((line) => line.trim()).filter(Boolean);
+      if (!cueLines.length || /^WEBVTT/i.test(cueLines[0]) || /^NOTE\b/i.test(cueLines[0])) return;
+      const timingIndex = cueLines.findIndex((line) => line.includes('-->'));
+      if (timingIndex < 0) return;
+      const timing = cueLines[timingIndex].split('-->');
+      const startSeconds = parseVttTimestamp(timing[0]);
+      const endSeconds = parseVttTimestamp(String(timing[1] || '').split(/\s+/)[0]);
+      const content = cleanVttCueText(cueLines.slice(timingIndex + 1).join(' '));
+      if (!content) return;
+      lines.push({
+        startSeconds,
+        durationSeconds: Math.max(0, endSeconds - startSeconds),
+        text: content
+      });
+    });
+
+    return {
+      format: 'vtt',
       lines,
       rawText: text
     };
@@ -448,28 +763,50 @@
     if (trimmed[0] === '{') {
       return parseJson3Caption(trimmed);
     }
+    if (/^WEBVTT\b/i.test(trimmed) || trimmed.includes('-->')) {
+      return parseWebVttCaption(trimmed);
+    }
     return parseXmlCaption(trimmed);
   }
 
   async function fetchCaptionBody(track, videoId, options) {
-    const url = buildCaptionFetchUrl(track);
-    if (!isAllowedCaptionUrl(url)) {
-      throw new Error('Unexpected YouTube caption host: ' + new URL(url).hostname);
+    const requests = buildCaptionFetchRequests(track, options);
+    let emptyCaption = null;
+    let lastError = null;
+
+    for (const request of requests) {
+      if (!isAllowedCaptionUrl(request.url)) {
+        throw new Error('Unexpected YouTube caption host: ' + new URL(request.url).hostname);
+      }
+
+      try {
+        const response = await fetchWithTimeout(request.url, {
+          credentials: 'include',
+          headers: {
+            Accept: 'application/json, text/plain, */*'
+          },
+          referrer: 'https://www.youtube.com/watch?v=' + encodeURIComponent(videoId || '')
+        }, options?.captionTimeoutMs);
+
+        if (!response.ok) {
+          lastError = new Error(`YouTube caption request failed: HTTP ${response.status}`);
+          continue;
+        }
+
+        const parsed = Object.assign(parseCaptionResponse(await response.text()), {
+          requestFormat: request.format || 'default',
+          requestVariant: request.stripVariant ? 'without_variant' : 'as_provided'
+        });
+        if (parsed.lines?.length) return parsed;
+        emptyCaption = emptyCaption || parsed;
+        lastError = new Error(`empty caption response (${parsed.requestFormat}, ${parsed.requestVariant})`);
+      } catch (error) {
+        lastError = error;
+      }
     }
 
-    const response = await fetchWithTimeout(url, {
-      credentials: 'include',
-      headers: {
-        Accept: 'application/json, text/plain, */*'
-      },
-      referrer: 'https://www.youtube.com/watch?v=' + encodeURIComponent(videoId || '')
-    }, options?.captionTimeoutMs);
-
-    if (!response.ok) {
-      throw new Error(`YouTube caption request failed: HTTP ${response.status}`);
-    }
-
-    return parseCaptionResponse(await response.text());
+    if (emptyCaption) return emptyCaption;
+    throw lastError || new Error('empty caption response');
   }
 
   function limitDebugText(text, maxChars) {
@@ -536,6 +873,13 @@
       kind: track?.kind || '',
       isAutomatic: !!track?.isAutomatic,
       isTranslatable: !!track?.isTranslatable,
+      isTranslated: !!track?.isTranslated,
+      sourceLanguageCode: track?.sourceLanguageCode || '',
+      sourceLanguageName: track?.sourceLanguageName || '',
+      translationLanguageCode: track?.translationLanguageCode || '',
+      translationLanguageName: track?.translationLanguageName || '',
+      requestFormat: caption?.requestFormat || caption?.format || '',
+      requestVariant: caption?.requestVariant || '',
       captionUrl: track?.baseUrl || '',
       lineCount: lines.length,
       originalTextLength: textInfo.originalLength,
@@ -588,12 +932,28 @@
       }
     };
 
-    let playerResponse = readPlayerResponseFromDom(doc);
-    let playerResponseSource = playerResponse ? 'dom' : '';
+    let playerResponse = options?.playerResponse || readPlayerResponseFromDom(doc);
+    let playerResponseSource = options?.playerResponse ? 'options' : (playerResponse ? 'dom' : '');
+    let innertubeApiKey = readInnertubeApiKeyFromDom(doc);
+    let innertubeApiKeySource = innertubeApiKey ? 'dom' : '';
+    const domResponseMatch = getPlayerResponseMatch(playerResponse, videoId);
+    if (domResponseMatch.isStale) {
+      diagnostics.debug.stalePlayerResponse = {
+        expectedVideoId: videoId,
+        actualVideoId: domResponseMatch.actualVideoId,
+        source: options?.playerResponse ? 'options' : 'dom'
+      };
+      playerResponse = null;
+      playerResponseSource = '';
+    }
     diagnostics.stages.push({
       name: 'player_response_dom',
-      code: playerResponse ? 'ok' : 'missing',
-      message: playerResponse ? '' : 'ytInitialPlayerResponse not found in current DOM'
+      code: domResponseMatch.isStale ? 'stale' : (playerResponse ? 'ok' : 'missing'),
+      expectedVideoId: videoId,
+      actualVideoId: domResponseMatch.actualVideoId,
+      message: domResponseMatch.isStale
+        ? `Current ${options?.playerResponse ? 'provided' : 'DOM'} playerResponse belongs to a previous YouTube video`
+        : (playerResponse ? '' : 'playerResponse not found')
     });
 
     if (!playerResponse && options?.fetchWatchPage !== false) {
@@ -603,19 +963,37 @@
       };
       try {
         const watchPayload = await fetchPlayerResponseFromWatchPage(videoId, url, options);
+        const watchResponseMatch = getPlayerResponseMatch(watchPayload.playerResponse, videoId);
+        const matchedWatchPlayerResponse = watchResponseMatch.isStale ? null : watchPayload.playerResponse;
         diagnostics.debug.watchHtml = {
           attempted: true,
-          ok: !!watchPayload.playerResponse,
+          ok: !!matchedWatchPlayerResponse,
           htmlLength: watchPayload.htmlLength,
-          url: watchPayload.url
+          url: watchPayload.url,
+          hasInnertubeApiKey: !!watchPayload.apiKey,
+          actualVideoId: watchResponseMatch.actualVideoId
         };
+        if (!innertubeApiKey && watchPayload.apiKey) {
+          innertubeApiKey = watchPayload.apiKey;
+          innertubeApiKeySource = 'watch_html';
+        }
+        if (watchResponseMatch.isStale) {
+          diagnostics.debug.watchHtml.stalePlayerResponse = {
+            expectedVideoId: videoId,
+            actualVideoId: watchResponseMatch.actualVideoId
+          };
+        }
         diagnostics.stages.push({
           name: 'watch_html_player_response',
-          code: watchPayload.playerResponse ? 'ok' : 'missing',
-          message: watchPayload.playerResponse ? '' : 'ytInitialPlayerResponse not found in fetched watch HTML'
+          code: watchResponseMatch.isStale ? 'stale' : (matchedWatchPlayerResponse ? 'ok' : 'missing'),
+          expectedVideoId: videoId,
+          actualVideoId: watchResponseMatch.actualVideoId,
+          message: watchResponseMatch.isStale
+            ? 'Fetched watch HTML ytInitialPlayerResponse belongs to a different YouTube video'
+            : (matchedWatchPlayerResponse ? '' : 'ytInitialPlayerResponse not found in fetched watch HTML')
         });
-        if (watchPayload.playerResponse) {
-          playerResponse = watchPayload.playerResponse;
+        if (matchedWatchPlayerResponse) {
+          playerResponse = matchedWatchPlayerResponse;
           playerResponseSource = 'watch_html';
         }
       } catch (error) {
@@ -636,6 +1014,116 @@
       };
     }
 
+    if (
+      options?.fetchWatchPage !== false &&
+      !diagnostics.debug.watchHtml.attempted &&
+      collectCaptionTracks(playerResponse).length === 0 &&
+      !innertubeApiKey
+    ) {
+      diagnostics.debug.watchHtml = {
+        attempted: true,
+        ok: false,
+        reason: 'caption_discovery'
+      };
+      try {
+        const watchPayload = await fetchPlayerResponseFromWatchPage(videoId, url, options);
+        const watchResponseMatch = getPlayerResponseMatch(watchPayload.playerResponse, videoId);
+        const matchedWatchPlayerResponse = watchResponseMatch.isStale ? null : watchPayload.playerResponse;
+        const watchCaptionTrackCount = collectCaptionTracks(matchedWatchPlayerResponse).length;
+        diagnostics.debug.watchHtml = {
+          attempted: true,
+          ok: !!matchedWatchPlayerResponse,
+          reason: 'caption_discovery',
+          htmlLength: watchPayload.htmlLength,
+          url: watchPayload.url,
+          hasInnertubeApiKey: !!watchPayload.apiKey,
+          captionTrackCount: watchCaptionTrackCount,
+          actualVideoId: watchResponseMatch.actualVideoId
+        };
+        if (watchPayload.apiKey) {
+          innertubeApiKey = watchPayload.apiKey;
+          innertubeApiKeySource = 'watch_html';
+        }
+        diagnostics.stages.push({
+          name: 'watch_html_player_response',
+          code: watchResponseMatch.isStale ? 'stale' : (matchedWatchPlayerResponse ? 'ok' : 'missing'),
+          expectedVideoId: videoId,
+          actualVideoId: watchResponseMatch.actualVideoId,
+          captionTrackCount: watchCaptionTrackCount,
+          message: watchResponseMatch.isStale
+            ? 'Fetched watch HTML ytInitialPlayerResponse belongs to a different YouTube video'
+            : (matchedWatchPlayerResponse ? '' : 'ytInitialPlayerResponse not found in fetched watch HTML')
+        });
+        if (matchedWatchPlayerResponse && watchCaptionTrackCount > 0) {
+          playerResponse = matchedWatchPlayerResponse;
+          playerResponseSource = 'watch_html';
+        }
+      } catch (error) {
+        const message = error?.message || String(error || '');
+        diagnostics.debug.watchHtml = Object.assign({}, diagnostics.debug.watchHtml, {
+          error: message
+        });
+        diagnostics.stages.push({
+          name: 'watch_html_player_response',
+          code: 'error',
+          message
+        });
+      }
+    }
+
+    if (
+      options?.fetchInnertube !== false &&
+      innertubeApiKey &&
+      collectCaptionTracks(playerResponse).length === 0
+    ) {
+      diagnostics.debug.innertube = {
+        attempted: true,
+        ok: false,
+        apiKeySource: innertubeApiKeySource
+      };
+      try {
+        const innertubePlayerResponse = await fetchPlayerResponseFromInnertube(videoId, innertubeApiKey, url, options);
+        const innertubeMatch = getPlayerResponseMatch(innertubePlayerResponse, videoId);
+        const innertubeTrackCount = collectCaptionTracks(innertubePlayerResponse).length;
+        const matchedInnertubePlayerResponse = innertubeMatch.isStale ? null : innertubePlayerResponse;
+        diagnostics.debug.innertube = Object.assign({}, diagnostics.debug.innertube, {
+          ok: !!matchedInnertubePlayerResponse && innertubeTrackCount > 0,
+          captionTrackCount: innertubeTrackCount,
+          actualVideoId: innertubeMatch.actualVideoId
+        });
+        diagnostics.stages.push({
+          name: 'innertube_player_response',
+          code: innertubeMatch.isStale ? 'stale' : (innertubeTrackCount ? 'ok' : 'missing_captions'),
+          expectedVideoId: videoId,
+          actualVideoId: innertubeMatch.actualVideoId,
+          captionTrackCount: innertubeTrackCount,
+          message: innertubeMatch.isStale
+            ? 'InnerTube player response belongs to a different YouTube video'
+            : (innertubeTrackCount ? '' : 'InnerTube player response did not include caption tracks')
+        });
+        if (matchedInnertubePlayerResponse && innertubeTrackCount > 0) {
+          playerResponse = matchedInnertubePlayerResponse;
+          playerResponseSource = 'innertube';
+        }
+      } catch (error) {
+        const message = error?.message || String(error || '');
+        diagnostics.debug.innertube = Object.assign({}, diagnostics.debug.innertube, {
+          error: message
+        });
+        diagnostics.stages.push({
+          name: 'innertube_player_response',
+          code: 'error',
+          message
+        });
+      }
+    } else {
+      diagnostics.debug.innertube = {
+        attempted: false,
+        ok: false,
+        apiKeySource: innertubeApiKeySource || ''
+      };
+    }
+
     diagnostics.debug.hasPlayerResponse = !!playerResponse;
     diagnostics.debug.playerResponseSource = playerResponseSource || 'missing';
     diagnostics.stages.push({
@@ -645,7 +1133,8 @@
       message: playerResponse ? '' : 'ytInitialPlayerResponse not found'
     });
 
-    const video = normalizeVideoPayload(playerResponse || {}, videoId, doc);
+    const metadataDocument = domResponseMatch.isStale ? null : doc;
+    const video = normalizeVideoPayload(playerResponse || {}, videoId, metadataDocument);
     diagnostics.debug.video = {
       videoId: video.videoId,
       title: video.title,
@@ -656,36 +1145,59 @@
 
     let sourceText = '';
     let sourceKind = 'fallback';
-    let usedCaptionTrack = null;
-    const captionTracks = collectCaptionTracks(playerResponse);
-    const rankedCaptions = rankCaptionTracks(captionTracks, options);
-    const selectedCaption = rankedCaptions[0] || null;
-    const maxCaptionAttempts = Math.min(
-      rankedCaptions.length,
-      Math.max(1, Number(options?.maxCaptionAttempts || DEFAULT_MAX_CAPTION_ATTEMPTS))
-    );
-    diagnostics.debug.captions = {
-      attempted: !!selectedCaption,
-      availableCount: captionTracks.length,
-      attemptLimit: maxCaptionAttempts,
-      attemptedCount: 0,
-      selectedLanguageCode: selectedCaption?.languageCode || '',
-      selectedLanguageName: selectedCaption?.name || '',
-      selectedKind: selectedCaption?.kind || '',
-      usedAsSource: false,
-      candidates: rankedCaptions.slice(0, 8).map((track) => ({
-        languageCode: track.languageCode,
-        languageName: track.name,
-        kind: track.kind,
-        isAutomatic: track.isAutomatic,
-        isTranslatable: track.isTranslatable,
-        captionUrl: track.baseUrl
-      }))
-    };
+    let usedCaptionTrack = /** @type {{ languageCode?: string } | null} */ (null);
+    let selectedCaption = /** @type {{ languageCode?: string } | null} */ (null);
 
-    if (rankedCaptions.length) {
+    function buildCaptionState(currentPlayerResponse) {
+      const captionTracks = collectCaptionTracks(currentPlayerResponse);
+      const captionCandidates = collectCaptionCandidates(currentPlayerResponse, options);
+      const rankedCaptions = rankCaptionTracks(captionCandidates, options);
+      const maxCaptionAttempts = Math.min(
+        rankedCaptions.length,
+        Math.max(1, Number(options?.maxCaptionAttempts || DEFAULT_MAX_CAPTION_ATTEMPTS))
+      );
+      return {
+        captionTracks,
+        captionCandidates,
+        rankedCaptions,
+        selectedCaption: rankedCaptions[0] || null,
+        maxCaptionAttempts
+      };
+    }
+
+    function setCaptionDiagnostics(captionState, extra) {
+      selectedCaption = captionState.selectedCaption;
+      diagnostics.debug.captions = Object.assign({
+        attempted: !!captionState.selectedCaption,
+        availableCount: captionState.captionTracks.length,
+        candidateCount: captionState.captionCandidates.length,
+        translatedCandidateCount: captionState.captionCandidates.filter((track) => track.isTranslated).length,
+        attemptLimit: captionState.maxCaptionAttempts,
+        attemptedCount: 0,
+        selectedLanguageCode: captionState.selectedCaption?.languageCode || '',
+        selectedLanguageName: captionState.selectedCaption?.name || '',
+        selectedKind: captionState.selectedCaption?.kind || '',
+        usedAsSource: false,
+        candidates: captionState.rankedCaptions.slice(0, 8).map((track) => ({
+          languageCode: track.languageCode,
+          languageName: track.name,
+          kind: track.kind,
+          isAutomatic: track.isAutomatic,
+          isTranslatable: track.isTranslatable,
+          isTranslated: !!track.isTranslated,
+          sourceLanguageCode: track.sourceLanguageCode || '',
+          sourceLanguageName: track.sourceLanguageName || '',
+          translationLanguageCode: track.translationLanguageCode || '',
+          translationLanguageName: track.translationLanguageName || '',
+          captionUrl: track.baseUrl
+        }))
+      }, extra || {});
+    }
+
+    async function tryCaptionState(captionState, reason) {
+      if (!captionState.rankedCaptions.length) return [];
       const errors = [];
-      const attempts = rankedCaptions.slice(0, maxCaptionAttempts);
+      const attempts = captionState.rankedCaptions.slice(0, captionState.maxCaptionAttempts);
       for (let attemptIndex = 0; attemptIndex < attempts.length; attemptIndex += 1) {
         const candidate = attempts[attemptIndex];
         diagnostics.debug.captions.attemptedCount = attemptIndex + 1;
@@ -698,7 +1210,10 @@
             languageCode: candidate.languageCode,
             languageName: candidate.name,
             isAutomatic: candidate.isAutomatic,
-            attempt: attemptIndex + 1
+            isTranslated: !!candidate.isTranslated,
+            sourceLanguageCode: candidate.sourceLanguageCode || '',
+            attempt: attemptIndex + 1,
+            reason: reason || ''
           });
 
           if (!captionText) {
@@ -733,7 +1248,10 @@
             languageCode: candidate.languageCode,
             languageName: candidate.name,
             isAutomatic: candidate.isAutomatic,
+            isTranslated: !!candidate.isTranslated,
+            sourceLanguageCode: candidate.sourceLanguageCode || '',
             attempt: attemptIndex + 1,
+            reason: reason || '',
             message
           });
         }
@@ -749,6 +1267,74 @@
             error: errors.join(' | ')
           }
         );
+      }
+
+      return errors;
+    }
+
+    let captionState = buildCaptionState(playerResponse);
+    setCaptionDiagnostics(captionState);
+    await tryCaptionState(captionState);
+
+    if (
+      !sourceText &&
+      options?.fetchInnertube !== false &&
+      innertubeApiKey &&
+      !diagnostics.debug.innertube?.attempted
+    ) {
+      const priorCaptionErrors = Array.isArray(diagnostics.debug.captions?.errors)
+        ? diagnostics.debug.captions.errors.slice()
+        : [];
+      diagnostics.debug.innertube = {
+        attempted: true,
+        ok: false,
+        apiKeySource: innertubeApiKeySource,
+        reason: 'empty_caption_recovery'
+      };
+      try {
+        const innertubePlayerResponse = await fetchPlayerResponseFromInnertube(videoId, innertubeApiKey, url, options);
+        const innertubeMatch = getPlayerResponseMatch(innertubePlayerResponse, videoId);
+        const innertubeTrackCount = collectCaptionTracks(innertubePlayerResponse).length;
+        const matchedInnertubePlayerResponse = innertubeMatch.isStale ? null : innertubePlayerResponse;
+        diagnostics.debug.innertube = Object.assign({}, diagnostics.debug.innertube, {
+          ok: !!matchedInnertubePlayerResponse && innertubeTrackCount > 0,
+          captionTrackCount: innertubeTrackCount,
+          actualVideoId: innertubeMatch.actualVideoId
+        });
+        diagnostics.stages.push({
+          name: 'innertube_player_response',
+          code: innertubeMatch.isStale ? 'stale' : (innertubeTrackCount ? 'ok' : 'missing_captions'),
+          expectedVideoId: videoId,
+          actualVideoId: innertubeMatch.actualVideoId,
+          captionTrackCount: innertubeTrackCount,
+          reason: 'empty_caption_recovery',
+          message: innertubeMatch.isStale
+            ? 'InnerTube player response belongs to a different YouTube video'
+            : (innertubeTrackCount ? '' : 'InnerTube player response did not include caption tracks')
+        });
+        if (matchedInnertubePlayerResponse && innertubeTrackCount > 0) {
+          playerResponse = matchedInnertubePlayerResponse;
+          playerResponseSource = 'innertube';
+          diagnostics.debug.hasPlayerResponse = true;
+          diagnostics.debug.playerResponseSource = playerResponseSource;
+          captionState = buildCaptionState(playerResponse);
+          setCaptionDiagnostics(captionState, {
+            recoveryReason: 'empty_caption_recovery',
+            priorErrors: priorCaptionErrors
+          });
+          await tryCaptionState(captionState, 'empty_caption_recovery');
+        }
+      } catch (error) {
+        const message = error?.message || String(error || '');
+        diagnostics.debug.innertube = Object.assign({}, diagnostics.debug.innertube, {
+          error: message
+        });
+        diagnostics.stages.push({
+          name: 'innertube_player_response',
+          code: 'error',
+          reason: 'empty_caption_recovery',
+          message
+        });
       }
     }
 
@@ -768,7 +1354,7 @@
       meta: {
         canonicalUrl: buildCanonicalVideoUrl(video),
         ogTitle: video.title,
-        htmlTitle: doc?.title || video.title,
+        htmlTitle: metadataDocument?.title || video.title,
         description: video.description,
         author: video.author,
         siteName: 'YouTube',
@@ -785,10 +1371,13 @@
     extractVideoId,
     parsePlayerResponseFromText,
     readPlayerResponseFromDom,
+    getPlayerResponseVideoId,
     fetchPlayerResponseFromWatchPage,
     normalizeVideoPayload,
     normalizeCaptionTrack,
     collectCaptionTracks,
+    collectCaptionCandidates,
+    collectTranslationLanguages,
     rankCaptionTracks,
     selectCaption,
     parseCaptionResponse,

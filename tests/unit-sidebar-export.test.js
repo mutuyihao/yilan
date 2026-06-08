@@ -64,22 +64,10 @@ test('sidebar export controller resolves current video subtitle artifacts generi
           youtube: {
             debug: {
               captions: {
-                jsonText: '{"languageCode":"en","lines":[]}',
-                candidates: [
-                  {
-                    languageCode: 'zh-CN',
-                    languageName: 'Chinese',
-                    isAutomatic: false,
-                    captionUrl: 'https://www.youtube.com/api/timedtext?v=demo&lang=zh-CN'
-                  },
-                  {
-                    languageCode: 'en',
-                    languageName: 'English',
-                    isAutomatic: true,
-                    kind: 'asr',
-                    captionUrl: 'https://www.youtube.com/api/timedtext?v=demo&lang=en'
-                  }
-                ]
+                languageCode: 'en',
+                languageName: 'English',
+                isAutomatic: true,
+                text: '[00:01] trimmed only'
               }
             }
           },
@@ -114,7 +102,7 @@ test('sidebar export controller resolves current video subtitle artifacts generi
   assert.strictEqual(controller.hasVideoSubtitleArtifact(), true);
   assert.deepStrictEqual(
     controller.getVideoSubtitleOptions().map((option) => option.key),
-    ['youtube-current', 'youtube-track-0', 'youtube-track-1', 'youtube-all']
+    ['youtube-current']
   );
 
   state = {
@@ -153,41 +141,24 @@ test('sidebar export controller resolves current video subtitle artifacts generi
   state = {
     article: {
       sourceType: 'video',
-      title: 'YouTube clip',
+      title: 'YouTube translated track',
       sourceUrl: 'https://www.youtube.com/watch?v=demo',
       diagnostics: {
         videoSource: 'youtube',
         youtube: {
           debug: {
             captions: {
-              attempted: true
-            }
-          }
-        }
-      }
-    },
-    lastDiagnostics: {
-      article: {
-        diagnostics: {
-          youtube: {
-            debug: {
-              captions: {
-                candidates: [
-                  {
-                    languageCode: 'zh-CN',
-                    languageName: 'Chinese',
-                    isAutomatic: false,
-                    captionUrl: 'https://www.youtube.com/api/timedtext?v=demo&lang=zh-CN'
-                  },
-                  {
-                    languageCode: 'en',
-                    languageName: 'English',
-                    isAutomatic: true,
-                    kind: 'asr',
-                    captionUrl: 'https://www.youtube.com/api/timedtext?v=demo&lang=en'
-                  }
-                ]
-              }
+              attempted: true,
+              languageCode: 'zh-Hans',
+              languageName: 'Chinese',
+              isAutomatic: true,
+              isTranslated: true,
+              sourceLanguageCode: 'en',
+              sourceLanguageName: 'English',
+              translationLanguageCode: 'zh-Hans',
+              translationLanguageName: 'Chinese',
+              text: '[00:02] summary-used caption',
+              jsonText: '{"lines":[{"startSeconds":2,"text":"summary-used caption"}]}'
             }
           }
         }
@@ -195,91 +166,7 @@ test('sidebar export controller resolves current video subtitle artifacts generi
     },
     summaryMarkdown: ''
   };
-  subtitleTrackSelect.value = 'youtube-all';
-
-  const originalDocument = global.document;
-  const originalFetch = global.fetch;
-  const originalCreateObjectURL = global.URL.createObjectURL;
-  const originalRevokeObjectURL = global.URL.revokeObjectURL;
-  const downloads = [];
-  let exportedBlob = null;
-  global.document = {
-    createElement() {
-      return {
-        href: '',
-        download: '',
-        click() {
-          downloads.push(this.download);
-        }
-      };
-    }
-  };
-  global.URL.createObjectURL = (blob) => {
-    exportedBlob = blob;
-    return 'blob:test';
-  };
-  global.URL.revokeObjectURL = () => {};
-  global.fetch = async (url) => ({
-    ok: true,
-    status: 200,
-    text: async () => JSON.stringify({
-      url: String(url),
-      events: [{ tStartMs: 1000, segs: [{ utf8: 'caption' }] }]
-    })
-  });
-
-  try {
-    await controller.exportVideoSubtitle();
-    assert.strictEqual(downloads.length, 1);
-    assert.ok(downloads[0].endsWith('-all-subtitles.json'));
-    const exported = JSON.parse(await exportedBlob.text());
-    assert.strictEqual(exported.provider, 'youtube');
-    assert.strictEqual(exported.tracks.length, 2);
-    assert.strictEqual(exported.tracks[0].languageCode, 'zh-CN');
-    assert.strictEqual(exported.tracks[1].languageCode, 'en');
-    assert.ok(exported.tracks.every((track) => track.ok));
-    assert.ok(exported.tracks[0].text.includes('[00:01] caption'));
-  } finally {
-    global.document = originalDocument;
-    global.fetch = originalFetch;
-    global.URL.createObjectURL = originalCreateObjectURL;
-    global.URL.revokeObjectURL = originalRevokeObjectURL;
-  }
-
-  state = {
-    article: {
-      sourceType: 'video',
-      title: 'YouTube single track',
-      sourceUrl: 'https://www.youtube.com/watch?v=demo',
-      diagnostics: {
-        videoSource: 'youtube',
-        youtube: { debug: { captions: { attempted: true } } }
-      }
-    },
-    lastDiagnostics: {
-      article: {
-        diagnostics: {
-          youtube: {
-            debug: {
-              captions: {
-                candidates: [
-                  {
-                    languageCode: 'en',
-                    languageName: 'English',
-                    isAutomatic: true,
-                    kind: 'asr',
-                    captionUrl: 'https://www.youtube.com/api/timedtext?v=demo&lang=en'
-                  }
-                ]
-              }
-            }
-          }
-        }
-      }
-    },
-    summaryMarkdown: ''
-  };
-  subtitleTrackSelect.value = 'youtube-track-0';
+  subtitleTrackSelect.value = 'stale-option';
   const originalDocumentForSingle = global.document;
   const originalFetchForSingle = global.fetch;
   const originalCreateObjectURLForSingle = global.URL.createObjectURL;
@@ -306,21 +193,20 @@ test('sidebar export controller resolves current video subtitle artifacts generi
     return 'blob:single';
   };
   global.URL.revokeObjectURL = () => {};
-  global.fetch = async () => ({
-    ok: true,
-    status: 200,
-    text: async () => JSON.stringify({
-      events: [{ tStartMs: 2000, segs: [{ utf8: 'single track caption' }] }]
-    })
-  });
+  global.fetch = async () => {
+    throw new Error('subtitle export should not fetch YouTube again');
+  };
 
   try {
+    assert.deepStrictEqual(
+      controller.getVideoSubtitleOptions().map((option) => option.key),
+      ['youtube-current']
+    );
     await controller.exportVideoSubtitle();
     assert.strictEqual(singleDownloads.length, 1);
-    assert.ok(singleDownloads[0].endsWith('-subtitle-en.txt'));
+    assert.ok(singleDownloads[0].endsWith('-subtitle-zh-Hans.txt'));
     const singleText = await singleBlob.text();
-    assert.ok(singleText.includes('Language: English / en'));
-    assert.ok(singleText.includes('[00:02] single track caption'));
+    assert.strictEqual(singleText, '[00:02] summary-used caption');
   } finally {
     global.document = originalDocumentForSingle;
     global.fetch = originalFetchForSingle;
