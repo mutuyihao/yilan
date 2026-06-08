@@ -1,6 +1,6 @@
 # Yilan
 
-Last updated: 2026-05-25
+Last updated: 2026-06-08
 
 Language: English | [中文](README.md)
 
@@ -8,11 +8,12 @@ Website: <https://yilan.app>
 GitHub: <https://github.com/mutuyihao/yilan>
 Community: <https://discord.gg/MWWDwXZ2TV>
 
-Yilan is a Manifest V3 Chromium extension for the full web reading workflow: extract a page, generate a summary, continue processing it, save it locally, and read it in a focused view.
+Yilan is a Manifest V3 Chromium extension for the full web and video reading workflow: extract a page or video source, generate a summary, continue processing it, save it locally, and read it in a focused view.
 
 The current version is no longer just a summarizer. It is a local-first web reading workspace:
 
 - Extracts article text, title, author, publish time, and site information automatically.
+- Handles YouTube video pages with available captions and translated captions first, then recovers source data through page player responses, watch HTML, InnerTube, and metadata fallback when needed; subtitle export is available when captions are detected.
 - Handles Bilibili video pages by building the source in this order: official Bilibili AI summary, available subtitles, then video title/description fallback; subtitle export is available when subtitles are detected.
 - Detects page type and recommends a summary strategy for that page.
 - Supports four primary summary modes: `Brief Summary`, `Standard Summary`, `Detailed Analysis`, and `Key Points`.
@@ -29,10 +30,13 @@ The current version is no longer just a summarizer. It is a local-first web read
 
 - Yilan is `local-first + BYOK`; it does not include built-in accounts or cloud sync.
 - Incognito mode only controls whether results are written to local history. It does not prevent page content, video metadata, or subtitles from being sent to the model service you configure.
+- YouTube support currently targets `youtube.com/watch`, `youtube.com/shorts/...`, `youtube.com/embed/...`, `youtube.com/live/...`, and `youtu.be/...` video pages. Playlists, channel pages, search pages, community pages, and other YouTube surfaces are outside the stable video-summary scope.
+- On YouTube video pages, Yilan may read player response data from the page and request YouTube watch, player, and caption-related endpoints from the browser to locate captions, translated captions, or metadata. Captions are used as the preferred summary source when available; if only title, channel, duration, and description metadata remain, the result degrades to a video information summary.
+- YouTube captions, translated captions, player responses, and InnerTube fallbacks depend on YouTube page/API availability. API changes, region restrictions, login-state differences, videos without captions, or failed caption requests may cause degraded, failed, or metadata-only summaries.
 - Bilibili support currently targets `bilibili.com/video/BV...` video pages. Bangumi pages, live streams, articles, dynamic posts, playlists, search pages, and other Bilibili surfaces are outside the stable support scope.
 - On Bilibili video pages, Yilan may request Bilibili metadata, official AI summary, player, and subtitle endpoints from the browser. If an official Bilibili AI summary is available, Yilan can use it directly without a model-provider request for that primary result. If Yilan falls back to subtitles or page metadata, that text may be sent to the model service you configure.
 - Bilibili official summaries, subtitles, multipart metadata, and login-dependent responses depend on Bilibili page/API availability. API changes, permissions, region restrictions, missing login state, or videos without subtitles may cause degraded, failed, or metadata-only summaries.
-- Yilan is not an official Bilibili product and is not affiliated with, endorsed by, or warranted by Bilibili. Summaries and exported subtitles are reading aids for personal use; they are not official transcripts, complete substitutes for the video, or guarantees of factual accuracy. Follow copyright rules, platform terms, and creator rights when using or sharing extracted content.
+- Yilan is not an official YouTube or Bilibili product and is not affiliated with, endorsed by, or warranted by those platforms. Summaries and exported subtitles are reading aids for personal use; they are not official transcripts, complete substitutes for the video, or guarantees of factual accuracy. Follow copyright rules, platform terms, and creator rights when using or sharing extracted content.
 - History is stored only in IndexedDB for the current browser profile.
 - The extension currently targets Chromium browsers and uses the context menu plus `Alt + S` as the main entry points.
 
@@ -69,7 +73,7 @@ Notes:
 1. Open any web page.
 2. Right-click the page and choose the Yilan summary action, or press `Alt + S`.
 3. When the sidebar opens, it checks the entry configuration first. If history reuse is enabled and a completed result exists for the current page, the latest result is shown immediately. Otherwise, generation starts automatically, or the sidebar waits for manual action depending on your settings.
-4. Use the sidebar to read the summary, generate action items / glossary / Q&A cards, export Bilibili subtitles when available, and manage history or favorites.
+4. Use the sidebar to read the summary, generate action items / glossary / Q&A cards, export YouTube or Bilibili subtitles when available, and manage history or favorites.
 5. For focused reading, click the reader button at the top to open the result in a dedicated new tab.
 
 ## Development
@@ -129,7 +133,7 @@ npm.cmd run package:release
 |   |-- highlight.min.js        # highlight.js for code block highlighting
 |   |-- github-dark.min.css     # Markdown / code block highlight styles
 |   `-- html2canvas.min.js      # Long screenshot share card generation
-|-- shared/                    # Domain utilities, page strategy, Bilibili source extraction, trust policy, theme, transport utilities, provider presets
+|-- shared/                    # Domain utilities, page strategy, YouTube/Bilibili source extraction, trust policy, theme, transport utilities, provider presets
 |-- tests/                     # Node feature matrix, unit tests, static contracts
 |-- background.js              # Background orchestration, connection checks, model listing, entry state, run control, reader sessions
 |-- content.js                 # Page extraction and sidebar injection
