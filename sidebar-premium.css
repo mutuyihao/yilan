@@ -763,6 +763,251 @@ body {
   font-family: var(--font-mono);
 }
 
+body.sidebar-compact .topbar {
+  min-height: 42px;
+  padding: 6px 10px;
+}
+
+body.sidebar-compact .brand {
+  gap: 7px;
+}
+
+body.sidebar-compact .brand-mark {
+  border-radius: 9px;
+  font-size: 15px;
+  height: 30px;
+  width: 30px;
+}
+
+body.sidebar-compact .brand-title {
+  font-size: 14px;
+}
+
+body.sidebar-compact .brand-subtitle {
+  display: none;
+}
+
+body.sidebar-compact .topbar-actions {
+  gap: 4px;
+}
+
+body.sidebar-compact .topbar-chip-btn,
+body.sidebar-compact .theme-toggle-btn,
+body.sidebar-compact .icon-btn {
+  height: 29px;
+  min-height: 29px;
+}
+
+body.sidebar-compact .topbar-chip-btn,
+body.sidebar-compact .theme-toggle-btn {
+  font-size: 10.5px;
+  padding-inline: 7px;
+}
+
+body.sidebar-compact .theme-toggle-btn {
+  flex: 0 0 36px;
+  max-width: 36px;
+  overflow: hidden;
+  padding: 0;
+  position: relative;
+  text-indent: 120%;
+  white-space: nowrap;
+  width: 36px;
+}
+
+body.sidebar-compact .theme-toggle-btn::after {
+  align-items: center;
+  content: '明暗';
+  display: flex;
+  inset: 0;
+  justify-content: center;
+  position: absolute;
+  text-indent: 0;
+}
+
+body.sidebar-compact .icon-btn {
+  width: 30px;
+}
+
+body.sidebar-compact .workspace {
+  gap: 6px;
+  padding: 8px 10px 10px;
+}
+
+body.sidebar-compact .context-grid {
+  gap: 6px;
+}
+
+body.sidebar-compact .source-card,
+body.sidebar-compact .trust-card,
+body.sidebar-compact .controls-card {
+  border-radius: var(--radius-md);
+  box-shadow: none;
+}
+
+body.sidebar-compact .source-card {
+  gap: 4px;
+  padding: 8px 10px;
+}
+
+body.sidebar-compact .source-card .source-eyebrow,
+body.sidebar-compact .source-link,
+body.sidebar-compact .meta-grid,
+body.sidebar-compact .warning-list {
+  display: none;
+}
+
+body.sidebar-compact .article-title {
+  font-size: 15px;
+  line-height: 1.25;
+  -webkit-line-clamp: 1;
+}
+
+body.sidebar-compact .source-card .badge-row {
+  flex-wrap: nowrap;
+  overflow: hidden;
+}
+
+body.sidebar-compact #strategyBadge {
+  display: none;
+}
+
+body.sidebar-compact .badge {
+  flex: 0 1 auto;
+  font-size: 10px;
+  min-width: 0;
+  overflow: hidden;
+  padding: 2px 6px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+body.sidebar-compact .trust-card {
+  align-items: center;
+  display: flex;
+  gap: 6px;
+  padding: 6px 8px;
+}
+
+body.sidebar-compact .trust-card .source-eyebrow,
+body.sidebar-compact .trust-header > div,
+body.sidebar-compact .trust-grid {
+  display: none;
+}
+
+body.sidebar-compact .trust-header {
+  flex: 0 0 auto;
+  margin: 0;
+  order: 2;
+}
+
+body.sidebar-compact .trust-badges {
+  flex: 1 1 auto;
+  flex-wrap: nowrap;
+  gap: 4px;
+  min-width: 0;
+  overflow: hidden;
+  order: 1;
+}
+
+body.sidebar-compact .trust-toggle-btn {
+  font-size: 10.5px;
+  min-height: 26px;
+  padding: 4px 8px;
+}
+
+body.sidebar-compact .controls-card {
+  gap: 6px;
+  padding: 8px;
+}
+
+body.sidebar-compact .controls-row {
+  gap: 0;
+  grid-template-columns: 1fr;
+}
+
+body.sidebar-compact .controls-row .field-label {
+  border: 0;
+  clip: rect(0, 0, 0, 0);
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  padding: 0;
+  position: absolute;
+  white-space: nowrap;
+  width: 1px;
+}
+
+body.sidebar-compact .mode-trigger {
+  min-height: 30px;
+  padding: 5px 8px;
+}
+
+body.sidebar-compact .action-row {
+  gap: 5px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+body.sidebar-compact .action-row .action-btn {
+  font-size: 10.5px;
+  min-height: 28px;
+  padding-inline: 3px;
+}
+
+body.sidebar-compact #favoriteBtn,
+body.sidebar-compact #shareBtn {
+  display: none;
+}
+
+body.sidebar-compact .secondary-inline {
+  border-top: none;
+  margin-top: 0;
+  padding-top: 0;
+}
+
+body.sidebar-compact .secondary-inline > div:first-child {
+  display: none;
+}
+
+body.sidebar-compact .secondary-inline .secondary-actions {
+  gap: 5px;
+  width: 100%;
+}
+
+body.sidebar-compact .secondary-btn {
+  font-size: 11px;
+  min-height: 24px;
+  padding: 3px 7px;
+}
+
+body.sidebar-compact .content-panel {
+  flex: 1 1 auto;
+}
+
+body.sidebar-compact .summary-root {
+  line-height: 1.68;
+  padding: 14px 16px 18px;
+}
+
+body.sidebar-compact .footer {
+  gap: 8px;
+  min-height: 34px;
+  padding: 5px 10px;
+}
+
+body.sidebar-compact .footer-meta {
+  min-width: 0;
+}
+
+body.sidebar-compact .stats-text {
+  display: none;
+}
+
+body.sidebar-compact .diagnostics-card summary {
+  font-size: 11px;
+  padding: 6px 9px;
+}
+
 @keyframes yilanFadeIn {
   from {
     opacity: 0;

@@ -26,6 +26,7 @@ export interface UserSettings {
   autoTranslate?: boolean;
   themePreference?: ThemePreference;
   themePalette?: ThemePalette;
+  sidebarCompactMode?: boolean;
   privacyMode?: boolean;
   defaultAllowHistory?: boolean;
   defaultAllowShare?: boolean;

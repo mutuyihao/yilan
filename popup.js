@@ -19,6 +19,7 @@ const SETTINGS_KEYS = [
   'defaultLanguage',
   'themePreference',
   'themePalette',
+  'sidebarCompactMode',
   'privacyMode',
   'defaultAllowHistory',
   'defaultAllowShare',
@@ -707,6 +708,7 @@ function collectSettings() {
     defaultLanguage: $('defaultLanguage').value,
     themePreference: Theme.normalizePreference($('themePreference').value),
     themePalette: Theme.normalizePalette($('themePalette')?.value),
+    sidebarCompactMode: !!$('sidebarCompactMode')?.checked,
     privacyMode: $('privacyMode').checked,
     defaultAllowHistory: $('defaultAllowHistory').checked,
     defaultAllowShare: $('defaultAllowShare').checked,
@@ -1212,6 +1214,7 @@ function applySettingsToForm(settings) {
   $('defaultLanguage').value = safeSettings.defaultLanguage || 'zh';
   $('themePreference').value = themePreference;
   $('themePalette').value = themePalette;
+  $('sidebarCompactMode').checked = !!safeSettings.sidebarCompactMode;
   $('privacyMode').checked = trustSettings.privacyMode;
   $('defaultAllowHistory').checked = trustSettings.defaultAllowHistory;
   $('defaultAllowShare').checked = trustSettings.defaultAllowShare;

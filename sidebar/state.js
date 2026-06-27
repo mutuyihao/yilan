@@ -11,6 +11,7 @@
     'defaultLanguage',
     'themePreference',
     'themePalette',
+    'sidebarCompactMode',
     'privacyMode',
     'defaultAllowHistory',
     'defaultAllowShare',

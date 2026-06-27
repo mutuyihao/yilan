@@ -357,6 +357,7 @@ test('sidebar page DOM, scripts, actions, history, export, share, and reader con
   assert.ok(js.includes('recordStore.findReusableRecordForArticle'));
   assert.ok(js.includes('Trust.buildTrustPolicy'));
   assert.ok(js.includes('AISummaryTheme'));
+  assert.ok(js.includes('applySidebarCompactMode'));
   assert.strictEqual(countMatches(js, /function renderThemeToggleState\(/g), 1);
   assert.strictEqual(countMatches(js, /function cycleThemePreference\(/g), 1);
   assert.strictEqual(countMatches(js, /function updateFavoriteButton\(/g), 1);
@@ -391,6 +392,8 @@ test('popup DOM, tabs, autosave, provider settings, connection test, and entrypo
   });
   assert.ok(html.includes('data-autosave="immediate"'));
   assert.ok(html.includes('data-autosave="debounced"'));
+  assert.ok(ids.has('sidebarCompactMode'), 'popup.html missing sidebar compact mode setting');
+  assert.ok(js.includes('sidebarCompactMode'), 'popup.js missing sidebar compact mode persistence');
   assert.ok(js.includes('function scheduleAutoSave()'));
   assert.ok(js.includes('function flushPendingChanges()'));
   assert.ok(js.includes("action: 'testConnection'"));

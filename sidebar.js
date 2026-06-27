@@ -54,6 +54,12 @@ function storageSet(payload) {
   });
 }
 
+function applySidebarCompactMode(enabled) {
+  const compact = enabled === true;
+  document.body.classList.toggle('sidebar-compact', compact);
+  document.body.dataset.sidebarLayout = compact ? 'compact' : 'standard';
+}
+
 function runtimeSendMessage(message) {
   return new Promise((resolve) => {
     chrome.runtime.sendMessage(message, (response) => {
@@ -72,8 +78,10 @@ async function loadRuntimeSettings() {
   state.settings = Object.assign({
     entrypointAutoStart: true,
     entrypointSimpleMode: false,
-    entrypointReuseHistory: true
+    entrypointReuseHistory: true,
+    sidebarCompactMode: false
   }, rawSettings, trustSettings);
+  applySidebarCompactMode(state.settings.sidebarCompactMode === true);
   return state.settings;
 }
 
@@ -861,6 +869,19 @@ function updateFavoriteButton() {
   elements.favoriteBtn.classList.toggle('action-btn-favorite-active', active);
 }
 
+function bindSettingsChangeListener() {
+  if (typeof chrome === 'undefined' || !chrome.storage?.onChanged?.addListener) return;
+
+  chrome.storage.onChanged.addListener((changes, areaName) => {
+    if (areaName !== 'sync') return;
+    if (!Object.prototype.hasOwnProperty.call(changes || {}, 'sidebarCompactMode')) return;
+
+    const enabled = changes.sidebarCompactMode?.newValue === true;
+    state.settings = Object.assign({}, state.settings, { sidebarCompactMode: enabled });
+    applySidebarCompactMode(enabled);
+  });
+}
+
 const readerSessionController = SidebarReaderSession.createReaderSessionController({
   getState: () => state,
   getElements: () => elements,
@@ -912,6 +933,7 @@ function init() {
   renderTrustCard(null);
   refreshActionStates();
   eventsController.bind();
+  bindSettingsChangeListener();
 
   Theme.onChange(() => {
     renderThemeToggleState();

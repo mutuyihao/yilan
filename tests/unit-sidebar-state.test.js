@@ -39,6 +39,7 @@ test('sidebar state module creates isolated default state and navigation constan
     'defaultLanguage',
     'themePreference',
     'themePalette',
+    'sidebarCompactMode',
     'privacyMode',
     'defaultAllowHistory',
     'defaultAllowShare',
