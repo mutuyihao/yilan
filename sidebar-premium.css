@@ -35,6 +35,46 @@ body {
   border-radius: 999px;
 }
 
+:root[data-theme] .summary-root,
+:root[data-theme] .history-list,
+:root[data-theme] .diagnostics-pre {
+  scrollbar-color:
+    color-mix(in srgb, var(--accent) 42%, transparent)
+    color-mix(in srgb, var(--surface-soft) 64%, transparent);
+}
+
+:root[data-theme] .summary-root::-webkit-scrollbar-track,
+:root[data-theme] .history-list::-webkit-scrollbar-track,
+:root[data-theme] .diagnostics-pre::-webkit-scrollbar-track {
+  background: color-mix(in srgb, var(--surface-soft) 52%, transparent);
+}
+
+:root[data-theme] .summary-root::-webkit-scrollbar-thumb,
+:root[data-theme] .history-list::-webkit-scrollbar-thumb,
+:root[data-theme] .diagnostics-pre::-webkit-scrollbar-thumb {
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--accent-strong) 72%, transparent),
+      color-mix(in srgb, var(--accent) 78%, transparent)
+    ) padding-box,
+    linear-gradient(180deg, transparent, transparent) border-box;
+  border: 2px solid transparent;
+  border-radius: 999px;
+}
+
+:root[data-theme] .summary-root::-webkit-scrollbar-thumb:hover,
+:root[data-theme] .history-list::-webkit-scrollbar-thumb:hover,
+:root[data-theme] .diagnostics-pre::-webkit-scrollbar-thumb:hover {
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--accent-strong) 86%, transparent),
+      color-mix(in srgb, var(--accent) 88%, transparent)
+    ) padding-box,
+    linear-gradient(180deg, transparent, transparent) border-box;
+}
+
 :root[data-theme] .brand-mark {
   background: var(--brand-gradient);
   color: var(--brand-ink);
@@ -684,7 +724,7 @@ body {
 }
 
 .status-success {
-  color: var(--success);
+  color: var(--accent);
 }
 
 .status-warning {
@@ -755,6 +795,12 @@ body {
 .diagnostics-card summary {
   background: var(--surface);
   color: var(--text-soft);
+}
+
+.diagnostics-card[open] summary {
+  background: var(--surface);
+  border-bottom-color: var(--line);
+  color: var(--text);
 }
 
 .diagnostics-pre {

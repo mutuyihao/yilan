@@ -1,19 +1,21 @@
 :root {
-  --reader-bg: var(--color-base-light);
+  --reader-bg: var(--body-bg);
+  --reader-bg-solid: var(--color-base-light);
   --reader-header-height: 64px;
   --reader-measure: 720px;
   --reader-shell-width: min(var(--reader-measure), calc(100vw - 44px));
   --reader-toc-gap: 34px;
   --reader-toc-width: 286px;
-  --reader-header-bg: color-mix(in srgb, var(--reader-bg) 92%, transparent);
-  --reader-header-bg-scrolled: color-mix(in srgb, var(--reader-bg) 96%, transparent);
+  --reader-header-bg: color-mix(in srgb, var(--reader-bg-solid) 92%, transparent);
+  --reader-header-bg-scrolled: color-mix(in srgb, var(--reader-bg-solid) 96%, transparent);
   --reader-code-bg: rgba(26, 32, 40, 0.045);
 }
 
 :root[data-theme='dark'] {
-  --reader-bg: var(--color-base-dark);
-  --reader-header-bg: color-mix(in srgb, var(--reader-bg) 88%, transparent);
-  --reader-header-bg-scrolled: color-mix(in srgb, var(--reader-bg) 94%, transparent);
+  --reader-bg: var(--body-bg);
+  --reader-bg-solid: var(--color-base-dark);
+  --reader-header-bg: color-mix(in srgb, var(--reader-bg-solid) 88%, transparent);
+  --reader-header-bg-scrolled: color-mix(in srgb, var(--reader-bg-solid) 94%, transparent);
   --reader-code-bg: rgba(255, 255, 255, 0.045);
 }
 
@@ -41,7 +43,7 @@ body::-webkit-scrollbar-track {
 html::-webkit-scrollbar-thumb,
 body::-webkit-scrollbar-thumb {
   background: color-mix(in srgb, var(--accent) 34%, transparent);
-  border: 3px solid var(--reader-bg);
+  border: 3px solid var(--reader-bg-solid);
   border-radius: 999px;
 }
 
@@ -73,7 +75,7 @@ body::-webkit-scrollbar-thumb {
 .diagnostics-pre::-webkit-scrollbar-thumb,
 .markdown-body pre::-webkit-scrollbar-thumb {
   background: color-mix(in srgb, var(--accent) 34%, transparent);
-  border: 3px solid var(--reader-bg);
+  border: 3px solid var(--reader-bg-solid);
   border-radius: 999px;
 }
 
@@ -96,7 +98,7 @@ body::-webkit-scrollbar-thumb {
 :root[data-theme] .diagnostics-pre::-webkit-scrollbar-thumb,
 :root[data-theme] .markdown-body pre::-webkit-scrollbar-thumb {
   background: color-mix(in srgb, var(--accent) 34%, transparent);
-  border: 3px solid var(--reader-bg);
+  border: 3px solid var(--reader-bg-solid);
 }
 
 body {
