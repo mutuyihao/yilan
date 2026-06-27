@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.4.1 - 2026-06-27
+
+- Added a popup setting for default compact sidebar mode so the sidebar can always open with more space reserved for the summary.
+- Kept standard sidebar mode as the full information layout with source metadata, trust controls, actions, status, and diagnostics visible.
+- Improved theme-linked colors for compact sidebar controls, summary scrollbars, standalone reader backgrounds, and footer status text.
+
 ## 1.3.0 - 2026-06-08
 
 - Added YouTube video summaries with caption-based source extraction, player-response discovery, and metadata fallback.

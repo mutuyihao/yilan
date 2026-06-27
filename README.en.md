@@ -19,11 +19,12 @@ The current version is no longer just a summarizer. It is a local-first web read
 - Supports four primary summary modes: `Brief Summary`, `Standard Summary`, `Detailed Analysis`, and `Key Points`.
 - Supports three follow-up generation modes: `Action Items`, `Glossary`, and `Q&A Cards`.
 - Shows source metadata, trust and control state, history, favorites, and basic diagnostics in the sidebar.
+- Supports standard and compact sidebar layouts; compact mode compresses source, control, and status areas so the summary gets more space.
 - Can reuse the current page's latest historical summary at entry time, while keeping `Regenerate` available to refresh the page result.
 - Refreshes sidebar context after same-document SPA route changes without automatically starting a new model request by default.
 - Opens the current summary in a standalone new-tab reader with document navigation generated from Markdown headings.
 - Copies the current summary, exports Markdown, and creates long screenshot share cards with source links.
-- Provides provider presets, explicit or automatic Endpoint Mode, model list refresh for OpenAI-compatible endpoints, light/dark/system mode, four palette presets, entry status checks, and auto-save in the settings page.
+- Provides provider presets, explicit or automatic Endpoint Mode, model list refresh for OpenAI-compatible endpoints, light/dark/system mode, four palette presets, default compact sidebar mode, entry status checks, and auto-save in the settings page.
 - Uses a two-layer test baseline: `Node feature matrix + static contracts` and `Playwright browser main flow`, which protects future refactors and technical-debt cleanup.
 
 ## Current Scope
@@ -73,7 +74,7 @@ Notes:
 1. Open any web page.
 2. Right-click the page and choose the Yilan summary action, or press `Alt + S`.
 3. When the sidebar opens, it checks the entry configuration first. If history reuse is enabled and a completed result exists for the current page, the latest result is shown immediately. Otherwise, generation starts automatically, or the sidebar waits for manual action depending on your settings.
-4. Use the sidebar to read the summary, generate action items / glossary / Q&A cards, export YouTube or Bilibili subtitles when available, and manage history or favorites.
+4. Use the sidebar to read the summary, generate action items / glossary / Q&A cards, export YouTube or Bilibili subtitles when available, and manage history or favorites. If `Default compact sidebar mode` is enabled in settings, the sidebar opens with a larger summary reading area.
 5. For focused reading, click the reader button at the top to open the result in a dedicated new tab.
 
 ## Development
