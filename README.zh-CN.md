@@ -117,7 +117,7 @@ npm.cmd run test:e2e
 npm.cmd run package:release
 ```
 
-`npm.cmd run package:release` 会在 `release/` 下生成只包含扩展运行文件的发布包，排除测试、Playwright 产物、私有目录、依赖目录和源码文档。发布前按 [1.3.0 发版清单](docs/RELEASE_CHECKLIST.md) 和 [Chrome Web Store 文案](docs/STORE_LISTING.md) 检查。
+`npm.cmd run package:release` 会在 `release/` 下生成只包含扩展运行文件的发布包，排除测试、Playwright 产物、私有目录、依赖目录和源码文档。每次发版都按 [发版清单](docs/RELEASE_CHECKLIST.md) 和 [Chrome Web Store 文案](docs/STORE_LISTING.md) 检查。
 
 ## 目录结构
 
@@ -155,7 +155,7 @@ npm.cmd run package:release
 - [技术架构](docs/TECHNICAL_ARCHITECTURE.md)
 - [测试体系](docs/TESTING.md)
 - [开发者指南](docs/DEVELOPER_GUIDE.md)
-- [1.3.0 发版清单](docs/RELEASE_CHECKLIST.md)
+- [发版清单](docs/RELEASE_CHECKLIST.md)
 - [Chrome Web Store 文案](docs/STORE_LISTING.md)
 - [隐私政策](PRIVACY_POLICY.md)
 - [设计系统](DESIGN_SYSTEM.md)

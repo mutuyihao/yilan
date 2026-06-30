@@ -1,8 +1,18 @@
-# 1.3.0 Release Checklist
+# Release Checklist
 
-Last updated: 2026-06-08
+Last updated: 2026-07-01
 
-This checklist is the gate for both Chrome Web Store submission and the GitHub/community release package.
+This checklist is the fixed release gate for every version. Use it for both Chrome Web Store submission and the GitHub/community release package.
+
+## Every Release Flow
+
+- Bump the version in `package.json`, `package-lock.json`, `manifest.json`, and `shared/version.js`.
+- Add a dated `CHANGELOG.md` entry for the target version.
+- Update Chrome Web Store copy, version update notes, permission/privacy text, and known limitations in `docs/STORE_LISTING.md`.
+- Update README and docs references when release gates, supported features, or user-visible workflows change.
+- Run the automated gates below and keep the generated package artifacts under `release/yilan-<version>/`.
+- Create an annotated tag after the release commit is ready: `git tag -a v<version> -m "Release <version>"`.
+- Push the release commit and tag together: `git push origin master --follow-tags`.
 
 ## Automated Gates
 
@@ -36,6 +46,6 @@ The release package script writes `release/yilan-<version>/`, `release/yilan-<ve
 ## GitHub / Community Release
 
 - Attach `release/yilan-<version>-extension.zip`.
-- Include the `CHANGELOG.md` entry for `1.3.0`.
+- Include the matching `CHANGELOG.md` entry for the target version.
 - Include installation instructions for Load unpacked from the zip.
 - Include known limitations: restricted browser pages cannot be injected; API behavior depends on the user's configured provider; no-trace mode does not stop sending page content to the configured model; Bilibili official summaries and subtitles depend on Bilibili page/API availability and login state; YouTube captions, translated captions, and player-response fallbacks depend on YouTube page/API availability and may degrade to metadata.

@@ -1,6 +1,6 @@
 # Chrome Web Store Listing Draft
 
-Last updated: 2026-06-08
+Last updated: 2026-07-01
 
 ## Title
 
@@ -22,7 +22,7 @@ Key features:
 - BYOK provider setup with OpenAI, Anthropic, custom compatible gateways, regional provider presets, generated provider catalog, and recommended Base URL routes.
 - Explicit or automatic endpoint modes for Responses, Chat Completions, legacy Completions, and Anthropic Messages.
 - Local IndexedDB history, favorites, page-level reuse, and no-trace mode.
-- Sidebar workspace, focused reader page with document navigation, Markdown export, and share-card image export.
+- Sidebar workspace with standard and compact layouts, focused reader page with document navigation, Markdown export, and share-card image export.
 - Light/dark/system theme mode plus four palette presets.
 - No analytics, no tracking, and no vendor server operated by Yilan.
 
@@ -30,10 +30,11 @@ Key features:
 
 Paste-ready Chrome Web Store update text:
 
-1.3.0 adds YouTube video summaries with caption/translated-caption extraction, fallback recovery, diagnostics, metadata fallback, and subtitle export. Since the 1.0.0 store version, Yilan also added Bilibili video summaries and subtitle export, a reader document navigation panel, a redesigned provider setup flow, MiMo route/key validation improvements, broader diagnostics, and updated release gates.
+1.4.1 adds a default compact sidebar mode setting, keeps the full standard sidebar layout for source details and diagnostics, and polishes theme-linked colors across compact controls, summary scrollbars, reader backgrounds, and footer status text. Since the 1.0.0 store version, Yilan also added YouTube and Bilibili video summaries, subtitle export, a reader document navigation panel, redesigned provider setup, MiMo route/key validation improvements, broader diagnostics, and updated release gates.
 
 Full user-visible changes since the 1.0.0 store version:
 
+- 1.4.1: Added a popup setting for default compact sidebar mode, preserved standard sidebar mode as the full information layout, and improved theme-linked colors for compact controls, summary scrollbars, standalone reader backgrounds, and footer status text.
 - 1.3.0: Added YouTube video summaries using captions where available, with DOM player response, watch HTML, InnerTube, JSON/XML caption parsing, translated caption candidates, stale SPA response handling, metadata fallback, diagnostics persistence, and summary-selected subtitle export.
 - 1.2.0: Added Bilibili video summaries using video metadata, official Bilibili AI summaries when available, subtitle fallback, diagnostics, and Bilibili subtitle export.
 - 1.1.1: Added a floating document navigation panel to the standalone reader, heading anchors, active-section highlighting, and better long-title handling.
