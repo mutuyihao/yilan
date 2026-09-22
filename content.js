@@ -18,6 +18,26 @@ if (!window.__aiSummaryInjected) {
   let navigationMutationTimer = 0;
   let activeSidebarPayloadType = '';
   let currentPageKey = buildPageContextKey();
+  // Random per-injection secret authorizing content->sidebar messages. The
+  // host page shares the content script's window/origin, so origin checks
+  // cannot separate them; only the value of this token can (pages cannot read
+  // messages posted into the cross-origin sidebar iframe).
+  let sidebarMessageToken = '';
+
+  function createSidebarMessageToken() {
+    try {
+      if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+        return crypto.randomUUID();
+      }
+    } catch (error) {
+      console.warn('[Yilan] crypto.randomUUID unavailable, using fallback token.', error);
+    }
+    return 'tok_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 12);
+  }
+
+  function signSidebarPayload(payload) {
+    return Object.assign({}, payload, { __yilanToken: sidebarMessageToken });
+  }
 
   function readCanonicalUrl(doc) {
     const canonicalLink = doc.querySelector('link[rel="canonical"]');
@@ -306,11 +326,28 @@ if (!window.__aiSummaryInjected) {
   function injectSidebar(payload) {
     currentPageKey = buildPageContextKey();
     activeSidebarPayloadType = String(payload?.type || '');
+
+    // Reuse a live sidebar instead of reloading it (saves re-executing the
+    // whole iframe boot: ~280KB of libs, DB reconnect, settings reload). The
+    // message token is minted once per iframe lifetime so the sidebar's
+    // first-message lock keeps accepting signed payloads across reuses.
+    const existing = document.getElementById(SIDEBAR_FRAME_ID);
+    if (existing?.contentWindow && sidebarMessageToken) {
+      syncSidebarViewport(existing);
+      existing.contentWindow.postMessage(signSidebarPayload(payload), '*');
+      startNavigationTrackingIfSidebarActive();
+      return;
+    }
+
+    sidebarMessageToken = createSidebarMessageToken();
     const iframe = createSidebarFrame();
     iframe.onload = () => {
       syncSidebarViewport(iframe);
-      iframe.contentWindow?.postMessage(payload, '*');
+      iframe.contentWindow?.postMessage(signSidebarPayload(payload), '*');
     };
+    // Only an open article sidebar needs SPA tracking; bind after the payload
+    // type is known, and let removeSidebar()/teardown unwind everything.
+    startNavigationTrackingIfSidebarActive();
   }
 
   function postToExistingSidebar(payload) {
@@ -319,8 +356,24 @@ if (!window.__aiSummaryInjected) {
 
     activeSidebarPayloadType = String(payload?.type || activeSidebarPayloadType || '');
     syncSidebarViewport(iframe);
-    iframe.contentWindow.postMessage(payload, '*');
+    iframe.contentWindow.postMessage(signSidebarPayload(payload), '*');
     return true;
+  }
+
+  function teardownNavigationTracking() {
+    if (navigationMutationTimer) {
+      clearTimeout(navigationMutationTimer);
+      navigationMutationTimer = 0;
+    }
+    if (navigationPollTimer) {
+      clearInterval(navigationPollTimer);
+      navigationPollTimer = 0;
+    }
+    if (navigationMutationObserver) {
+      navigationMutationObserver.disconnect();
+      navigationMutationObserver = null;
+    }
+    unbindNavigationTracking();
   }
 
   function removeSidebar() {
@@ -332,14 +385,22 @@ if (!window.__aiSummaryInjected) {
       detachViewportSync();
     }
     activeSidebarPayloadType = '';
+    sidebarMessageToken = '';
     const iframe = document.getElementById(SIDEBAR_FRAME_ID);
     if (iframe) {
       iframe.remove();
     }
+    teardownNavigationTracking();
   }
 
   function shouldTrackPageContext() {
     return activeSidebarPayloadType === 'articleData' && !!document.getElementById(SIDEBAR_FRAME_ID);
+  }
+
+  function startNavigationTrackingIfSidebarActive() {
+    if (shouldTrackPageContext()) {
+      bindNavigationTracking();
+    }
   }
 
   async function scheduleSidebarRefreshForNavigation() {
@@ -347,16 +408,22 @@ if (!window.__aiSummaryInjected) {
 
     const article = await extractCurrentPageSnapshot();
     if (!shouldTrackPageContext()) return;
-    postToExistingSidebar({
+    if (!postToExistingSidebar({
       type: 'articleData',
       article,
       source: 'navigation',
       navigationPolicy: NAVIGATION_REFRESH_POLICY
-    });
+    })) {
+      // Sidebar went away mid-extraction; unwind tracking with it.
+      teardownNavigationTracking();
+    }
   }
 
   function handlePageContextChange() {
-    if (!shouldTrackPageContext()) return;
+    if (!shouldTrackPageContext()) {
+      teardownNavigationTracking();
+      return;
+    }
 
     const nextPageKey = buildPageContextKey();
     if (nextPageKey === currentPageKey) return;
@@ -385,28 +452,58 @@ if (!window.__aiSummaryInjected) {
     }, Constants.NAVIGATION_REFRESH_DELAY_MS);
   }
 
-  function bindNavigationTracking() {
+  let rawPushState = null;
+  let rawReplaceState = null;
+  let boundNavigationListeners = null;
+
+  function handleTrackedHistoryChange() {
+    handlePageContextChange();
+  }
+
+  function patchedPushState(...args) {
+    const result = rawPushState.apply(this, args);
+    handleTrackedHistoryChange();
+    return result;
+  }
+
+  function patchedReplaceState(...args) {
+    const result = rawReplaceState.apply(this, args);
+    handleTrackedHistoryChange();
+    return result;
+  }
+
+  function unbindNavigationTracking() {
+    if (!boundNavigationListeners) return;
+
     const history = window.history;
-    if (!history || history.__aiSummaryNavigationBound) return;
-    history.__aiSummaryNavigationBound = true;
+    window.removeEventListener('popstate', handleTrackedHistoryChange);
+    window.removeEventListener('hashchange', handleTrackedHistoryChange);
+    window.removeEventListener('click', schedulePageContextCheck, true);
+    if (history && rawPushState) {
+      history.pushState = rawPushState;
+    }
+    if (history && rawReplaceState) {
+      history.replaceState = rawReplaceState;
+    }
 
-    const rawPushState = history.pushState;
-    const rawReplaceState = history.replaceState;
+    boundNavigationListeners = null;
+    rawPushState = null;
+    rawReplaceState = null;
+  }
 
-    history.pushState = function (...args) {
-      const result = rawPushState.apply(this, args);
-      handlePageContextChange();
-      return result;
-    };
+  function bindNavigationTracking() {
+    if (boundNavigationListeners) return;
+    const history = window.history;
+    if (!history) return;
 
-    history.replaceState = function (...args) {
-      const result = rawReplaceState.apply(this, args);
-      handlePageContextChange();
-      return result;
-    };
+    rawPushState = history.pushState;
+    rawReplaceState = history.replaceState;
 
-    window.addEventListener('popstate', handlePageContextChange);
-    window.addEventListener('hashchange', handlePageContextChange);
+    history.pushState = patchedPushState;
+    history.replaceState = patchedReplaceState;
+
+    window.addEventListener('popstate', handleTrackedHistoryChange);
+    window.addEventListener('hashchange', handleTrackedHistoryChange);
     window.addEventListener('click', schedulePageContextCheck, true);
 
     if (!navigationMutationObserver && typeof MutationObserver !== 'undefined') {
@@ -421,12 +518,16 @@ if (!window.__aiSummaryInjected) {
     }
 
     navigationPollTimer = window.setInterval(handlePageContextChange, Constants.NAVIGATION_POLL_INTERVAL_MS);
+    boundNavigationListeners = true;
   }
 
   window.addEventListener('message', (event) => {
-    if (event.data?.type === 'closeSidebar') {
-      removeSidebar();
-    }
+    // Only accept closeSidebar from the sidebar frame itself; the host page
+    // could otherwise dismiss the UI at will (it can also remove the iframe
+    // node directly, but this keeps the message channel semantically honest).
+    if (event.data?.type !== 'closeSidebar') return;
+    if (event.source !== document.getElementById(SIDEBAR_FRAME_ID)?.contentWindow) return;
+    removeSidebar();
   });
 
   chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
@@ -462,5 +563,9 @@ if (!window.__aiSummaryInjected) {
     return false;
   });
 
-  bindNavigationTracking();
+  // Navigation tracking is wired lazily: it only runs while a sidebar that
+  // received article content is open, and teardownNavigationTracking() (via
+  // removeSidebar) fully unwinds observers, timers, and history patches so an
+  // injected page returns to a clean state after the sidebar closes.
+  startNavigationTrackingIfSidebarActive();
 }

@@ -17,6 +17,7 @@ importScripts(
   'shared/abort-utils.js',
   'shared/transport-utils.js',
   'background/run-state.js',
+  'background/endpoint-probe.js',
   'background/reader-sessions.js',
   'background/entrypoints.js',
   'background/endpoint-cache.js',
@@ -32,6 +33,7 @@ const AdapterRegistry = self.AISummaryAdapterRegistry;
 const TransportUtils = self.AISummaryTransportUtils;
 const ChromeApi = self.YilanChromeApi;
 const RunState = self.YilanRunState;
+const EndpointProbe = self.YilanEndpointProbe;
 const ReaderSessions = self.YilanReaderSessions;
 const AutoEndpointCache = self.YilanAutoEndpointCache;
 const ModelsCache = self.YilanModelsCache;
@@ -151,49 +153,9 @@ function normalizeRuntimeError(error, runtime, stage, runId, options) {
   }, options || {}));
 }
 
-function isAutoEndpointNotSupportedError(errorLike) {
-  const code = String(errorLike?.code || '');
-  if (code === Errors.ERROR_CODES.ENDPOINT_NOT_SUPPORTED) return true;
-  if (code === Errors.ERROR_CODES.UNSUPPORTED_RESPONSE_FORMAT) return true;
-  if (code === Errors.ERROR_CODES.HTTP_ERROR) {
-    const status = Number(errorLike?.httpStatus || errorLike?.status || 0);
-    if (status === 404) return true;
-
-    // Some gateways return 400/405 with a "route/path not found" style payload instead of 404.
-    if (status === 400 || status === 405) {
-      const detail = String(errorLike?.detail || errorLike?.message || '').toLowerCase();
-      return [
-        'unknown url',
-        'unknown path',
-        'no route matched',
-        'route not found',
-        'cannot post',
-        'cannot get',
-        'page not found'
-      ].some((needle) => detail.includes(needle));
-    }
-
-    return false;
-  }
-  return false;
-}
-
 const normalizeUrlNoTrailingSlash = UrlUtils.normalizeUrlNoTrailingSlash;
-const looksLikeOpenAiEndpointUrl = UrlUtils.looksLikeOpenAiEndpointUrl;
+// listModels still toggles the /models root between /v1 forms directly.
 const toggleTrailingV1 = UrlUtils.toggleTrailingV1;
-
-function canAutoToggleTrailingV1(value) {
-  const normalized = normalizeUrlNoTrailingSlash(value);
-  if (!normalized || looksLikeOpenAiEndpointUrl(normalized)) return false;
-
-  try {
-    const parsed = new URL(normalized);
-    const path = String(parsed.pathname || '').replace(/\/+$/g, '');
-    return path === '' || path === '/' || /^\/v1$/i.test(path);
-  } catch {
-    return /^(?:https?:\/\/[^/]+)(?:\/v1)?$/i.test(normalized);
-  }
-}
 
 function assertAllowedModelEndpointUrl(value, stage, provider, endpointMode) {
   if (!value) return;
@@ -384,7 +346,16 @@ async function executeRun(options) {
   );
 
   const isOpenAiProvider = provider === 'openai';
-  const wantsAutoEndpointMode = isOpenAiProvider && String(settings?.endpointMode || '').trim() === 'auto';
+  // Compatibility-switch state machine (see background/endpoint-probe.js):
+  // auto endpoint-mode probes and trailing-/v1 toggles never consume a retry,
+  // so they live outside the attempt counter.
+  const compat = EndpointProbe.createCompatibilityStateMachine({
+    isOpenAiProvider,
+    endpointMode: String(settings?.endpointMode || ''),
+    baseUrl: settings?.aiBaseURL || ''
+  });
+  const wantsAutoEndpointMode = compat.wantsAutoEndpointMode;
+  const canTryV1Toggle = compat.canTryV1Toggle;
   const autoEndpointCacheKey = wantsAutoEndpointMode ? AutoEndpointCache.getCacheKey(settings) : '';
   const cachedEndpointMode = wantsAutoEndpointMode ? await AutoEndpointCache.getCachedMode(autoEndpointCacheKey) : '';
   let effectiveSettings = settings;
@@ -392,14 +363,7 @@ async function executeRun(options) {
     effectiveSettings = Object.assign({}, settings, { endpointMode: cachedEndpointMode });
   }
 
-  const normalizedBaseUrlInput = normalizeUrlNoTrailingSlash(effectiveSettings?.aiBaseURL || '');
-  const canTryV1Toggle = isOpenAiProvider && canAutoToggleTrailingV1(normalizedBaseUrlInput);
-  const autoBaseUrlTried = canTryV1Toggle ? new Set([normalizedBaseUrlInput]) : null;
-
-  const autoEndpointCandidates = wantsAutoEndpointMode
-    ? ['responses', 'chat_completions', 'legacy_completions']
-    : [];
-  const autoEndpointTried = wantsAutoEndpointMode ? new Set() : null;
+  const normalizedBaseUrlInput = compat.baseUrlInput;
 
   let resolution = AdapterRegistry.resolve(effectiveSettings);
   if (!resolution) {
@@ -408,13 +372,13 @@ async function executeRun(options) {
 
   let adapter = resolution.adapter;
   let runtime = resolution.snapshot;
-  if (autoEndpointTried) autoEndpointTried.add(runtime?.endpointMode || '');
+  compat.markEndpointModeTried(runtime?.endpointMode || '');
   const diagnostics = createDiagnostics(runId, runtime, meta);
   diagnostics.transportMode = stream ? 'stream' : 'request';
   if (wantsAutoEndpointMode) {
     diagnostics.requestedEndpointMode = 'auto';
     diagnostics.autoEndpointCacheHit = !!cachedEndpointMode;
-    diagnostics.autoEndpointTried = Array.from(autoEndpointTried || []);
+    diagnostics.autoEndpointTried = Array.from(compat.autoEndpointTried || []);
     diagnostics.autoEndpointSelected = runtime?.endpointMode || '';
   }
   if (canTryV1Toggle) {
@@ -503,14 +467,13 @@ async function executeRun(options) {
       }
 
       diagnostics.status = 'completed';
-      diagnostics.retryCount = diagnostics.retryCount;
       diagnostics.durationMs = Date.now() - startedAt;
       diagnostics.completedAt = new Date().toISOString();
       diagnostics.preview = result.preview || '';
       diagnostics.usage = result.usage || null;
 
       if (wantsAutoEndpointMode) {
-        diagnostics.autoEndpointTried = Array.from(autoEndpointTried || []);
+        diagnostics.autoEndpointTried = Array.from(compat.autoEndpointTried || []);
         diagnostics.autoEndpointSelected = runtime?.endpointMode || '';
       }
       if (wantsAutoEndpointMode && autoEndpointCacheKey) {
@@ -540,77 +503,47 @@ async function executeRun(options) {
       clearTimeout(timeout);
       let normalized = normalizeRuntimeError(error, runtime, meta.stage, runId, { stream });
 
-      if (wantsAutoEndpointMode && isAutoEndpointNotSupportedError(normalized) && autoEndpointTried) {
-        const nextMode = autoEndpointCandidates.find((mode) => mode && !autoEndpointTried.has(mode));
-        if (nextMode) {
-          const nextSettings = Object.assign({}, effectiveSettings, { endpointMode: nextMode });
-          const nextResolution = AdapterRegistry.resolve(nextSettings);
-          if (nextResolution) {
-            RunState.setRunController(runId, null);
-            effectiveSettings = nextSettings;
-            adapter = nextResolution.adapter;
-            runtime = nextResolution.snapshot;
-            autoEndpointTried.add(runtime?.endpointMode || nextMode);
+      // Compatibility switches (auto endpoint mode, trailing-/v1) retry the
+      // request without consuming a retry slot; the state machine tracks what
+      // has been tried and returns the next untried shape or null.
+      const switchDecision = compat.nextCompatibilityAttempt(normalized, {
+        baseInput: effectiveSettings?.aiBaseURL || ''
+      });
+      if (switchDecision) {
+        const nextSettings = Object.assign({}, effectiveSettings,
+          switchDecision.kind === 'endpoint_mode'
+            ? { endpointMode: switchDecision.nextMode }
+            : { aiBaseURL: switchDecision.nextBase });
+        const nextResolution = AdapterRegistry.resolve(nextSettings);
+        if (nextResolution) {
+          RunState.setRunController(runId, null);
+          effectiveSettings = nextSettings;
+          adapter = nextResolution.adapter;
+          runtime = nextResolution.snapshot;
+          compat.applySwitch(switchDecision, runtime);
 
-            diagnostics.provider = runtime?.provider || diagnostics.provider;
-            diagnostics.adapterId = runtime?.adapterId || diagnostics.adapterId;
-            diagnostics.family = runtime?.family || diagnostics.family;
-            diagnostics.endpointMode = runtime?.endpointMode || diagnostics.endpointMode;
-            diagnostics.baseUrl = runtime?.baseUrl || diagnostics.baseUrl;
-            diagnostics.model = runtime?.model || diagnostics.model;
-            diagnostics.autoEndpointTried = Array.from(autoEndpointTried);
+          diagnostics.provider = runtime?.provider || diagnostics.provider;
+          diagnostics.adapterId = runtime?.adapterId || diagnostics.adapterId;
+          diagnostics.family = runtime?.family || diagnostics.family;
+          diagnostics.endpointMode = runtime?.endpointMode || diagnostics.endpointMode;
+          diagnostics.baseUrl = runtime?.baseUrl || diagnostics.baseUrl;
+          diagnostics.model = runtime?.model || diagnostics.model;
+          if (switchDecision.kind === 'endpoint_mode') {
+            diagnostics.autoEndpointTried = Array.from(compat.autoEndpointTried);
             diagnostics.autoEndpointSelected = runtime?.endpointMode || '';
-
-            RunState.prepareRun(runId, { runtime });
-
-            // Keep the attempt number stable when switching endpoint modes.
-            attempt -= 1;
-            probeNextAttempt = true;
-            continue;
+          } else if (typeof diagnostics.autoBaseUrlAdjusted === 'boolean') {
+            diagnostics.autoBaseUrlAdjusted = true;
+            diagnostics.autoBaseUrlAppliedV1 = /\/v1$/i.test(switchDecision.nextBase || '');
           }
-        }
-      }
-
-      if (canTryV1Toggle && isAutoEndpointNotSupportedError(normalized) && autoBaseUrlTried) {
-        const currentBase = normalizeUrlNoTrailingSlash(effectiveSettings?.aiBaseURL || '');
-        const nextBase = toggleTrailingV1(currentBase);
-        if (nextBase && !autoBaseUrlTried.has(nextBase)) {
-          const nextSettings = Object.assign({}, effectiveSettings, { aiBaseURL: nextBase });
-          const nextResolution = AdapterRegistry.resolve(nextSettings);
-          if (nextResolution) {
-            RunState.setRunController(runId, null);
-            effectiveSettings = nextSettings;
-            adapter = nextResolution.adapter;
-            runtime = nextResolution.snapshot;
-            autoBaseUrlTried.add(nextBase);
-
-            if (autoEndpointTried) {
-              autoEndpointTried.clear();
-              autoEndpointTried.add(runtime?.endpointMode || '');
-            }
-
-            diagnostics.provider = runtime?.provider || diagnostics.provider;
-            diagnostics.adapterId = runtime?.adapterId || diagnostics.adapterId;
-            diagnostics.family = runtime?.family || diagnostics.family;
-            diagnostics.endpointMode = runtime?.endpointMode || diagnostics.endpointMode;
-            diagnostics.baseUrl = runtime?.baseUrl || diagnostics.baseUrl;
-            diagnostics.model = runtime?.model || diagnostics.model;
-            if (typeof diagnostics.autoBaseUrlAdjusted === 'boolean') {
-              diagnostics.autoBaseUrlAdjusted = true;
-              diagnostics.autoBaseUrlAppliedV1 = /\/v1$/i.test(nextBase);
-            }
-            if (wantsAutoEndpointMode) {
-              diagnostics.autoEndpointTried = Array.from(autoEndpointTried || []);
-              diagnostics.autoEndpointSelected = runtime?.endpointMode || '';
-            }
-
-            RunState.prepareRun(runId, { runtime });
-
-            // Keep the attempt number stable when tweaking base URL.
-            attempt -= 1;
-            probeNextAttempt = true;
-            continue;
+          if (wantsAutoEndpointMode) {
+            diagnostics.autoEndpointTried = Array.from(compat.autoEndpointTried || []);
+            diagnostics.autoEndpointSelected = runtime?.endpointMode || '';
           }
+
+          RunState.prepareRun(runId, { runtime });
+
+          probeNextAttempt = true;
+          continue;
         }
       }
 
@@ -814,6 +747,8 @@ async function listModels(settings) {
   throw Errors.createError(Errors.ERROR_CODES.NETWORK_ERROR, { stage, provider: 'openai', detail: 'models_request_failed' });
 }
 
+// Stream deltas are coalesced by the transport layer (see createTokenBatcher)
+// so one port message covers a whole flush interval instead of one per token.
 async function handleStreamStart(port, portId, message) {
   const runId = message.runId || Domain.createRuntimeId('run');
 
@@ -827,6 +762,10 @@ async function handleStreamStart(port, portId, message) {
     }
   });
 
+  const tokenBatcher = TransportUtils.createTokenBatcher((payload) => {
+    safePortPost(port, { ...payload, runId });
+  }, Constants.STREAM_TOKEN_FLUSH_INTERVAL_MS);
+
   try {
     const result = await executeRun({
       settings: message.settings,
@@ -836,13 +775,17 @@ async function handleStreamStart(port, portId, message) {
       meta: message.meta,
       portId,
       onToken(token) {
-        safePortPost(port, { type: 'token', runId, token });
+        tokenBatcher.push(token);
       },
       onRetry(payload) {
+        // The retried attempt restarts generation from scratch; drop any
+        // buffered deltas so they cannot duplicate the new attempt's output.
+        tokenBatcher.discard();
         safePortPost(port, { type: 'retry', runId, retry: payload });
       }
     });
 
+    tokenBatcher.flushNow();
     safePortPost(port, {
       type: 'done',
       runId,
@@ -851,6 +794,7 @@ async function handleStreamStart(port, portId, message) {
       diagnostics: result.diagnostics
     });
   } catch (error) {
+    tokenBatcher.flushNow();
     const normalized = Errors.normalizeError(error, error?.code, error);
     const messageType = normalized.code === Errors.ERROR_CODES.RUN_CANCELLED ? 'cancelled' : 'error';
     safePortPost(port, {
@@ -862,8 +806,17 @@ async function handleStreamStart(port, portId, message) {
   }
 }
 
+// Defense-in-depth: with no externally_connectable declared, only this
+// extension's own pages and content scripts can reach onMessage/onConnect.
+// Asserting sender.id keeps that guarantee explicit even if a future refactor
+// forwards page-context messages into these channels.
+function isTrustedExtensionSender(sender) {
+  return !sender?.id || sender.id === chrome.runtime.id;
+}
+
 chrome.runtime.onConnect.addListener((port) => {
   if (port.name !== 'ai-stream') return;
+  if (!isTrustedExtensionSender(port.sender)) return;
 
   const portId = Domain.createRuntimeId('port');
 
@@ -895,6 +848,10 @@ chrome.runtime.onConnect.addListener((port) => {
 });
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (!isTrustedExtensionSender(sender)) {
+    return false;
+  }
+
   const rawSendResponse = sendResponse;
   sendResponse = (payload) => safeSendResponse(rawSendResponse, payload);
 

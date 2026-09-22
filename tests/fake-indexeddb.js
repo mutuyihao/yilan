@@ -42,15 +42,60 @@ class FakeObjectStore {
       throw new Error('Missing index: ' + name);
     }
 
+    const matches = (value) => (item) => item?.[indexConfig.keyPath] === value;
+
     return {
       get: (value) => asyncRequest(() => {
         for (const item of this.items.values()) {
-          if (item?.[indexConfig.keyPath] === value) {
+          if (matches(value)(item)) {
             return clone(item);
           }
         }
         return undefined;
-      })
+      }),
+      // Real cursor protocol: onsuccess fires once per match (cursor.value,
+      // cursor.continue()) and a final time with result=null. Matches are
+      // snapshotted up front; continue() schedules the next callback tick.
+      openCursor: (range) => {
+        const only = range && typeof range === 'object' && 'only' in range ? range.only : range;
+        const queue = Array
+          .from(this.items.values())
+          .filter((item) => only === undefined || matches(only)(item))
+          .map((item) => clone(item));
+
+        const request = {
+          result: undefined,
+          error: null,
+          onsuccess: null,
+          onerror: null
+        };
+
+        const fire = () => {
+          const value = queue.shift();
+          request.result = value === undefined ? null : {
+            value,
+            continue() {
+              setTimeout(fire, 0);
+            }
+          };
+          if (typeof request.onsuccess === 'function') {
+            request.onsuccess({ target: request });
+          }
+        };
+
+        setTimeout(() => {
+          try {
+            fire();
+          } catch (error) {
+            request.error = error;
+            if (typeof request.onerror === 'function') {
+              request.onerror({ target: request });
+            }
+          }
+        }, 0);
+
+        return request;
+      }
     };
   }
 

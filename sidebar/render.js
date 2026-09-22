@@ -28,12 +28,24 @@
     let renderTimeoutId = 0;
     let renderFrameId = 0;
     let lastMarkdownRenderAt = 0;
+    // Streaming render cache: everything before the last "\n\n" boundary is
+    // stable (closed blocks cannot change as tokens append), so its DOM is
+    // rendered once and reused; only the trailing open fragment is re-parsed
+    // per tick. This turns the O(n^2) full re-parse into O(n) total work.
+    let streamPrefixMarkdown = '';
+    let streamPrefixNode = null;
+    let streamTailNode = null;
+    let streamingActive = false;
 
     if (markedImpl?.setOptions) {
       markedImpl.setOptions({
         breaks: true,
         gfm: true,
         highlight(code, lang) {
+          // During streaming, hljs.highlightAuto would try every registered
+          // language (~190) per unlabeled code block on every render tick;
+          // return the raw code and let the final render highlight once.
+          if (streamingActive) return code;
           if (lang && hljsImpl?.getLanguage?.(lang)) {
             return hljsImpl.highlight(code, { language: lang }).value;
           }
@@ -92,6 +104,8 @@
         renderFrameId = 0;
       }
       renderScheduled = false;
+      streamingActive = false;
+      resetStreamRenderCache();
     }
 
     function requestFrame(callback) {
@@ -102,7 +116,50 @@
       return (windowRef.setTimeout || setTimeout)(callback, 0);
     }
 
+    function resetStreamRenderCache() {
+      streamPrefixMarkdown = '';
+      streamPrefixNode = null;
+      streamTailNode = null;
+    }
+
+    function renderStreamingMarkdown(markdown) {
+      const boundary = markdown.lastIndexOf('\n\n');
+      const prefixMarkdown = boundary > 0 ? markdown.slice(0, boundary) : '';
+      const tailMarkdown = boundary > 0 ? markdown.slice(boundary) : markdown;
+
+      elements.summaryRoot.className = 'summary-root markdown-body';
+
+      if (prefixMarkdown !== streamPrefixMarkdown || !streamPrefixNode) {
+        // The stable prefix grew (or the cache was invalidated): rebuild the
+        // container as prefix + fresh tail.
+        streamPrefixNode = domPurify.sanitize(parseMarkdown(prefixMarkdown), {
+          ...MARKDOWN_SANITIZE_OPTIONS,
+          RETURN_DOM_FRAGMENT: true
+        });
+        streamPrefixMarkdown = prefixMarkdown;
+        const tail = buildTailNode(tailMarkdown);
+        elements.summaryRoot.replaceChildren(streamPrefixNode, tail);
+        streamTailNode = tail;
+        return;
+      }
+
+      // Prefix unchanged: swap only the trailing open block. Replacing a
+      // child of the container leaves the prefix fragment attached as-is, so
+      // its DOM (including user text selection state) is never rebuilt.
+      const tail = buildTailNode(tailMarkdown);
+      elements.summaryRoot.replaceChild(tail, streamTailNode);
+      streamTailNode = tail;
+    }
+
+    function buildTailNode(tailMarkdown) {
+      return domPurify.sanitize(parseMarkdown(tailMarkdown), {
+        ...MARKDOWN_SANITIZE_OPTIONS,
+        RETURN_DOM_FRAGMENT: true
+      });
+    }
+
     function scheduleMarkdownRender() {
+      streamingActive = true;
       if (renderScheduled) return;
       renderScheduled = true;
       const delay = Math.max(0, STREAM_RENDER_INTERVAL_MS - (getNowMs() - lastMarkdownRenderAt));
@@ -112,7 +169,7 @@
           renderFrameId = 0;
           renderScheduled = false;
           lastMarkdownRenderAt = getNowMs();
-          renderMarkdown(state.summaryMarkdown, { highlight: false, clearPending: false });
+          renderStreamingMarkdown(state.summaryMarkdown);
           if (state.autoScroll) {
             elements.summaryRoot.scrollTop = elements.summaryRoot.scrollHeight;
           }
@@ -124,6 +181,10 @@
       if (options?.clearPending !== false) {
         cancelScheduledMarkdownRender();
       }
+      // A terminal render invalidates the streaming cache and re-enables
+      // syntax highlighting for the final full pass.
+      streamingActive = false;
+      resetStreamRenderCache();
       elements.summaryRoot.className = 'summary-root markdown-body';
       renderSanitizedMarkdownFragment(elements.summaryRoot, markdown);
       if (options?.highlight !== false) {

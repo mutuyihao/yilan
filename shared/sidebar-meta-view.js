@@ -34,6 +34,22 @@
     return '\u5355\u6bb5';
   }
 
+  function normalizeExternalUrl(value) {
+    const raw = String(value || '').trim();
+    if (!raw) return '';
+
+    try {
+      const url = new URL(raw);
+      if (url.protocol === 'http:' || url.protocol === 'https:') {
+        return url.toString();
+      }
+    } catch (error) {
+      return '';
+    }
+
+    return '';
+  }
+
   function buildArticleMetaView(article, options) {
     const modeKey = options?.summaryMode || 'medium';
     const simpleModeEnabled = !!options?.simpleModeEnabled;
@@ -41,7 +57,10 @@
     return {
       title: article?.title || '\u7b49\u5f85\u9875\u9762\u5185\u5bb9',
       sourceText: article?.normalizedUrl || article?.sourceUrl || '\u5f53\u524d\u5c1a\u672a\u8f7d\u5165\u7f51\u9875\u94fe\u63a5',
-      sourceHref: article?.normalizedUrl || article?.sourceUrl || '#',
+      // History-persisted URLs may be attacker-influenced (e.g. via a poisoned
+      // record); restrict the href to http(s) like the reader page does
+      // instead of relying on the extension CSP to block javascript: URLs.
+      sourceHref: normalizeExternalUrl(article?.normalizedUrl || article?.sourceUrl) || '#',
       hostLabel: article?.sourceHost || '\u672a\u8bc6\u522b\u7ad9\u70b9',
       siteTypeLabel: Strings?.SITE_TYPE_LABELS?.[article?.sourceType] || '\u901a\u7528\u7f51\u9875',
       strategyLabel: UiLabels.getStrategyLabel(article?.sourceStrategy, article?.sourceType),

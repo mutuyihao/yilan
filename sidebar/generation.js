@@ -169,7 +169,9 @@
       }
 
       safeDisconnectPort();
-      Promise.allSettled(runIds.map((runId) => runtimeSendMessage({ action: 'cancelRun', runId }))).catch(() => {});
+      // allSettled never rejects; the per-run results only feed the run-state
+      // map inside the background worker and need no local handling.
+      Promise.allSettled(runIds.map((runId) => runtimeSendMessage({ action: 'cancelRun', runId })));
     }
 
     function runPromptViaStream(settings, prompt, meta, signal, handlers) {
@@ -261,6 +263,19 @@
             text += token;
             if (typeof options.onToken === 'function') {
               options.onToken(token, text, message);
+            }
+            return;
+          }
+
+          if (message.type === 'tokens') {
+            // Background coalesces streamed deltas into one message per flush
+            // interval; the concatenated string appends exactly like the
+            // per-token messages it replaces.
+            const tokens = String(message.tokens || '');
+            if (!tokens) return;
+            text += tokens;
+            if (typeof options.onToken === 'function') {
+              options.onToken(tokens, text, message);
             }
             return;
           }

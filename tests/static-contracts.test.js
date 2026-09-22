@@ -127,41 +127,12 @@ test('manifest declares MV3 shell, entrypoints, permissions, and accessible reso
   assert.deepStrictEqual(manifest.host_permissions, ['<all_urls>']);
   assert.strictEqual(manifest.commands['trigger-summary'].suggested_key.default, 'Alt+S');
 
+  // The sidebar iframe is the only WAR surface. It is a chrome-extension://
+  // page that loads its own scripts/styles directly, so nothing else needs to
+  // be web-accessible; a minimal list also removes the extension-version
+  // fingerprinting surface for arbitrary web pages.
   const resources = manifest.web_accessible_resources.flatMap((item) => item.resources);
-  [
-    'sidebar.html',
-    'style.css',
-    'db.js',
-    'sidebar/state.js',
-    'sidebar/history.js',
-    'sidebar/export.js',
-    'sidebar/reader-session.js',
-    'sidebar/generation.js',
-    'sidebar/mode-control.js',
-    'sidebar/render.js',
-    'sidebar/events.js',
-    'sidebar.js',
-    'shared/theme.js',
-    'shared/version.js',
-    'shared/i18n.js',
-    'shared/ui-format.js',
-    'shared/ui-labels.js',
-    'shared/summary-text.js',
-    'shared/diagnostics-view.js',
-    'shared/reader-view.js',
-    'shared/history-view.js',
-    'shared/sidebar-meta-view.js',
-    'shared/domain.js',
-    'shared/article-utils.js',
-    'shared/bilibili-source.js',
-    'shared/youtube-source.js',
-    'shared/trust-policy.js',
-    'libs/purify.min.js',
-    'libs/marked.min.js',
-    'libs/html2canvas.min.js'
-  ].forEach((resource) => {
-    assert.ok(resources.includes(resource), 'Missing web accessible resource: ' + resource);
-  });
+  assert.deepStrictEqual(resources, ['sidebar.html']);
 });
 
 test('manifest, HTML script tags, and imported resources point to existing files', 'manifest.permissions', () => {
@@ -191,6 +162,7 @@ test('manifest, HTML script tags, and imported resources point to existing files
     'shared/transport-utils.js',
     'shared/chrome-api.js',
     'background/run-state.js',
+    'background/endpoint-probe.js',
     'background/reader-sessions.js',
     'background/entrypoints.js',
     'background/endpoint-cache.js',
@@ -275,7 +247,6 @@ test('sidebar page DOM, scripts, actions, history, export, share, and reader con
     'libs/purify.min.js',
     'libs/marked.min.js',
     'libs/highlight.min.js',
-    'libs/html2canvas.min.js',
     'db.js',
     'sidebar/state.js',
     'sidebar/history.js',
@@ -313,6 +284,9 @@ test('sidebar page DOM, scripts, actions, history, export, share, and reader con
   assert.ok(exportJs.includes('function hasVideoSubtitleArtifact()'));
   assert.ok(exportJs.includes('function exportShareImage()'));
   assert.ok(exportJs.includes('html2canvasImpl(card'));
+  // Share-card rendering library loads on first export, not on sidebar open.
+  assert.ok(exportJs.includes('ensureHtml2Canvas'));
+  assert.ok(!extractScriptSources(html).includes('libs/html2canvas.min.js'));
   assert.strictEqual(countMatches(js, /function exportMarkdown\(/g), 0);
   assert.strictEqual(countMatches(js, /function exportShareImage\(/g), 0);
   assert.ok(js.includes('const SidebarReaderSession = window.YilanSidebarReaderSession'));
@@ -618,6 +592,7 @@ test('content script extraction, sidebar injection, and SPA navigation contracts
   const js = readText('content.js');
   const sidebar = readText('sidebar.js');
   const sidebarState = readText('sidebar/state.js');
+  const sidebarEvents = readText('sidebar/events.js');
   assert.ok(js.includes('new Readability'));
   assert.ok(js.includes('ArticleUtils.buildArticleSnapshot'));
   assert.ok(js.includes('BilibiliSource.extractBilibiliVideoSource'));
@@ -639,7 +614,11 @@ test('content script extraction, sidebar injection, and SPA navigation contracts
   assert.ok(js.includes("autoStartOnNavigation: false"));
   assert.ok(js.includes("duringGeneration: 'defer'"));
   assert.ok(js.includes("source: 'navigation'"));
-  assert.ok(js.includes("event.data?.type === 'closeSidebar'"));
+  // closeSidebar is only honored from the sidebar frame's own window (and the
+  // articleData/historyData channel requires the per-injection token).
+  assert.ok(js.includes("event.data?.type !== 'closeSidebar'"));
+  assert.ok(js.includes('__yilanToken'));
+  assert.ok(sidebarEvents.includes('isTrustedSidebarMessage'));
   assert.ok(sidebar.includes('DEFAULT_NAVIGATION_POLICY'));
   assert.ok(sidebar.includes('NAVIGATION_DURING_GENERATION'));
   assert.ok(sidebarState.includes("DEFER: 'defer'"));

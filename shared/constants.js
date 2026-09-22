@@ -26,6 +26,7 @@
     STREAM_IDLE_TIMEOUT_MS: 30000,      // abort a stream when no bytes arrive for this long
     STREAM_HEARTBEAT_INTERVAL_MS: 20000, // sidebar port ping to keep the MV3 worker alive
     STREAM_RAW_BODY_MAX_CHARS: 262144,  // cap raw SSE capture used for preview/fallback parsing
+    STREAM_TOKEN_FLUSH_INTERVAL_MS: 50, // coalesce streamed deltas into one port message per tick
 
     // Chunked long-article runs
     CHUNK_REQUEST_CONCURRENCY: 2,       // parallel chunk summaries (results stay ordered)

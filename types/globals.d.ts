@@ -48,6 +48,7 @@ interface Window {
   AISummaryYoutubeSource: any;
   YilanEntrypoints: any;
   YilanRunState: any;
+  YilanEndpointProbe: any;
   YilanReaderSessions: any;
   YilanAutoEndpointCache: any;
   YilanModelsCache: any;

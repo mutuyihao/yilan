@@ -172,8 +172,10 @@ test('sidebar events controller handles sidebar messages', [
   const { controller, calls, windowRef } = createController();
   controller.bind();
 
-  windowRef.dispatch('message', { data: { type: 'historyData' } });
-  windowRef.dispatch('message', { data: { type: 'articleData', article: { title: 'Article A' } } });
+  // The first message carries the content-script token and locks it in for
+  // the rest of the session (mirrors content.js signSidebarPayload).
+  windowRef.dispatch('message', { data: { type: 'historyData', __yilanToken: 'tok-inject' } });
+  windowRef.dispatch('message', { data: { type: 'articleData', article: { title: 'Article A' }, __yilanToken: 'tok-inject' } });
   windowRef.dispatch('message', { data: { type: 'articleData' } });
   await Promise.resolve();
 
@@ -181,6 +183,34 @@ test('sidebar events controller handles sidebar messages', [
     ['mode.bind'],
     ['history.open'],
     ['handleArticleDataPayload', 'Article A']
+  ]);
+});
+
+test('sidebar events controller locks the first message token and rejects unauthenticated ones', [
+  'ui.sidebar_contract',
+  'content.sidebar_injection'
+], async () => {
+  const { controller, calls, windowRef } = createController();
+  controller.bind();
+
+  // First authenticated message locks the token and is processed.
+  windowRef.dispatch('message', { data: { type: 'articleData', article: { title: 'First' }, __yilanToken: 'tok-1' } });
+  await Promise.resolve();
+
+  // Messages without a token are dropped.
+  windowRef.dispatch('message', { data: { type: 'articleData', article: { title: 'NoToken' } } });
+  // Messages with a foreign token (another injector) are dropped.
+  windowRef.dispatch('message', { data: { type: 'articleData', article: { title: 'WrongToken' }, __yilanToken: 'tok-2' } });
+  await Promise.resolve();
+
+  // The locked token still works.
+  windowRef.dispatch('message', { data: { type: 'articleData', article: { title: 'Second' }, __yilanToken: 'tok-1' } });
+  await Promise.resolve();
+
+  assert.deepStrictEqual(calls, [
+    ['mode.bind'],
+    ['handleArticleDataPayload', 'First'],
+    ['handleArticleDataPayload', 'Second']
   ]);
 });
 

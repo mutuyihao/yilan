@@ -520,7 +520,9 @@
   function buildSubtitleDebug(subtitleJson, subtitleMeta) {
     const lines = collectSubtitleDebugLines(subtitleJson);
     const limited = limitDebugText(lines.join('\n'));
-    const jsonText = JSON.stringify(subtitleJson || {}, null, 2);
+    // Cap the raw payload mirror like the text field; long videos would
+    // otherwise push megabyte-scale JSON through diagnostics.
+    const jsonInfo = limitDebugText(JSON.stringify(subtitleJson || {}, null, 2));
     return {
       attempted: true,
       lan: subtitleMeta?.lan || '',
@@ -530,8 +532,8 @@
       originalTextLength: limited.originalLength,
       truncated: limited.truncated,
       text: limited.text,
-      jsonText,
-      jsonLength: jsonText.length
+      jsonText: jsonInfo.text,
+      jsonLength: jsonInfo.originalLength
     };
   }
 

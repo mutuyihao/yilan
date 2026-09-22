@@ -379,6 +379,14 @@
     const copy = clonePlainObject(article || null);
     if (!copy) return copy;
     copy.diagnostics = sanitizeArticleDiagnosticsForPersistence(copy.diagnostics);
+    // Slim the persisted snapshot: chunks are derivable from cleanText via
+    // ArticleUtils.splitTextIntoChunks, and rawText/content duplicate the
+    // clean text. This can cut a large-video record roughly in half.
+    delete copy.chunks;
+    delete copy.rawText;
+    if (copy.content === copy.cleanText) {
+      delete copy.content;
+    }
     return copy;
   }
 

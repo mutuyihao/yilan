@@ -9,6 +9,8 @@
     const loadCachedModelOptions = deps.loadCachedModelOptions;
     const syncThemePreferenceControl = deps.syncThemePreferenceControl;
     const syncThemePaletteControl = deps.syncThemePaletteControl;
+    const UrlUtils = deps.urlUtils;
+    const UiLabels = deps.uiLabels;
 
   const BASE_URL_SECURITY_HINT = I18n.get('popup_base_url_security_hint');
   const PROVIDER_FALLBACK_HINTS = {

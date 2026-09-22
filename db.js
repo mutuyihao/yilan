@@ -497,16 +497,20 @@
 
   async function getAll(options) {
     const { store } = await getStore('readonly');
-    const items = await toPromise(store.getAll());
-    const normalized = (items || []).sort((a, b) => {
-      return new Date(b.updatedAt || b.createdAt || 0).getTime() - new Date(a.updatedAt || a.createdAt || 0).getTime();
-    });
 
     if (options?.favoritesOnly) {
-      return normalized.filter((item) => item.favorite);
+      // NOTE: the `favorite` index is unusable for lookups — booleans are not
+      // valid IndexedDB keys, so records never appear in that index at all.
+      // Filter in memory instead; the heavy paths (history list, reuse
+      // lookup) go through the normalizedUrl index below.
+      const items = await toPromise(store.getAll());
+      return (items || [])
+        .filter((item) => item.favorite)
+        .sort((a, b) => getRecordTimestamp(b) - getRecordTimestamp(a));
     }
 
-    return normalized;
+    const items = await toPromise(store.getAll());
+    return (items || []).sort((a, b) => getRecordTimestamp(b) - getRecordTimestamp(a));
   }
 
   async function searchRecords(query, options) {
@@ -530,7 +534,55 @@
   }
 
   async function findReusableRecordForArticle(article) {
-    const items = await getAll();
+    // Prefer the normalizedUrl index: only records sharing the article's URL
+    // leave IndexedDB, instead of deserializing the whole store. This is safe
+    // because articleId itself is a hash of (url|contentHash), so any record
+    // matching by articleId necessarily shares a URL key. Records whose URL
+    // is entirely empty (degenerate legacy imports) fall back to a scan.
+    const target = prepareArticleMatchTarget(article);
+    const urlKeys = Array.from(new Set(
+      [target.normalizedUrl, target.sourceUrl].map((key) => Domain.normalizeUrl(key)).filter(Boolean)
+    ));
+
+    if (!urlKeys.length) {
+      const all = await getAll();
+      return findBestReusableRecordForArticle(all, article);
+    }
+
+    const items = await new Promise((resolve, reject) => {
+      getStore('readonly').then(({ store }) => {
+        const collected = [];
+        let pending = urlKeys.length;
+        let settled = false;
+
+        urlKeys.forEach((key) => {
+          const cursorRequest = store.index('normalizedUrl').openCursor(key);
+          cursorRequest.onsuccess = () => {
+            const cursor = cursorRequest.result;
+            if (cursor) {
+              collected.push(cursor.value);
+              cursor.continue();
+              return;
+            }
+            pending -= 1;
+            if (!pending && !settled) {
+              settled = true;
+              resolve(collected);
+            }
+          };
+          cursorRequest.onerror = () => {
+            if (!settled) {
+              settled = true;
+              reject(cursorRequest.error);
+            }
+          };
+        });
+      }).catch(reject);
+    }).catch(async () => {
+      // Index unavailable (e.g. legacy store without the index); full scan.
+      return getAll();
+    });
+
     return findBestReusableRecordForArticle(items, article);
   }
 

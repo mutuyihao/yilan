@@ -72,10 +72,41 @@
     const escapeHtml = deps.escapeHtml;
     const setStatus = deps.setStatus;
     const wait = deps.wait;
-    const html2canvasImpl = deps.html2canvas || (typeof html2canvas !== 'undefined' ? html2canvas : null);
+    const loadHtml2Canvas = deps.loadHtml2Canvas || null;
     const strings = deps.strings || {};
     const normalizeWhitespace = deps.normalizeWhitespace || normalizeWhitespaceText;
     const quoteMaxChars = deps.shareQuoteMaxChars || DEFAULT_SHARE_QUOTE_MAX_CHARS;
+
+    let html2canvasPromise = null;
+
+    // html2canvas (~198KB) is only needed for share-card export; load it on
+    // first use instead of on every sidebar open. loadHtml2Canvas lets tests
+    // (or a host page) provide the implementation; when it yields nothing,
+    // the libs/ script is injected once and the resolved global is cached.
+    function ensureHtml2Canvas() {
+      const provided = typeof loadHtml2Canvas === 'function' ? loadHtml2Canvas() : undefined;
+      if (provided) {
+        return Promise.resolve(provided);
+      }
+      if (html2canvasPromise) return html2canvasPromise;
+
+      html2canvasPromise = new Promise((resolve, reject) => {
+        if (typeof html2canvas !== 'undefined') {
+          resolve(html2canvas);
+          return;
+        }
+        const script = document.createElement('script');
+        // sidebar.html sits at the extension root; keep the path relative to it.
+        script.src = 'libs/html2canvas.min.js';
+        script.onload = () => resolve(typeof html2canvas !== 'undefined' ? html2canvas : null);
+        script.onerror = () => {
+          html2canvasPromise = null;
+          reject(new Error('Failed to load html2canvas'));
+        };
+        document.head.appendChild(script);
+      });
+      return html2canvasPromise;
+    }
 
     function getSummaryMarkdown() {
       return String(getState()?.summaryMarkdown || '');
@@ -451,6 +482,7 @@
         const card = host.querySelector('.share-card');
         const width = Math.ceil(card.scrollWidth);
         const height = Math.ceil(card.scrollHeight);
+        const html2canvasImpl = await ensureHtml2Canvas();
         if (!html2canvasImpl) {
           throw new Error('html2canvas is not available');
         }

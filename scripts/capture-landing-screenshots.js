@@ -339,8 +339,7 @@ async function captureTheme(theme, server) {
       // Inject a YouTube-shaped article through the sidebar's own articleData
       // channel so the video UI (source badge, subtitle track, export button)
       // renders with deterministic mock content — no network video needed.
-      const article = window.AISummaryArticle.buildArticleSnapshot({
-        title,
+      const article = window.AISummaryArticle.buildArticleSnapshot({        title,
         text: [
           '这期视频讲如何把一小时的视频变成三分钟的结构化笔记，让视频学习和文章阅读一样可检索、可回看。',
           '开头先解释为什么视频学习容易看过就忘：内容缺少结构，也没有可回看的入口，看完只能留下模糊的印象。',
@@ -380,7 +379,10 @@ async function captureTheme(theme, server) {
           }
         }
       });
-      window.postMessage({ type: 'articleData', article }, '*');
+      // The sidebar's message channel requires the content-script token; the
+      // locked token is exposed on the sidebar window for exactly this
+      // tooling use case (the capture script runs inside the extension page).
+      window.postMessage({ type: 'articleData', article, __yilanToken: window.__yilanSidebarMessageToken }, '*');
     }, videoTitle);
     await sidebar.waitForFunction(() => {
       const text = document.getElementById('summaryRoot')?.textContent || '';

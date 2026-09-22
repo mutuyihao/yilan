@@ -289,3 +289,32 @@ test('retry delay honors Retry-After and adds full jitter to exponential backoff
     1000
   );
 });
+
+test('token batcher coalesces deltas, flushes on terminal, and drops buffered tokens on retry', 'transport.errors', async () => {
+  const posts = [];
+  const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+  const batcher = TransportUtils.createTokenBatcher((payload) => posts.push(payload), 10);
+  batcher.push('Hello ');
+  batcher.push('world');
+  assert.strictEqual(posts.length, 0);
+  await sleep(30);
+  assert.deepStrictEqual(posts, [{ type: 'tokens', tokens: 'Hello world' }]);
+
+  // Buffered deltas are dropped, never flushed, when a retry restarts the run.
+  const retryBatcher = TransportUtils.createTokenBatcher((payload) => posts.push(payload), 10);
+  retryBatcher.push('stale ');
+  retryBatcher.discard();
+  await sleep(30);
+  assert.strictEqual(posts.length, 1, 'discarded tokens must not be posted');
+
+  // flushNow emits what is buffered immediately and deactivates the batcher.
+  retryBatcher.push('final');
+  retryBatcher.flushNow();
+  assert.deepStrictEqual(posts.slice(1), [{ type: 'tokens', tokens: 'final' }]);
+
+  // After flushNow the batcher is inert.
+  retryBatcher.push('nope');
+  await sleep(30);
+  assert.strictEqual(posts.length, 2);
+});

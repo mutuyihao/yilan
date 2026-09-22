@@ -38,9 +38,15 @@ function createElement() {
     querySelectorAll() {
       return [];
     },
-    replaceChildren(fragment) {
-      this.fragment = fragment;
+    replaceChildren(...nodes) {
+      this.children = nodes;
+      this.fragment = nodes[nodes.length - 1];
     },
+    replaceChild(newNode, oldNode) {
+      this.children = this.children.map((node) => node === oldNode ? newNode : node);
+      this.fragment = newNode;
+    },
+    appendChild() {},
     setAttribute(name, value) {
       this.attributes[name] = String(value);
     }
@@ -347,7 +353,9 @@ test('sidebar render controller sanitizes markdown, highlights code, and schedul
   frames[0]();
 
   assert.strictEqual(elements.summaryRoot.className, 'summary-root markdown-body');
-  assert.deepStrictEqual(elements.summaryRoot.fragment, { sanitizedFragment: '<p>## Streamed text</p>' });
+  // Streaming renders go through the incremental path: prefix fragment plus a
+  // re-parsed tail (without a blank-line boundary the tail holds everything).
+  assert.deepStrictEqual(elements.summaryRoot.children[1], { sanitizedFragment: '<p>## Streamed text</p>' });
   assert.strictEqual(elements.summaryRoot.scrollTop, 540);
   assert.strictEqual(highlightCalls.length, 0);
 

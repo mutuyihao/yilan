@@ -422,6 +422,55 @@
     }
   }
 
+  // Streams deliver hundreds of small deltas; posting one port message per
+  // token amplifies IPC and serialization cost on both sides of the channel.
+  // The batcher coalesces deltas and flushes them as a single 'tokens'
+  // message on a short interval aligned with the sidebar's render cadence.
+  function createTokenBatcher(postMessage, flushIntervalMs) {
+    let buffer = '';
+    let timer = null;
+    let active = true;
+
+    function flush() {
+      timer = null;
+      if (!active || !buffer) return;
+      const batch = buffer;
+      buffer = '';
+      postMessage({ type: 'tokens', tokens: batch });
+    }
+
+    return {
+      push(token) {
+        if (!active) return;
+        buffer += String(token || '');
+        if (!timer) {
+          timer = setTimeout(flush, flushIntervalMs);
+        }
+      },
+      // Terminal transitions (done/cancelled/error) flush immediately so
+      // trailing tokens cannot be dropped or arrive after the terminal
+      // message.
+      flushNow() {
+        if (timer) {
+          clearTimeout(timer);
+          timer = null;
+        }
+        flush();
+        active = false;
+      },
+      // A provider retry restarts generation from scratch; buffered deltas
+      // from the failed attempt must be dropped, never flushed.
+      discard() {
+        if (timer) {
+          clearTimeout(timer);
+          timer = null;
+        }
+        buffer = '';
+        timer = null;
+      }
+    };
+  }
+
   const api = {
     normalizePreview,
     tryParseJson,
@@ -431,6 +480,7 @@
     sanitizeDiagnosticsForTransport,
     safePortPost,
     safeSendResponse,
+    createTokenBatcher,
     createSseParser,
     extractTextFromRawBody,
     extractUsageFromRawBody,

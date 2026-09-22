@@ -858,13 +858,15 @@
   function buildCaptionDebug(caption, track) {
     const lines = formatCaptionLines(caption?.lines || []);
     const textInfo = limitDebugText(lines.join('\n'));
-    const jsonText = JSON.stringify({
+    // jsonText mirrors the raw caption payload for the diagnostics panel;
+    // long videos produce thousands of lines, so cap it like the text field.
+    const jsonInfo = limitDebugText(JSON.stringify({
       languageCode: track?.languageCode || '',
       languageName: track?.name || '',
       isAutomatic: !!track?.isAutomatic,
       format: caption?.format || '',
       lines: caption?.lines || []
-    }, null, 2);
+    }, null, 2));
 
     return {
       attempted: true,
@@ -885,8 +887,8 @@
       originalTextLength: textInfo.originalLength,
       truncated: textInfo.truncated,
       text: textInfo.text,
-      jsonText,
-      jsonLength: jsonText.length
+      jsonText: jsonInfo.text,
+      jsonLength: jsonInfo.originalLength
     };
   }
 

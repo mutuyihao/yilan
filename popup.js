@@ -426,32 +426,35 @@ async function handleTestConnection() {
   button.textContent = I18n.get('popup_testing');
   setStatus(I18n.get('popup_testing_connection'));
 
-  const response = await runtimeSendMessage({ action: 'testConnection', settings });
-  button.disabled = false;
-  button.textContent = I18n.get('popup_test_btn');
+  try {
+    const response = await runtimeSendMessage({ action: 'testConnection', settings });
 
-  if (response.success) {
-    const diag = response.diagnostics || {};
-    const model = diag?.model || settings.modelName || I18n.get('popup_default_model');
-    const extras = [];
+    if (response.success) {
+      const diag = response.diagnostics || {};
+      const model = diag?.model || settings.modelName || I18n.get('popup_default_model');
+      const extras = [];
 
-    if (diag?.requestedEndpointMode === 'auto' && diag?.autoEndpointSelected) {
-      extras.push(`endpoint=${diag.autoEndpointSelected}`);
+      if (diag?.requestedEndpointMode === 'auto' && diag?.autoEndpointSelected) {
+        extras.push(`endpoint=${diag.autoEndpointSelected}`);
+      }
+      if (diag?.autoBaseUrlSaved && typeof diag?.autoBaseUrlAppliedV1 === 'boolean') {
+        extras.push(diag.autoBaseUrlAppliedV1 ? I18n.get('popup_auto_v1_added') : I18n.get('popup_auto_v1_removed'));
+      }
+
+      setStatus(I18n.get('popup_connected', [model, extras.length ? I18n.get('popup_extras_joined', [extras.join('，')]) : '']), 'success');
+      setStatusDetails('');
+
+      // Best-effort: refresh model list after a successful connection test.
+      refreshModelOptions({ reason: 'after_test' }).catch(() => {});
+      return;
     }
-    if (diag?.autoBaseUrlSaved && typeof diag?.autoBaseUrlAppliedV1 === 'boolean') {
-      extras.push(diag.autoBaseUrlAppliedV1 ? I18n.get('popup_auto_v1_added') : I18n.get('popup_auto_v1_removed'));
-    }
 
-    setStatus(I18n.get('popup_connected', [model, extras.length ? I18n.get('popup_extras_joined', [extras.join('，')]) : '']), 'success');
-    setStatusDetails('');
-
-    // Best-effort: refresh model list after a successful connection test.
-    refreshModelOptions({ reason: 'after_test' }).catch(() => {});
-    return;
+    setStatus(getRuntimeErrorMessage(response.error), 'error');
+    setStatusDetails(buildErrorDetailsText(response.error, response.diagnostics));
+  } finally {
+    button.disabled = false;
+    button.textContent = I18n.get('popup_test_btn');
   }
-
-  setStatus(getRuntimeErrorMessage(response.error), 'error');
-  setStatusDetails(buildErrorDetailsText(response.error, response.diagnostics));
 }
 
 async function openHistory() {
@@ -522,7 +525,9 @@ const providerSelectionController = YilanPopupProviderSelection.createProviderSe
   collectSettings,
   loadCachedModelOptions: (...args) => modelsController.loadCachedModelOptions(...args),
   syncThemePreferenceControl,
-  syncThemePaletteControl
+  syncThemePaletteControl,
+  urlUtils: UrlUtils,
+  uiLabels: UiLabels
 });
 const {
   inferPresetId,

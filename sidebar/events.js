@@ -25,7 +25,28 @@
     const exportShareImage = deps.exportShareImage;
     const startSecondarySummary = deps.startSecondarySummary;
     const handleArticleDataPayload = deps.handleArticleDataPayload;
+    // Secret minted by the content script per sidebar injection. The first
+    // authenticated message locks it in; afterwards every articleData /
+    // historyData payload must carry it. Host-page scripts share the content
+    // script's window and origin (so event.origin checks are useless here),
+    // but they cannot read messages posted into the cross-origin iframe.
+    let messageToken = '';
     let eventsBound = false;
+
+    function isTrustedSidebarMessage(event) {
+      const token = event?.data?.__yilanToken;
+      if (!token) return false;
+      if (!messageToken) {
+        messageToken = String(token);
+        // Tooling surface: the locked token is exposed only inside this
+        // extension page (web pages cannot read across the iframe origin
+        // boundary); scripts/capture-landing-screenshots.js uses it to
+        // inject mock articles through the same authenticated channel.
+        windowRef.__yilanSidebarMessageToken = messageToken;
+        return true;
+      }
+      return String(token) === messageToken;
+    }
 
     function reportStatusError(error) {
       const normalized = normalizeUiError(error);
@@ -82,6 +103,11 @@
       });
 
       windowRef.addEventListener('message', (event) => {
+        // Unauthenticated messages (no token, wrong token, or token mismatch
+        // from another injector) are ignored: a malicious page must not be
+        // able to trigger summaries with the user's API key or open history.
+        if (!isTrustedSidebarMessage(event)) return;
+
         if (event.data?.type === 'historyData') {
           getHistoryController().open();
           return;

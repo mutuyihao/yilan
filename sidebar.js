@@ -205,10 +205,21 @@ function getRecordUiError(record) {
   });
 }
 
+function rebuildChunksFromSnapshot(snapshot) {
+  const cleanText = snapshot?.cleanText || snapshot?.content || '';
+  if (!cleanText || (snapshot?.chunkCount || 1) <= 1) return [];
+  // Match the original chunking: strategy params if recorded, else the
+  // article-utils defaults.
+  const strategyParams = snapshot.diagnostics || {};
+  return ArticleUtils.splitTextIntoChunks(cleanText, {
+    maxChars: strategyParams.chunkMaxChars || 3600,
+    minChunkChars: strategyParams.minChunkChars || 1400
+  });
+}
+
 function createArticleFromRecord(record) {
   const snapshot = record?.articleSnapshot || {};
-  return {
-    articleId: record?.articleId || snapshot.articleId || '',
+  return {    articleId: record?.articleId || snapshot.articleId || '',
     canonicalUrl: snapshot.canonicalUrl || '',
     normalizedUrl: record?.normalizedUrl || snapshot.normalizedUrl || '',
     sourceUrl: record?.sourceUrl || snapshot.sourceUrl || '',
@@ -231,7 +242,9 @@ function createArticleFromRecord(record) {
     truncationReason: snapshot.truncationReason || '',
     chunkingStrategy: snapshot.chunkingStrategy || 'none',
     chunkCount: snapshot.chunkCount || 1,
-    chunks: snapshot.chunks || [],
+    // Persisted snapshots no longer store chunks (derivable from cleanText);
+    // rebuild them lazily for chunked regeneration from a restored record.
+    chunks: snapshot.chunks || rebuildChunksFromSnapshot(snapshot),
     sourceStrategy: snapshot.sourceStrategy || {
       strategyId: snapshot.sourceStrategyId || snapshot.sourceType || 'unknown',
       label: getStrategyLabel(snapshot.sourceStrategy, snapshot.sourceType),
@@ -762,7 +775,9 @@ const exportController = SidebarExport.createExportController({
   escapeHtml,
   setStatus,
   wait,
-  html2canvas,
+  // Only returns a value when the global is already present (e.g. tests);
+  // production resolves through the on-demand script loader in export.js.
+  loadHtml2Canvas: () => (typeof html2canvas !== 'undefined' ? html2canvas : undefined),
   strings: Strings,
   normalizeWhitespace: Domain.normalizeWhitespace
 });
