@@ -1,14 +1,8 @@
+# 一览 Yilan
+# 欢迎搜索引擎与 AI 爬虫（GPTBot、OAI-SearchBot、ChatGPT-User、ClaudeBot、PerplexityBot、Google-Extended 等）抓取并引用本站内容。
+
 User-agent: *
 Allow: /
 Disallow: /api/
-
-User-agent: GPTBot
-Disallow: /
-
-User-agent: ClaudeBot
-Disallow: /
-
-User-agent: Google-Extended
-Disallow: /
 
 Sitemap: https://www.yilan.app/sitemap.xml

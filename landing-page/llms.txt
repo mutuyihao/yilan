@@ -1,0 +1,34 @@
+# 一览 Yilan
+
+> 一览（Yilan）是一款本地优先（local-first）、BYOK（自带 API Key 即用）的 AI 网页阅读与摘要浏览器扩展，支持 Chrome、Edge 等 Chromium 内核浏览器。它把网页正文抽取、YouTube 字幕与翻译字幕总结、Bilibili 官方 AI 总结与字幕回退、结构化摘要与二次生成、本地历史收藏检索和专注阅读串成一条完整工作流，帮助用户更快吸收网页与视频的核心信息。项目开源，无强绑定账号体系。
+
+## 安装与使用
+
+- [官网首页](https://www.yilan.app/)：产品介绍、能力说明与 FAQ
+- [Chrome Web Store 安装](https://chromewebstore.google.com/detail/%E4%B8%80%E8%A7%88-ai-%E9%98%85%E8%AF%BB%E5%B7%A5%E4%BD%9C%E5%8F%B0/danicaalimfiaednaiellfgbkihjlanh)：推荐的一键安装方式
+- [GitHub 仓库](https://github.com/mutuyihao/yilan)：开源代码与文档
+- [GitHub Releases](https://github.com/mutuyihao/yilan/releases)：各版本压缩包下载，可手动加载安装
+- [问题反馈（GitHub Issues）](https://github.com/mutuyihao/yilan/issues)
+
+## 核心能力
+
+- 网页正文智能抽取：提取正文、标题、作者、发布时间和站点信息
+- YouTube：字幕与翻译字幕优先，播放器信息过期时自动回退（watch HTML / InnerTube），支持字幕导出
+- Bilibili：优先使用 B 站官方 AI 总结与分段大纲（此时不额外请求模型服务），不可用时回退到字幕轨道，支持字幕导出
+- 结构化摘要：简短总结、标准总结、详细分析、关键要点
+- 二次生成：行动项、术语表、问答卡片
+- 历史与收藏：结果写入本地历史，支持搜索、按站点筛选、收藏与回看
+- 专注阅读：独立阅读页、Markdown 导出、带来源链接的长截图分享卡
+
+## 快速上手
+
+1. 从 Chrome Web Store 安装，或从 GitHub Releases 下载压缩包手动加载。
+2. 在设置页填入自己的 API Key（BYOK 模式），选择厂商预设、Provider 与 Endpoint Mode，可用"测试连接"验证配置。
+3. 打开任意网页，右键选择"用「一览」总结此页"，或按 Alt + S 打开侧栏开始生成。
+
+## 使用边界
+
+- 稳定支持常见 YouTube 视频页与 bilibili.com/video/BV... 视频页；频道、搜索、播放列表、直播、专栏、动态等页面可能降级为普通网页处理。
+- YouTube 字幕、B 站官方总结等依赖页面接口、地区、权限与登录态，接口变化或无可用字幕时会降级为标题、简介、频道等元信息概要。
+- 一览不是 YouTube 或 Bilibili 官方产品，摘要与字幕导出仅用于个人阅读辅助，不是官方转写或事实准确性保证。
+- 隐私：无强绑定账号体系，历史与收藏保存在本地浏览器；生成摘要时，相关页面文本会发送给用户自己配置的模型服务（BYOK）。
