@@ -67,6 +67,8 @@ interface Window {
   YilanPopupProviderSelection: any;
   YilanPopupModels: any;
   YilanPopupEntrypointsView: any;
+  YilanPopupHome: any;
+  YilanPopupSurface: any;
   db: any;
   marked: any;
   DOMPurify: any;

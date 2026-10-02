@@ -296,6 +296,50 @@ test('record store IndexedDB API saves, dedupes, searches, favorites, updates, d
   assert.deepStrictEqual(await RecordStore.getAll(), []);
 });
 
+test('record store finds the popup page summary through the normalizedUrl index only', [
+  'history.reuse_current_page',
+  'ui.popup_home'
+], async () => {
+  await RecordStore.clearAll();
+
+  await RecordStore.saveRecord(createRecord({
+    recordId: 'rec_page_old',
+    summaryMarkdown: '## Old\n- Older summary',
+    completedAt: '2026-04-10T00:00:00.000Z'
+  }));
+  const latest = await RecordStore.saveRecord(createRecord({
+    recordId: 'rec_page_latest',
+    summaryMode: 'short',
+    summaryMarkdown: '## Latest\n- Newest summary',
+    completedAt: '2026-04-16T00:00:00.000Z'
+  }));
+  // Secondary runs and unfinished records for the same page are never offered.
+  await RecordStore.saveRecord(createRecord({
+    recordId: 'rec_page_secondary',
+    parentRecordId: latest.recordId,
+    promptProfile: 'action_items',
+    summaryMarkdown: '## Actions'
+  }));
+  await RecordStore.saveRecord(createRecord({
+    recordId: 'rec_page_failed',
+    summaryMode: 'detailed',
+    status: 'failed',
+    summaryMarkdown: '## Partial'
+  }));
+
+  // Tracking params and the hash are normalized away, matching the stored key.
+  const match = await RecordStore.findReusableRecordByUrl('https://example.com/post?utm_source=newsletter#top');
+  assert.ok(match, 'expected the page summary to be found');
+  assert.strictEqual(match.matchType, 'normalizedUrl');
+  assert.strictEqual(match.record.summaryMode, 'short');
+  assert.ok(match.record.summaryPlainText.includes('Newest summary'));
+
+  assert.strictEqual(await RecordStore.findReusableRecordByUrl('https://example.com/other'), null);
+  assert.strictEqual(await RecordStore.findReusableRecordByUrl(''), null);
+
+  await RecordStore.clearAll();
+});
+
 test('record store IndexedDB search stays within baseline budget for 1k records', [
   'history.storage',
   'history.search',

@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title data-i18n="popup_title">一览设置</title>
+  <script src="popup/surface.js"></script>
   <script src="shared/theme.js"></script>
   <script src="shared/version.js"></script>
   <script src="shared/ui-format.js"></script>
@@ -16,26 +17,54 @@
   <link rel="stylesheet" href="popup-premium.css">
 </head>
 <body>
-  <header class="hero">
-    <div class="mark">览</div>
-    <div class="hero-copy">
-      <h1>一览</h1>
-      <div class="sub">Yilan · AI Reading Workspace <span class="version-pill" data-yilan-version>v1.5.1</span></div>
+  <aside class="rail">
+    <div class="rail-brand">
+      <div class="mark" aria-hidden="true">览</div>
+      <div class="rail-brand-copy">
+        <span class="rail-brand-name" data-i18n="popup_brand_name">一览</span>
+        <span class="rail-brand-sub" data-i18n="popup_brand_settings">设置</span>
+      </div>
     </div>
-  </header>
-
-  <form id="settingsForm" novalidate>
-    <div class="tabs" role="tablist" aria-label="设置分组" data-i18n-aria-label="popup_tab_groups_aria">
+    <div class="tabs" role="tablist" aria-orientation="vertical" aria-label="设置分组" data-i18n-aria-label="popup_tab_groups_aria">
+      <span class="tab-glider" aria-hidden="true"></span>
       <button
         type="button"
         class="tab active"
+        id="tab-home"
+        data-tab="home"
+        role="tab"
+        aria-selected="true"
+        aria-controls="panel-home"
+        title="此页"
+        data-i18n-title="popup_tab_home"
+      >
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+          <path d="M14 2v6h6"></path>
+          <path d="M8 13h8"></path>
+          <path d="M8 17h5"></path>
+        </svg>
+        <span class="tab-label tab-label--short" data-i18n="popup_rail_home">此页</span>
+        <span class="tab-label tab-label--full" data-i18n="popup_tab_home">此页</span>
+      </button>
+      <button
+        type="button"
+        class="tab"
         id="tab-connection"
         data-tab="connection"
         role="tab"
-        aria-selected="true"
+        aria-selected="false"
         aria-controls="panel-connection"
-        data-i18n="popup_tab_connection"
-      >连接</button>
+        title="连接"
+        data-i18n-title="popup_tab_connection"
+      >
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
+          <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>
+        </svg>
+        <span class="tab-label tab-label--short" data-i18n="popup_rail_connection">连接</span>
+        <span class="tab-label tab-label--full" data-i18n="popup_tab_connection">连接</span>
+      </button>
       <button
         type="button"
         class="tab"
@@ -44,8 +73,23 @@
         role="tab"
         aria-selected="false"
         aria-controls="panel-preferences"
-        data-i18n="popup_tab_preferences"
-      >偏好</button>
+        title="偏好"
+        data-i18n-title="popup_tab_preferences"
+      >
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <line x1="4" y1="21" x2="4" y2="14"></line>
+          <line x1="4" y1="10" x2="4" y2="3"></line>
+          <line x1="12" y1="21" x2="12" y2="12"></line>
+          <line x1="12" y1="8" x2="12" y2="3"></line>
+          <line x1="20" y1="21" x2="20" y2="16"></line>
+          <line x1="20" y1="12" x2="20" y2="3"></line>
+          <line x1="2" y1="14" x2="7" y2="14"></line>
+          <line x1="9" y1="8" x2="15" y2="8"></line>
+          <line x1="17" y1="16" x2="22" y2="16"></line>
+        </svg>
+        <span class="tab-label tab-label--short" data-i18n="popup_rail_preferences">偏好</span>
+        <span class="tab-label tab-label--full" data-i18n="popup_tab_preferences">偏好</span>
+      </button>
       <button
         type="button"
         class="tab"
@@ -54,19 +98,302 @@
         role="tab"
         aria-selected="false"
         aria-controls="panel-entrypoints"
-        data-i18n="popup_tab_entrypoints"
-      >入口</button>
+        title="快捷入口"
+        data-i18n-title="popup_tab_entrypoints"
+      >
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <rect x="2" y="6" width="20" height="12" rx="2"></rect>
+          <path d="M6 10h.01"></path>
+          <path d="M10 10h.01"></path>
+          <path d="M14 10h.01"></path>
+          <path d="M18 10h.01"></path>
+          <path d="M7 14h10"></path>
+        </svg>
+        <span class="tab-label tab-label--short" data-i18n="popup_rail_entrypoints">快捷</span>
+        <span class="tab-label tab-label--full" data-i18n="popup_tab_entrypoints">快捷入口</span>
+      </button>
     </div>
+    <div class="rail-foot">
+      <button
+        type="button"
+        id="openFullSettingsBtn"
+        class="rail-action"
+        title="在完整页面中打开设置"
+        aria-label="在完整页面中打开设置"
+        data-i18n-title="popup_open_full_settings"
+        data-i18n-aria-label="popup_open_full_settings"
+      >
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M15 3h6v6"></path>
+          <path d="M10 14 21 3"></path>
+          <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+        </svg>
+      </button>
+      <button
+        type="button"
+        id="railLanguageBtn"
+        class="rail-action rail-lang"
+        title="界面语言：点击切换"
+        aria-label="界面语言：点击切换"
+        data-i18n-title="popup_rail_language_title"
+        data-i18n-aria-label="popup_rail_language_title"
+      >
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="12" cy="12" r="10"></circle>
+          <path d="M2 12h20"></path>
+          <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
+        </svg>
+        <span class="rail-lang-tag" id="railLanguageTag">AUTO</span>
+      </button>
+      <span class="version-pill" data-yilan-version>v1.6.0</span>
+    </div>
+  </aside>
 
+  <form id="settingsForm" novalidate>
     <section
       class="tab-panel active"
+      id="panel-home"
+      data-tab-panel="home"
+      role="tabpanel"
+      aria-labelledby="tab-home"
+    >
+      <div class="home-eyebrow" data-i18n="popup_home_eyebrow">当前页面</div>
+      <article class="page-card" id="homePageCard" data-state="loading">
+        <div class="page-card-main">
+          <span class="page-favicon" aria-hidden="true">
+            <img id="homePageFavicon" alt="" hidden>
+            <span id="homePageFaviconFallback">·</span>
+            <svg class="page-lock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="4" y="11" width="16" height="10" rx="2"></rect>
+              <path d="M8 11V7a4 4 0 0 1 8 0v4"></path>
+            </svg>
+          </span>
+          <div class="page-card-copy">
+            <div class="page-title" id="homePageTitle" data-i18n="popup_home_loading_page">正在读取当前页面…</div>
+            <div class="page-meta">
+              <span class="page-host" id="homePageHost"></span>
+              <span class="page-kind" id="homePageKind" hidden></span>
+            </div>
+          </div>
+        </div>
+        <p class="page-note" id="homePageNote" hidden></p>
+        <div class="page-history" id="homeHistory" hidden>
+          <div class="page-history-meta">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M20 6 9 17l-5-5"></path>
+            </svg>
+            <span id="homeHistoryMeta"></span>
+          </div>
+          <p class="page-history-snippet" id="homeHistorySnippet"></p>
+        </div>
+      </article>
+
+      <div class="home-setup" id="homeSetup" hidden>
+        <div class="home-setup-title" data-i18n="popup_home_setup_title">先连接一个模型</div>
+        <p class="home-setup-desc" data-i18n="popup_home_setup_desc">一览使用你自己的 API Key，页面内容只会发送给你选择的服务商。</p>
+        <ol class="setup-steps">
+          <li data-setup-step="provider"><span class="setup-step-mark" aria-hidden="true"></span><span data-i18n="popup_home_setup_step_provider">选择服务商</span></li>
+          <li data-setup-step="key"><span class="setup-step-mark" aria-hidden="true"></span><span data-i18n="popup_home_setup_step_key">填入 API Key</span></li>
+          <li data-setup-step="model"><span class="setup-step-mark" aria-hidden="true"></span><span data-i18n="popup_home_setup_step_model">确认模型</span></li>
+        </ol>
+        <div class="home-setup-actions">
+          <button type="button" class="primary" id="homeSetupBtn" data-i18n="popup_home_setup_btn">开始设置</button>
+          <button type="button" class="text-btn" id="homeSetupTabBtn" data-i18n="popup_home_setup_tab_btn">在完整页面中设置</button>
+        </div>
+        <p class="home-setup-note" data-i18n="popup_home_setup_tab_hint">去服务商后台复制 Key 时弹窗会自动关闭，完整页面不会。</p>
+      </div>
+
+      <button type="button" class="summarize-btn" id="homeSummarizeBtn" data-mode="summarize" disabled>
+        <span class="summarize-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"></path>
+            <path d="M19 15l.9 2.1L22 18l-2.1.9L19 21l-.9-2.1L16 18l2.1-.9z"></path>
+          </svg>
+        </span>
+        <span class="summarize-label" id="homeSummarizeLabel" data-i18n="popup_home_summarize">总结此页</span>
+        <span class="summarize-keys shortcut-keys" data-shortcut-keys="cta" aria-hidden="true"><kbd>Alt</kbd><kbd>S</kbd></span>
+      </button>
+      <div class="home-feedback" id="homeFeedback" role="status" aria-live="polite" hidden></div>
+
+      <div class="quick-row" id="homeQuick" role="group" aria-label="总结选项" data-i18n-aria-label="popup_home_quick_aria">
+        <label class="quick-select" for="quickOutputLanguage">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="m5 8 6 6"></path>
+            <path d="m4 14 6-6 2-3"></path>
+            <path d="M2 5h12"></path>
+            <path d="M7 2h1"></path>
+            <path d="m22 22-5-10-5 10"></path>
+            <path d="M14 18h6"></path>
+          </svg>
+          <span class="sr-only" data-i18n="popup_label_output_language">摘要语言</span>
+          <select id="quickOutputLanguage" data-output-language-select>
+            <option value="auto" data-i18n="popup_output_language_auto">自动（随界面语言）</option>
+            <option value="zh">中文</option>
+            <option value="en">English</option>
+            <option value="ja">日本語</option>
+            <option value="ko">한국어</option>
+            <option value="fr">Français</option>
+          </select>
+        </label>
+        <button type="button" class="quick-chip" id="quickSimpleMode" aria-pressed="false" title="默认使用更省 token 的简短总结" data-i18n-title="popup_home_chip_simple_title">
+          <span class="quick-chip-mark" aria-hidden="true"></span>
+          <span data-i18n="popup_home_chip_simple">简短</span>
+        </button>
+        <button type="button" class="quick-chip" id="quickPrivacyMode" aria-pressed="false" title="不写入本地历史；页面内容仍会发送给模型" data-i18n-title="popup_home_chip_private_title">
+          <span class="quick-chip-mark" aria-hidden="true"></span>
+          <span data-i18n="popup_home_chip_private">无痕</span>
+        </button>
+      </div>
+
+      <div class="home-list">
+        <button type="button" class="home-row" id="homeConnectionRow">
+          <span class="home-row-icon" aria-hidden="true"><span class="status-dot" id="homeConnectionDot" data-state="incomplete"></span></span>
+          <span class="home-row-main">
+            <span class="home-row-title" id="homeModelName"></span>
+            <span class="home-row-desc" id="homeConnectionText"></span>
+          </span>
+          <svg class="home-row-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"></path></svg>
+        </button>
+        <button type="button" class="home-row" id="historyBtn" disabled>
+          <span class="home-row-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M3 12a9 9 0 1 0 3-6.7L3 8"></path>
+              <path d="M3 3v5h5"></path>
+              <path d="M12 7v5l3 2"></path>
+            </svg>
+          </span>
+          <span class="home-row-main">
+            <span class="home-row-title" data-i18n="popup_history_btn">历史记录</span>
+            <span class="home-row-desc" data-i18n="popup_home_history_desc">在页面侧栏中查看、搜索和收藏</span>
+          </span>
+          <svg class="home-row-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"></path></svg>
+        </button>
+      </div>
+
+      <p class="home-tip" id="homeTip">
+        <span class="home-tip-default">
+          <span data-i18n="popup_home_tip_prefix">在任意网页按</span>
+          <span class="shortcut-keys" data-shortcut-keys="tip"><kbd class="keycap">Alt</kbd><kbd class="keycap">S</kbd></span>
+          <span data-i18n="popup_home_tip_suffix">或用右键菜单，也能直接总结。</span>
+        </span>
+        <span class="home-tip-alt" data-i18n="popup_home_tip_menu_only">也可以在网页上右键，选择“用一览总结此页”。</span>
+      </p>
+    </section>
+
+    <section
+      class="tab-panel"
       id="panel-connection"
       data-tab-panel="connection"
       role="tabpanel"
       aria-labelledby="tab-connection"
+      hidden
     >
+      <header class="panel-head">
+        <h2 class="panel-title" data-i18n="popup_tab_connection">连接</h2>
+        <p class="panel-desc" data-i18n="popup_panel_connection_desc">选择服务商、填入 API Key，测试通过后就能开始总结。</p>
+      </header>
+
+      <div class="connect-hero" id="connectHero" data-state="incomplete">
+        <div class="connect-hero-top">
+          <span class="connect-dot" id="connectDot"></span>
+          <span class="connect-state" id="connectStateText">待完成配置</span>
+        </div>
+        <div class="connect-model" id="connectHeroModel">未填写模型</div>
+        <div class="connect-meta" id="connectHeroMeta"></div>
+        <button type="button" id="testBtn" class="deck-action" data-i18n="popup_test_btn">测试连接</button>
+        <div class="connect-result" id="connectResult" role="status" aria-live="polite" hidden></div>
+      </div>
+
+      <section class="section" aria-label="模型连接" data-i18n-aria-label="popup_card_model_connection">
+        <div class="section-head">
+          <div class="section-title" data-i18n="popup_card_model_connection">模型连接</div>
+        </div>
+        <div class="connection-steps">
+          <div class="field" data-step="provider">
+            <label for="providerPreset" data-i18n="popup_label_provider">服务商</label>
+            <select id="providerPreset"></select>
+            <div id="presetHint" class="hint"></div>
+          </div>
+
+          <div class="field" data-step="key">
+            <label for="apiKey">API Key</label>
+            <div class="inline-row">
+              <input id="apiKey" type="password" placeholder="sk-..." autocomplete="off" data-autosave="debounced" aria-describedby="apiKeyValidation apiKeyHint">
+              <button
+                type="button"
+                id="apiKeyVisibilityBtn"
+                class="icon-btn"
+                aria-pressed="false"
+                title="显示 API Key"
+                aria-label="显示 API Key"
+                data-i18n-title="popup_api_key_show"
+                data-i18n-aria-label="popup_api_key_show"
+              >
+                <svg class="icon-eye" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"></path>
+                  <circle cx="12" cy="12" r="3"></circle>
+                </svg>
+                <svg class="icon-eye-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M17.94 17.94A10.6 10.6 0 0 1 12 19c-6.5 0-10-7-10-7a17.6 17.6 0 0 1 4.06-4.94"></path>
+                  <path d="M9.9 4.24A9.9 9.9 0 0 1 12 5c6.5 0 10 7 10 7a17.7 17.7 0 0 1-2.16 3.19"></path>
+                  <path d="M14.12 14.12a3 3 0 1 1-4.24-4.24"></path>
+                  <path d="m2 2 20 20"></path>
+                </svg>
+              </button>
+            </div>
+            <div id="apiKeyValidation" class="field-alert" hidden></div>
+            <div id="apiKeyHint" class="hint" data-i18n="popup_api_key_hint_default">填写所选服务商的 API Key。</div>
+            <details class="inline-help">
+              <summary data-i18n="popup_key_storage_summary">密钥存储说明</summary>
+              <div data-i18n="popup_key_storage_detail">API Key 会通过 Chrome 同步存储，可能同步到你的 Google 账号。如有顾虑，请在 Chrome 设置中关闭同步，或仅在不开启同步的浏览器配置中使用。</div>
+            </details>
+          </div>
+
+          <div class="field" data-step="model">
+            <label for="modelName" data-i18n="popup_label_model">模型</label>
+            <div class="inline-row">
+              <input id="modelName" type="text" placeholder="gpt-4o-mini" data-autosave="debounced" list="modelNameOptions">
+              <button type="button" id="refreshModelsBtn" data-i18n="popup_refresh_models_btn">刷新</button>
+            </div>
+            <datalist id="modelNameOptions"></datalist>
+            <div id="modelListHint" class="hint"></div>
+          </div>
+        </div>
+
+        <details id="advancedConnectionSettings" class="advanced-settings">
+          <summary data-i18n="popup_advanced_settings">高级设置</summary>
+          <div class="field">
+            <label for="providerRoute" data-i18n="popup_label_provider_route">接口地址</label>
+            <select id="providerRoute"></select>
+            <div id="routeHint" class="hint"></div>
+          </div>
+          <div class="field">
+            <label for="baseURL" data-i18n="popup_label_base_url">自定义 Base URL</label>
+            <input id="baseURL" type="text" placeholder="留空使用推荐地址" data-autosave="debounced" data-i18n-placeholder="popup_base_url_placeholder_route" aria-describedby="baseURLValidation baseURLHint">
+            <div id="baseURLValidation" class="field-alert" hidden></div>
+            <div id="baseURLHint" class="hint"></div>
+            <div id="endpointPreview" class="endpoint-preview"></div>
+          </div>
+          <div class="field">
+            <label for="aiProvider" data-i18n="popup_label_ai_provider">协议类型</label>
+            <select id="aiProvider">
+              <option value="openai" data-i18n="popup_provider_openai">OpenAI / OpenAI 兼容接口</option>
+              <option value="anthropic" data-i18n="popup_provider_anthropic">Anthropic / Claude 兼容接口</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="endpointMode" data-i18n="popup_label_endpoint_mode">接口模式</label>
+            <select id="endpointMode"></select>
+            <div id="endpointModeHint" class="hint"></div>
+          </div>
+          <div id="providerCatalogMeta" class="hint"></div>
+        </details>
+      </section>
+
       <section class="section" aria-label="配置方案" data-i18n-aria-label="popup_label_profiles">
-        <div class="section-title" data-i18n="popup_label_profiles">配置方案</div>
+        <div class="section-head">
+          <div class="section-title" data-i18n="popup_label_profiles">配置方案</div>
+        </div>
         <div class="inline-row">
           <select id="profileSelect" aria-label="配置方案" data-i18n-aria-label="popup_label_profiles"></select>
           <button
@@ -95,92 +422,6 @@
         </div>
         <div id="profileHint" class="hint"></div>
       </section>
-
-      <section class="section" aria-label="模型连接" data-i18n-aria-label="popup_card_model_connection">
-        <div class="section-title" data-i18n="popup_card_model_connection">模型连接</div>
-        <div class="connection-steps">
-          <div class="field">
-            <label for="providerPreset" data-i18n="popup_label_provider">服务商</label>
-            <select id="providerPreset"></select>
-            <div id="presetHint" class="hint"></div>
-          </div>
-
-          <div class="field">
-            <label for="apiKey">API Key</label>
-            <div class="inline-row">
-              <input id="apiKey" type="password" placeholder="sk-..." autocomplete="off" data-autosave="debounced">
-              <button
-                type="button"
-                id="apiKeyVisibilityBtn"
-                class="icon-btn"
-                aria-pressed="false"
-                title="显示 API Key"
-                aria-label="显示 API Key"
-                data-i18n-title="popup_api_key_show"
-                data-i18n-aria-label="popup_api_key_show"
-              >
-                <svg class="icon-eye" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                  <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"></path>
-                  <circle cx="12" cy="12" r="3"></circle>
-                </svg>
-                <svg class="icon-eye-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                  <path d="M17.94 17.94A10.6 10.6 0 0 1 12 19c-6.5 0-10-7-10-7a17.6 17.6 0 0 1 4.06-4.94"></path>
-                  <path d="M9.9 4.24A9.9 9.9 0 0 1 12 5c6.5 0 10 7 10 7a17.7 17.7 0 0 1-2.16 3.19"></path>
-                  <path d="M14.12 14.12a3 3 0 1 1-4.24-4.24"></path>
-                  <path d="m2 2 20 20"></path>
-                </svg>
-              </button>
-            </div>
-            <div id="apiKeyHint" class="hint" data-i18n="popup_api_key_hint_default">填写所选服务商的 API Key。</div>
-            <details class="inline-help">
-              <summary data-i18n="popup_key_storage_summary">密钥存储说明</summary>
-              <div data-i18n="popup_key_storage_detail">API Key 会通过 Chrome 同步存储，可能同步到你的 Google 账号。如有顾虑，请在 Chrome 设置中关闭同步，或仅在不开启同步的浏览器配置中使用。</div>
-            </details>
-          </div>
-
-          <div class="field">
-            <label for="modelName" data-i18n="popup_label_model">模型</label>
-            <div class="inline-row">
-              <input id="modelName" type="text" placeholder="gpt-4o-mini" data-autosave="debounced" list="modelNameOptions">
-              <button type="button" id="refreshModelsBtn" data-i18n="popup_refresh_models_btn">刷新</button>
-            </div>
-            <datalist id="modelNameOptions"></datalist>
-            <div id="modelListHint" class="hint"></div>
-          </div>
-        </div>
-
-        <details id="advancedConnectionSettings" class="advanced-settings">
-          <summary data-i18n="popup_advanced_settings">高级设置</summary>
-          <div class="field">
-            <label for="providerRoute" data-i18n="popup_label_provider_route">接口地址</label>
-            <select id="providerRoute"></select>
-            <div id="routeHint" class="hint"></div>
-          </div>
-          <div class="field">
-            <label for="baseURL" data-i18n="popup_label_base_url">自定义 Base URL</label>
-            <input id="baseURL" type="text" placeholder="留空使用推荐地址" data-autosave="debounced" data-i18n-placeholder="popup_base_url_placeholder_route">
-            <div id="baseURLHint" class="hint"></div>
-            <div id="endpointPreview" class="endpoint-preview"></div>
-          </div>
-          <div class="field">
-            <label for="aiProvider" data-i18n="popup_label_ai_provider">协议类型</label>
-            <select id="aiProvider">
-              <option value="openai" data-i18n="popup_provider_openai">OpenAI / OpenAI 兼容接口</option>
-              <option value="anthropic" data-i18n="popup_provider_anthropic">Anthropic / Claude 兼容接口</option>
-            </select>
-          </div>
-          <div class="field">
-            <label for="endpointMode" data-i18n="popup_label_endpoint_mode">接口模式</label>
-            <select id="endpointMode"></select>
-            <div id="endpointModeHint" class="hint"></div>
-          </div>
-          <div id="providerCatalogMeta" class="hint"></div>
-        </details>
-
-        <div class="btn-row single">
-          <button type="button" id="testBtn" class="primary" data-i18n="popup_test_btn">测试连接</button>
-        </div>
-      </section>
     </section>
 
     <section
@@ -191,90 +432,81 @@
       aria-labelledby="tab-preferences"
       hidden
     >
-      <section class="section" aria-label="产品行为" data-i18n-aria-label="popup_card_behaviors">
-        <div class="section-title" data-i18n="popup_card_behaviors">产品行为</div>
-        <div class="field">
-          <label for="systemPrompt" data-i18n="popup_label_system_prompt">额外系统要求</label>
-          <textarea
-            id="systemPrompt"
-            placeholder="可选，这里的内容会追加到摘要提示词之前。"
-            data-autosave="debounced"
-            data-i18n-placeholder="popup_system_prompt_placeholder"
-          ></textarea>
+      <header class="panel-head">
+        <h2 class="panel-title" data-i18n="popup_tab_preferences">偏好</h2>
+        <p class="panel-desc" data-i18n="popup_panel_preferences_desc">输出语言、外观与隐私，全部自动保存、即时生效。</p>
+      </header>
+
+      <section class="section" aria-label="摘要输出" data-i18n-aria-label="popup_card_output">
+        <div class="section-head">
+          <div class="section-title" data-i18n="popup_card_output">摘要输出</div>
         </div>
-        <div class="field">
-          <label for="defaultLanguage" data-i18n="popup_label_default_language">默认输出语言</label>
-          <select id="defaultLanguage" data-autosave="immediate">
+        <div class="control-row control-row--first">
+          <label for="outputLanguage" data-i18n="popup_label_output_language">摘要语言</label>
+          <select id="outputLanguage" class="control-select" data-output-language-select>
+            <option value="auto" data-i18n="popup_output_language_auto">自动（随界面语言）</option>
             <option value="zh">中文</option>
             <option value="en">English</option>
-            <option value="ja">日本语</option>
+            <option value="ja">日本語</option>
             <option value="ko">한국어</option>
             <option value="fr">Français</option>
           </select>
         </div>
-        <div class="field">
-          <label for="chunkConcurrency" data-i18n="popup_label_chunk_concurrency">分段并发数</label>
-          <select id="chunkConcurrency" data-autosave="immediate">
-            <option value="1">1</option>
-            <option value="2">2</option>
-            <option value="3">3</option>
-            <option value="4">4</option>
-          </select>
-          <div class="hint" data-i18n="popup_chunk_concurrency_hint">长文分段摘要的并行请求数；1 为逐段串行，默认 2，网关限流严格时可调低。</div>
-        </div>
-        <div class="toggle-row">
-          <div class="toggle-copy">
-            <span class="toggle-title" data-i18n="popup_toggle_auto_translate_title">自动翻译输出</span>
-            <span class="toggle-desc" data-i18n="popup_toggle_auto_translate_desc">根据默认语言自动切换摘要输出语言。</span>
-          </div>
-          <input id="autoTranslate" type="checkbox" data-autosave="immediate">
-        </div>
+        <div class="hint hint--flush" data-i18n="popup_output_language_hint">选择具体语言后，无论原文是什么语言，摘要都会用它输出。</div>
+        <input id="defaultLanguage" type="hidden" value="zh">
+        <input id="autoTranslate" type="checkbox" hidden>
       </section>
 
       <section class="section" aria-label="界面外观" data-i18n-aria-label="popup_card_appearance">
-        <div class="section-title" data-i18n="popup_card_appearance">界面外观</div>
-        <div class="field">
+        <div class="section-head">
+          <div class="section-title" data-i18n="popup_card_appearance">界面外观</div>
+        </div>
+        <div class="control-row control-row--first">
           <label for="uiLanguage" data-i18n="popup_label_ui_language">界面语言</label>
-          <select id="uiLanguage" data-autosave="immediate">
+          <select id="uiLanguage" class="control-select" data-autosave="immediate">
             <option value="auto" data-i18n="popup_ui_language_auto">跟随浏览器</option>
             <option value="zh" data-i18n="popup_ui_language_zh">中文</option>
             <option value="en" data-i18n="popup_ui_language_en">English</option>
           </select>
         </div>
-        <div class="field">
+        <div class="control-row">
           <label for="themePreference" data-i18n="popup_label_theme_preference">明暗模式</label>
-          <select id="themePreference">
+          <select id="themePreference" class="control-select">
             <option value="system" data-i18n="popup_theme_system">自动跟随系统</option>
             <option value="light" data-i18n="popup_theme_light">固定浅色</option>
             <option value="dark" data-i18n="popup_theme_dark">固定深色</option>
           </select>
-          <div id="themeHint" class="hint" data-i18n="popup_theme_hint_default">会根据系统明暗模式自动切换 popup 和侧栏主题。</div>
         </div>
+        <div id="themeHint" class="hint hint--flush" data-i18n="popup_theme_hint_default">会根据系统明暗模式自动切换 popup 和侧栏主题。</div>
         <div class="field">
           <div id="themePaletteLabel" class="field-label" data-i18n="popup_label_palette">色彩方案</div>
           <input id="themePalette" type="hidden" value="jade">
           <div id="themePaletteGroup" class="palette-row" role="radiogroup" aria-labelledby="themePaletteLabel">
             <button type="button" class="palette-option palette-option--jade" data-palette-option="jade" role="radio" aria-checked="true" title="默认，清爽稳定" data-i18n-title="popup_palette_jade_desc">
-              <span class="palette-swatch" aria-hidden="true">
-                <span></span><span></span><span></span>
+              <span class="palette-preview" aria-hidden="true">
+                <span class="pp-bar"><i></i><i></i><i></i></span>
+                <span class="pp-body"><i class="pp-line pp-line--a"></i><i class="pp-line pp-line--b"></i><i class="pp-chip"></i></span>
               </span>
               <span class="palette-name" data-i18n="popup_palette_jade_name">松石绿</span>
             </button>
             <button type="button" class="palette-option palette-option--slate" data-palette-option="slate" role="radio" aria-checked="false" title="冷静，阅读感强" data-i18n-title="popup_palette_slate_desc">
-              <span class="palette-swatch" aria-hidden="true">
-                <span></span><span></span><span></span>
+              <span class="palette-preview" aria-hidden="true">
+                <span class="pp-bar"><i></i><i></i><i></i></span>
+                <span class="pp-body"><i class="pp-line pp-line--a"></i><i class="pp-line pp-line--b"></i><i class="pp-chip"></i></span>
               </span>
               <span class="palette-name" data-i18n="popup_palette_slate_name">雾蓝</span>
             </button>
             <button type="button" class="palette-option palette-option--copper" data-palette-option="copper" role="radio" aria-checked="false" title="温润，不偏黄" data-i18n-title="popup_palette_copper_desc">
-              <span class="palette-swatch" aria-hidden="true">
-                <span></span><span></span><span></span>
+              <span class="palette-preview" aria-hidden="true">
+                <span class="pp-bar"><i></i><i></i><i></i></span>
+                <span class="pp-body"><i class="pp-line pp-line--a"></i><i class="pp-line pp-line--b"></i><i class="pp-chip"></i></span>
               </span>
               <span class="palette-name" data-i18n="popup_palette_copper_name">岩茶棕</span>
             </button>
             <button type="button" class="palette-option palette-option--plum" data-palette-option="plum" role="radio" aria-checked="false" title="克制，有品牌感" data-i18n-title="popup_palette_plum_desc">
-              <span class="palette-swatch" aria-hidden="true">
-                <span></span><span></span><span></span>
+              <span class="palette-preview" aria-hidden="true">
+                <span class="pp-bar"><i></i><i></i><i></i></span>
+                <span class="pp-body"><i class="pp-line pp-line--a"></i><i class="pp-line pp-line--b"></i><i class="pp-chip"></i></span>
               </span>
               <span class="palette-name" data-i18n="popup_palette_plum_name">檀紫</span>
             </button>
@@ -286,34 +518,62 @@
             <span class="toggle-title" data-i18n="popup_toggle_compact_title">侧栏默认精简模式</span>
             <span class="toggle-desc" data-i18n="popup_toggle_compact_desc">开启后，每次打开侧栏都会自动进入精简布局，优先把空间留给总结内容。</span>
           </div>
-          <input id="sidebarCompactMode" type="checkbox" data-autosave="immediate">
+          <input id="sidebarCompactMode" type="checkbox" role="switch" data-autosave="immediate" aria-label="侧栏默认精简模式" data-i18n-aria-label="popup_toggle_compact_title">
         </div>
       </section>
 
       <section class="section" aria-label="隐私与控制" data-i18n-aria-label="popup_card_privacy">
-        <div class="section-title" data-i18n="popup_card_privacy">隐私与控制</div>
+        <div class="section-head">
+          <div class="section-title" data-i18n="popup_card_privacy">隐私与控制</div>
+        </div>
         <div class="toggle-row toggle-row--first">
           <div class="toggle-copy">
             <span class="toggle-title" data-i18n="popup_toggle_privacy_title">无痕模式</span>
             <span class="toggle-desc" data-i18n="popup_toggle_privacy_desc">仍会把当前页面内容发送给模型，但不会写入本地历史记录。</span>
           </div>
-          <input id="privacyMode" type="checkbox" data-autosave="immediate">
+          <input id="privacyMode" type="checkbox" role="switch" data-autosave="immediate" aria-label="无痕模式" data-i18n-aria-label="popup_toggle_privacy_title">
         </div>
         <div class="toggle-row">
           <div class="toggle-copy">
             <span class="toggle-title" data-i18n="popup_toggle_history_title">默认写入历史</span>
             <span class="toggle-desc" data-i18n="popup_toggle_history_desc">关闭后，新的总结结果只保留在当前侧栏，不进入历史记录。</span>
           </div>
-          <input id="defaultAllowHistory" type="checkbox" data-autosave="immediate">
+          <input id="defaultAllowHistory" type="checkbox" role="switch" data-autosave="immediate" aria-label="默认写入历史" data-i18n-aria-label="popup_toggle_history_title">
         </div>
         <div class="toggle-row">
           <div class="toggle-copy">
             <span class="toggle-title" data-i18n="popup_toggle_share_title">允许分享卡</span>
             <span class="toggle-desc" data-i18n="popup_toggle_share_desc">控制长截图分享功能，分享卡会附带来源链接。</span>
           </div>
-          <input id="defaultAllowShare" type="checkbox" data-autosave="immediate">
+          <input id="defaultAllowShare" type="checkbox" role="switch" data-autosave="immediate" aria-label="允许分享卡" data-i18n-aria-label="popup_toggle_share_title">
         </div>
       </section>
+
+      <details class="section section--collapsible" id="advancedPreferences">
+        <summary class="section-summary">
+          <span class="section-title" data-i18n="popup_card_advanced">高级</span>
+          <span class="section-summary-desc" data-i18n="popup_card_advanced_desc">提示词与长文并发</span>
+        </summary>
+        <div class="field">
+          <label for="systemPrompt" data-i18n="popup_label_system_prompt">额外系统要求</label>
+          <textarea
+            id="systemPrompt"
+            placeholder="可选，这里的内容会追加到摘要提示词之前。"
+            data-autosave="debounced"
+            data-i18n-placeholder="popup_system_prompt_placeholder"
+          ></textarea>
+        </div>
+        <div class="control-row">
+          <label for="chunkConcurrency" data-i18n="popup_label_chunk_concurrency">分段并发数</label>
+          <select id="chunkConcurrency" class="control-select" data-autosave="immediate">
+            <option value="1">1</option>
+            <option value="2">2</option>
+            <option value="3">3</option>
+            <option value="4">4</option>
+          </select>
+        </div>
+        <div class="hint hint--flush" data-i18n="popup_chunk_concurrency_hint">长文分段摘要的并行请求数；1 为逐段串行，默认 2，网关限流严格时可调低。</div>
+      </details>
     </section>
 
     <section
@@ -324,37 +584,43 @@
       aria-labelledby="tab-entrypoints"
       hidden
     >
-      <section class="section" aria-label="快捷操作" data-i18n-aria-label="popup_card_quick_actions">
-        <div class="section-title" data-i18n="popup_card_quick_actions">快捷操作</div>
-        <p class="section-lead"><span data-i18n="popup_quick_hint_prefix">右键菜单“用一览总结此页”或快捷键</span> <code>Alt + S</code> <span data-i18n="popup_quick_hint_suffix">可直接打开侧栏。</span></p>
-        <div class="btn-row single">
-          <button type="button" id="historyBtn" class="primary" data-i18n="popup_history_btn">打开历史记录</button>
+      <header class="panel-head">
+        <h2 class="panel-title" data-i18n="popup_tab_entrypoints">快捷入口</h2>
+        <p class="panel-desc" data-i18n="popup_panel_entrypoints_desc">右键菜单、快捷键和弹窗按钮的触发行为与运行状态。</p>
+      </header>
+
+      <section class="section" aria-label="触发方式" data-i18n-aria-label="popup_card_quick_actions">
+        <div class="section-head">
+          <div class="section-title" data-i18n="popup_card_quick_actions">触发方式</div>
         </div>
+        <p class="section-lead"><span data-i18n="popup_quick_hint_prefix">右键菜单“用一览总结此页”、弹窗里的“总结此页”或快捷键</span> <span class="shortcut-keys" data-shortcut-keys="lead"><kbd class="keycap">Alt</kbd><kbd class="keycap">S</kbd></span> <span data-i18n="popup_quick_hint_suffix">都会打开侧栏，下面的设置对它们都生效。</span></p>
         <div class="toggle-row">
           <div class="toggle-copy">
-            <span class="toggle-title" data-i18n="popup_toggle_autostart_title">入口自动生成摘要</span>
-            <span class="toggle-desc" data-i18n="popup_toggle_autostart_desc">开启后，右键菜单或 Alt + S 会直接开始生成；关闭后只打开侧栏。</span>
+            <span class="toggle-title" data-i18n="popup_toggle_autostart_title">打开后自动开始总结</span>
+            <span class="toggle-desc" data-i18n="popup_toggle_autostart_desc">关闭后只打开侧栏，由你手动点击开始。</span>
           </div>
-          <input id="entrypointAutoStart" type="checkbox" data-autosave="immediate">
+          <input id="entrypointAutoStart" type="checkbox" role="switch" data-autosave="immediate" aria-label="打开后自动开始总结" data-i18n-aria-label="popup_toggle_autostart_title">
         </div>
         <div class="toggle-row">
           <div class="toggle-copy">
-            <span class="toggle-title" data-i18n="popup_toggle_simple_title">入口默认简短总结</span>
-            <span class="toggle-desc" data-i18n="popup_toggle_simple_desc">入口触发时默认使用更省 token 的简短模式。</span>
+            <span class="toggle-title" data-i18n="popup_toggle_simple_title">默认简短总结</span>
+            <span class="toggle-desc" data-i18n="popup_toggle_simple_desc">使用更省 token 的简短模式；侧栏里仍可随时切换。</span>
           </div>
-          <input id="entrypointSimpleMode" type="checkbox" data-autosave="immediate">
+          <input id="entrypointSimpleMode" type="checkbox" role="switch" data-autosave="immediate" aria-label="默认简短总结" data-i18n-aria-label="popup_toggle_simple_title">
         </div>
         <div class="toggle-row">
           <div class="toggle-copy">
-            <span class="toggle-title" data-i18n="popup_toggle_reuse_title">优先显示本页历史摘要</span>
+            <span class="toggle-title" data-i18n="popup_toggle_reuse_title">优先显示本页已有摘要</span>
             <span class="toggle-desc" data-i18n="popup_toggle_reuse_desc">如果当前页面已有已完成摘要，先直接展示最近一条记录，不自动重跑；仍可手动点击“重新生成”更新。</span>
           </div>
-          <input id="entrypointReuseHistory" type="checkbox" data-autosave="immediate">
+          <input id="entrypointReuseHistory" type="checkbox" role="switch" data-autosave="immediate" aria-label="优先显示本页已有摘要" data-i18n-aria-label="popup_toggle_reuse_title">
         </div>
       </section>
 
-      <section class="section" aria-label="入口与快捷键" data-i18n-aria-label="popup_card_entrypoints">
-        <div class="section-title" data-i18n="popup_card_entrypoints">入口与快捷键</div>
+      <section class="section" aria-label="运行状态" data-i18n-aria-label="popup_card_entrypoints">
+        <div class="section-head">
+          <div class="section-title" data-i18n="popup_card_entrypoints">运行状态</div>
+        </div>
         <div class="status-list">
           <div class="status-row">
             <div class="status-row-main">
@@ -372,7 +638,7 @@
           </div>
         </div>
         <div id="entrypointMeta" class="status-meta" data-i18n="popup_entrypoint_meta_loading">正在加载最近触发与修复信息...</div>
-        <div class="hint"><span data-i18n="popup_shortcut_hint_prefix">如果按下</span> <code>Alt + S</code> <span data-i18n="popup_shortcut_hint_suffix">没有反应，可以重新检查入口并打开浏览器快捷键设置页确认绑定。</span></div>
+        <div class="hint"><span data-i18n="popup_shortcut_hint_prefix">如果按下</span> <span class="shortcut-keys" data-shortcut-keys="hint"><kbd class="keycap">Alt</kbd><kbd class="keycap">S</kbd></span> <span data-i18n="popup_shortcut_hint_suffix">没有反应，可以重新检查入口并打开浏览器快捷键设置页确认绑定。</span></div>
         <div class="btn-row">
           <button type="button" id="refreshEntrypointsBtn" data-i18n="popup_refresh_entrypoints_btn">检查入口</button>
           <button type="button" id="shortcutSettingsBtn" data-i18n="popup_shortcut_settings_btn">快捷键设置</button>
@@ -380,12 +646,12 @@
       </section>
     </section>
 
-    <footer class="footer">
-      <div id="status" class="status" data-i18n="popup_idle_status">设置修改后会自动保存。</div>
+    <footer class="footer" id="statusFooter">
       <details id="statusDetails" class="status-details" hidden>
         <summary data-i18n="popup_status_details_summary">错误详情</summary>
         <pre id="statusDetailsText"></pre>
       </details>
+      <div id="status" class="status" role="status" aria-live="polite" data-i18n="popup_idle_status">设置修改后会自动保存。</div>
     </footer>
   </form>
 
@@ -396,11 +662,14 @@
   <script src="shared/constants.js"></script>
   <script src="shared/url-utils.js"></script>
   <script src="shared/chrome-api.js"></script>
+  <script src="shared/domain.js"></script>
+  <script src="db.js"></script>
   <script src="popup/theme-controls.js"></script>
   <script src="popup/profiles.js"></script>
   <script src="popup/provider-selection.js"></script>
   <script src="popup/models.js"></script>
   <script src="popup/entrypoints-view.js"></script>
+  <script src="popup/home.js"></script>
   <script src="popup.js"></script>
 </body>
 </html>

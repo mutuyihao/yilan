@@ -8,19 +8,37 @@ const Constants = window.AISummaryConstants;
 const UrlUtils = window.AISummaryUrlUtils;
 const ChromeApi = window.YilanChromeApi;
 const I18n = window.YilanI18n;
+const Domain = window.AISummaryDomain;
+const RecordStore = window.db;
+const Surface = window.YilanPopupSurface || { surface: 'popup', pinned: false, isPopup: true, isTab: false };
 const YilanPopupThemeControls = window.YilanPopupThemeControls;
 const YilanPopupProfiles = window.YilanPopupProfiles;
 const YilanPopupProviderSelection = window.YilanPopupProviderSelection;
 const YilanPopupModels = window.YilanPopupModels;
 const YilanPopupEntrypointsView = window.YilanPopupEntrypointsView;
+const YilanPopupHome = window.YilanPopupHome;
 
 const $ = (id) => document.getElementById(id);
 
 const SETTINGS_KEYS = Constants.SETTINGS_KEYS;
 
 const MODELS_CACHE_STORAGE_KEY = Constants.MODELS_CACHE_STORAGE_KEY;
+const CONNECTION_CHECK_STORAGE_KEY = Constants.CONNECTION_CHECK_STORAGE_KEY;
 
 const ACTIVE_TAB_STORAGE_KEY = 'popupActiveTab';
+const HOME_TAB = 'home';
+const DEFAULT_SETTINGS_TAB = 'connection';
+// Reopening the popup shortly after leaving it on a settings tab (e.g. to
+// copy an API key from the provider console) resumes there; otherwise the
+// popup starts on the "此页" home view.
+const TAB_RESUME_WINDOW_MS = 5 * 60 * 1000;
+const OUTPUT_LANGUAGE_AUTO = 'auto';
+// Home quick chips mirror these full-settings toggles.
+const QUICK_TOGGLES = [
+  ['quickSimpleMode', 'entrypointSimpleMode'],
+  ['quickPrivacyMode', 'privacyMode']
+];
+
 // Resolved at call time so a runtime uiLanguage switch updates copy without reloading.
 const idleStatusText = () => I18n.get('popup_idle_status');
 const waitingAutosaveText = () => I18n.get('popup_waiting_autosave');
@@ -39,6 +57,13 @@ const saveState = {
   timer: null,
   lastSavedSignature: '',
   requestId: 0
+};
+
+const viewState = {
+  activeTab: '',
+  settingsLoaded: false,
+  testing: false,
+  connectionCheck: null
 };
 
 const getRuntimeErrorMessage = ChromeApi.getRuntimeErrorMessage;
@@ -85,6 +110,9 @@ function setStatus(text, tone) {
   if (!node) return;
   node.textContent = text;
   node.className = 'status' + (tone ? ' ' + tone : '');
+  // The home view only surfaces the footer for warnings and errors.
+  const footer = $('statusFooter');
+  if (footer) footer.dataset.tone = tone || '';
 }
 
 function setStatusDetails(text) {
@@ -102,6 +130,21 @@ function setStatusDetails(text) {
 
   textNode.textContent = value;
   detailsNode.hidden = false;
+}
+
+function setConnectResult(text, tone) {
+  const node = $('connectResult');
+  if (!node) return;
+  node.textContent = text || '';
+  node.className = 'connect-result' + (tone ? ' ' + tone : '');
+  node.hidden = !text;
+}
+
+function setFieldAlert(id, text) {
+  const node = $(id);
+  if (!node) return;
+  node.textContent = text || '';
+  node.hidden = !text;
 }
 
 const formatDateTime = (value) => UiFormat.formatDateTime(value, { emptyText: I18n.get('popup_not_recorded'), includeYear: false });
@@ -190,6 +233,8 @@ async function persistSettings(options = {}) {
   const requestId = ++saveState.requestId;
   syncThemePreferenceControl(settings.themePreference);
   syncThemePaletteControl(settings.themePalette);
+  syncDerivedControls();
+  renderConnectionState();
 
   if (!options.silentStatus) {
     setStatus(options.statusText || I18n.get('popup_autosaving'));
@@ -256,26 +301,73 @@ function flushPendingChanges() {
   });
 }
 
-function getStoredActiveTab() {
+// ---- Tabs & surfaces ----------------------------------------------------
+
+function readStoredTab() {
   try {
-    return window.localStorage.getItem(ACTIVE_TAB_STORAGE_KEY) || '';
+    const parsed = JSON.parse(window.localStorage.getItem(ACTIVE_TAB_STORAGE_KEY) || 'null');
+    if (parsed && typeof parsed.tab === 'string') {
+      return { tab: parsed.tab, at: Number(parsed.at) || 0 };
+    }
   } catch (error) {
-    return '';
+    // Legacy plain-string values or blocked storage: start fresh.
   }
+  return null;
 }
 
 function storeActiveTab(tabId) {
   try {
-    window.localStorage.setItem(ACTIVE_TAB_STORAGE_KEY, tabId);
+    window.localStorage.setItem(ACTIVE_TAB_STORAGE_KEY, JSON.stringify({ tab: tabId, at: Date.now() }));
   } catch (error) {
     // Ignore storage failures in popup UI state.
   }
 }
 
-function activateTab(tabId) {
+function isTabAvailable(tabId) {
+  if (!tabId) return false;
+  // The full-tab surface is the options page: there is no "current page".
+  if (tabId === HOME_TAB && !Surface.isPopup) return false;
+  return !!document.querySelector('[data-tab-panel="' + tabId + '"]');
+}
+
+// The popup remembers its tab in localStorage (resume window); the full tab
+// keeps its section in the URL hash and only reads the popup's memory as a
+// hand-off when it was opened from the popup moments ago.
+function resolveInitialTab() {
+  const hashTab = String(window.location.hash || '').replace(/^#/, '');
+  if (isTabAvailable(hashTab)) return hashTab;
+
+  const stored = readStoredTab();
+  const resumable = stored && stored.tab !== HOME_TAB && Date.now() - stored.at < TAB_RESUME_WINDOW_MS && isTabAvailable(stored.tab);
+  if (Surface.isPopup) return resumable ? stored.tab : HOME_TAB;
+  return resumable ? stored.tab : DEFAULT_SETTINGS_TAB;
+}
+
+function getNavigableTabButtons() {
+  return Array.from(document.querySelectorAll('[data-tab]'))
+    .filter((button) => isTabAvailable(button.dataset.tab));
+}
+
+function positionTabGlider() {
+  const tabs = document.querySelector('.tabs');
+  const active = tabs ? /** @type {HTMLElement | null} */ (tabs.querySelector('.tab.active')) : null;
+  const glider = tabs ? /** @type {HTMLElement | null} */ (tabs.querySelector('.tab-glider')) : null;
+  if (!tabs || !active || !glider) return;
+  glider.style.height = active.offsetHeight + 'px';
+  glider.style.transform = 'translateY(' + active.offsetTop + 'px)';
+}
+
+function focusFirstMissingConnectionField() {
+  const settings = collectSettings();
+  const target = !settings.apiKey ? $('apiKey') : !settings.modelName ? $('modelName') : null;
+  if (target) window.requestAnimationFrame(() => target.focus());
+}
+
+function activateTab(tabId, options = {}) {
   const buttons = Array.from(document.querySelectorAll('[data-tab]'));
   const panels = Array.from(document.querySelectorAll('[data-tab-panel]'));
-  const targetId = panels.some((panel) => panel.dataset.tabPanel === tabId) ? tabId : 'connection';
+  const targetId = isTabAvailable(tabId) ? tabId : (Surface.isPopup ? HOME_TAB : DEFAULT_SETTINGS_TAB);
+  viewState.activeTab = targetId;
 
   buttons.forEach((button) => {
     const active = button.dataset.tab === targetId;
@@ -290,14 +382,315 @@ function activateTab(tabId) {
     panel.hidden = !active;
   });
 
-  storeActiveTab(targetId);
+  document.body.dataset.activeTab = targetId;
+  if (Surface.isPopup) {
+    storeActiveTab(targetId);
+  } else if (window.location.hash !== '#' + targetId) {
+    window.history.replaceState(null, '', '#' + targetId);
+  }
+
+  positionTabGlider();
+  if (options.focusFirstMissing) focusFirstMissingConnectionField();
 }
 
 function setupTabs() {
-  activateTab(getStoredActiveTab() || 'connection');
+  activateTab(resolveInitialTab());
   document.querySelectorAll('[data-tab]').forEach((button) => {
     button.addEventListener('click', () => activateTab(button.dataset.tab));
+    button.addEventListener('keydown', (event) => {
+      const keyEvent = /** @type {KeyboardEvent} */ (event);
+      const buttons = getNavigableTabButtons();
+      const index = buttons.indexOf(button);
+      let nextIndex = -1;
+      if (keyEvent.key === 'ArrowRight' || keyEvent.key === 'ArrowDown') nextIndex = (index + 1) % buttons.length;
+      else if (keyEvent.key === 'ArrowLeft' || keyEvent.key === 'ArrowUp') nextIndex = (index - 1 + buttons.length) % buttons.length;
+      else if (keyEvent.key === 'Home') nextIndex = 0;
+      else if (keyEvent.key === 'End') nextIndex = buttons.length - 1;
+      if (nextIndex < 0) return;
+      event.preventDefault();
+      const next = buttons[nextIndex];
+      activateTab(next.dataset.tab);
+      next.focus();
+    });
   });
+  window.addEventListener('resize', positionTabGlider);
+  if (document.fonts && typeof document.fonts.ready?.then === 'function') {
+    document.fonts.ready.then(positionTabGlider).catch(() => {});
+  }
+}
+
+function openFullSettings(tabId) {
+  const target = isTabAvailable(tabId) && tabId !== HOME_TAB
+    ? tabId
+    : viewState.activeTab && viewState.activeTab !== HOME_TAB ? viewState.activeTab : DEFAULT_SETTINGS_TAB;
+  storeActiveTab(target);
+  flushPendingChanges();
+
+  const finish = () => {
+    if (Surface.isPopup && !Surface.pinned) window.close();
+  };
+  try {
+    chrome.runtime.openOptionsPage(() => {
+      void chrome.runtime.lastError;
+      finish();
+    });
+  } catch (error) {
+    ChromeApi.createTab(chrome.runtime.getURL('popup.html#' + target)).then(finish);
+  }
+}
+
+const RAIL_LANGUAGE_SEQUENCE = ['auto', 'zh', 'en'];
+const RAIL_LANGUAGE_TAGS = { auto: 'AUTO', zh: '中文', en: 'EN' };
+
+function syncRailLanguageControl() {
+  const tag = $('railLanguageTag');
+  if (!tag) return;
+  const select = /** @type {HTMLSelectElement | null} */ ($('uiLanguage'));
+  const value = normalizeUiLanguage(select?.value);
+  tag.textContent = RAIL_LANGUAGE_TAGS[value] || RAIL_LANGUAGE_TAGS.auto;
+}
+
+function bindRailControls() {
+  const languageButton = $('railLanguageBtn');
+  if (languageButton) {
+    languageButton.addEventListener('click', () => {
+      const select = /** @type {HTMLSelectElement | null} */ ($('uiLanguage'));
+      if (!select) return;
+      const current = normalizeUiLanguage(select.value);
+      const index = RAIL_LANGUAGE_SEQUENCE.indexOf(current);
+      select.value = RAIL_LANGUAGE_SEQUENCE[(index + 1) % RAIL_LANGUAGE_SEQUENCE.length];
+      select.dispatchEvent(new Event('change', { bubbles: true }));
+      syncRailLanguageControl();
+    });
+  }
+
+  $('openFullSettingsBtn')?.addEventListener('click', () => openFullSettings(viewState.activeTab));
+}
+
+// ---- Derived controls: output language & home quick chips --------------
+// The stored settings keep `autoTranslate` + `defaultLanguage`; the UI shows
+// them as one choice: 'auto' (no translation) or a fixed output language.
+
+function getOutputLanguageValue() {
+  const autoTranslate = !!(/** @type {HTMLInputElement} */ ($('autoTranslate'))).checked;
+  return autoTranslate ? ($('defaultLanguage').value || 'zh') : OUTPUT_LANGUAGE_AUTO;
+}
+
+function syncOutputLanguageControls() {
+  const value = getOutputLanguageValue();
+  document.querySelectorAll('[data-output-language-select]').forEach((node) => {
+    const select = /** @type {HTMLSelectElement} */ (node);
+    const known = Array.from(select.options).some((option) => option.value === value);
+    select.value = known ? value : OUTPUT_LANGUAGE_AUTO;
+  });
+}
+
+function applyOutputLanguage(value) {
+  const autoTranslate = /** @type {HTMLInputElement} */ ($('autoTranslate'));
+  if (value === OUTPUT_LANGUAGE_AUTO) {
+    autoTranslate.checked = false;
+  } else {
+    autoTranslate.checked = true;
+    $('defaultLanguage').value = value;
+  }
+  syncOutputLanguageControls();
+  persistSettings();
+}
+
+function syncQuickToggles() {
+  QUICK_TOGGLES.forEach(([chipId, fieldId]) => {
+    const chip = $(chipId);
+    const field = /** @type {HTMLInputElement | null} */ ($(fieldId));
+    if (chip && field) chip.setAttribute('aria-pressed', field.checked ? 'true' : 'false');
+  });
+}
+
+function syncDerivedControls() {
+  syncOutputLanguageControls();
+  syncQuickToggles();
+}
+
+function bindDerivedControls() {
+  document.querySelectorAll('[data-output-language-select]').forEach((node) => {
+    const select = /** @type {HTMLSelectElement} */ (node);
+    select.addEventListener('change', () => applyOutputLanguage(select.value));
+  });
+
+  QUICK_TOGGLES.forEach(([chipId, fieldId]) => {
+    const chip = $(chipId);
+    const field = /** @type {HTMLInputElement | null} */ ($(fieldId));
+    if (!chip || !field) return;
+    chip.addEventListener('click', () => {
+      field.checked = !field.checked;
+      // Goes through the field's data-autosave listener like a direct toggle.
+      field.dispatchEvent(new Event('change', { bubbles: true }));
+      syncQuickToggles();
+    });
+    field.addEventListener('change', syncQuickToggles);
+  });
+}
+
+// ---- Connection status ----------------------------------------------------
+// A past test only counts while the connection fields still match it, so the
+// popup never claims "ready" for settings that were never verified.
+
+function getConnectionSignature(settings) {
+  return YilanPopupHome.buildConnectionSignature(settings, Domain?.hashString);
+}
+
+async function loadConnectionCheck() {
+  try {
+    const items = await storageLocalGet([CONNECTION_CHECK_STORAGE_KEY]);
+    const stored = items?.[CONNECTION_CHECK_STORAGE_KEY];
+    viewState.connectionCheck = stored && typeof stored === 'object' ? stored : null;
+  } catch (error) {
+    viewState.connectionCheck = null;
+  }
+}
+
+async function saveConnectionCheck(settings, ok, details) {
+  viewState.connectionCheck = {
+    signature: getConnectionSignature(settings),
+    ok: !!ok,
+    testedAt: new Date().toISOString(),
+    model: String(details?.model || settings.modelName || ''),
+    message: String(details?.message || '')
+  };
+  try {
+    await storageLocalSet({ [CONNECTION_CHECK_STORAGE_KEY]: viewState.connectionCheck });
+  } catch (error) {
+    // The in-memory result still drives this popup session.
+  }
+}
+
+function extractEndpointHost(url) {
+  try {
+    return url ? new URL(url).host : '';
+  } catch (error) {
+    return '';
+  }
+}
+
+function getSelectedPresetLabel() {
+  const select = /** @type {HTMLSelectElement | null} */ ($('providerPreset'));
+  return String(select?.selectedOptions?.[0]?.textContent || '').trim();
+}
+
+function getConnectionSummary() {
+  const settings = collectSettings();
+  const check = viewState.connectionCheck;
+  const state = YilanPopupHome.resolveConnectionState(settings, check, getConnectionSignature(settings));
+  const presetLabel = getSelectedPresetLabel();
+
+  let stateText = I18n.get('popup_conn_state_incomplete');
+  if (state === 'verified') {
+    stateText = I18n.get('popup_conn_state_verified', [YilanPopupHome.formatRelativeTime(check?.testedAt, I18n.getUILanguage())]);
+  } else if (state === 'failed') {
+    stateText = I18n.get('popup_conn_state_failed');
+  } else if (state === 'unverified') {
+    stateText = I18n.get('popup_conn_state_unverified');
+  }
+
+  return {
+    settings,
+    state,
+    presetLabel,
+    stateText,
+    model: settings.modelName,
+    detail: [presetLabel, stateText].filter(Boolean).join(' · ')
+  };
+}
+
+function renderConnectionState() {
+  const summary = getConnectionSummary();
+  const { settings, state } = summary;
+
+  const hero = $('connectHero');
+  if (hero) hero.dataset.state = state;
+  $('connectStateText').textContent = summary.stateText;
+  $('connectHeroModel').textContent = settings.modelName || I18n.get('popup_hero_model_empty');
+
+  const baseUrlInput = /** @type {HTMLInputElement} */ ($('baseURL'));
+  const endpointHost = extractEndpointHost(settings.aiBaseURL || String(baseUrlInput?.placeholder || '').trim());
+  const profileName = findProfileIndexEntry(profileState.activeId)?.name || '';
+  $('connectHeroMeta').textContent = [profileName, summary.presetLabel, endpointHost].filter(Boolean).join(' · ');
+
+  const testButton = $('testBtn');
+  if (testButton) testButton.classList.toggle('is-quiet', state === 'verified');
+
+  // Inline validation next to the offending field instead of only the footer.
+  const credentialValidation = getProviderCredentialValidation(settings);
+  const keyInvalid = !!settings.apiKey && !credentialValidation.valid;
+  setFieldAlert('apiKeyValidation', keyInvalid ? credentialValidation.message : '');
+  setFieldAlert('baseURLValidation', settings.aiBaseURL && !validateBaseURL(settings.aiBaseURL) ? baseUrlInvalidMessage() : '');
+
+  const stepState = {
+    provider: !!summary.presetLabel,
+    key: !!settings.apiKey && !keyInvalid,
+    model: !!settings.modelName
+  };
+  document.querySelectorAll('.connection-steps > [data-step]').forEach((stepNode) => {
+    const stepName = stepNode.getAttribute('data-step') || '';
+    stepNode.classList.toggle('step-done', !!stepState[stepName]);
+    stepNode.classList.toggle('step-warn', stepName === 'key' && keyInvalid);
+  });
+
+  if (!viewState.testing) {
+    if (state === 'failed') {
+      setConnectResult(viewState.connectionCheck?.message || '', 'error');
+    } else if (state !== 'verified') {
+      // The last result described different settings; don't let it linger.
+      setConnectResult('', '');
+    }
+  }
+
+  homeController.renderConnection(summary);
+  homeController.renderAction();
+}
+
+function getHomeContext() {
+  const settings = collectSettings();
+  const steps = { provider: true, key: !!settings.apiKey, model: !!settings.modelName };
+  return {
+    ready: viewState.settingsLoaded,
+    // Until settings load, assume configured so first paint doesn't flash setup.
+    configured: !viewState.settingsLoaded || (steps.key && steps.model),
+    autoStart: settings.entrypointAutoStart,
+    reuseHistory: settings.entrypointReuseHistory,
+    steps
+  };
+}
+
+// ---- Shortcut keycaps ---------------------------------------------------------
+
+function splitShortcut(shortcut) {
+  const raw = String(shortcut || '').trim();
+  if (!raw) return [];
+  // "Alt+S" on Windows/Linux, symbol strings such as "⌥S" on macOS.
+  return raw.includes('+') ? raw.split('+').map((part) => part.trim()).filter(Boolean) : Array.from(raw);
+}
+
+function renderShortcutKeys(entrypoints) {
+  const shortcut = entrypoints?.shortcut || {};
+  const keys = shortcut.status === 'assigned' ? splitShortcut(shortcut.shortcut) : [];
+
+  document.querySelectorAll('[data-shortcut-keys]').forEach((node) => {
+    const slot = node.getAttribute('data-shortcut-keys');
+    if (keys.length) {
+      node.replaceChildren(...keys.map((key) => {
+        const kbd = document.createElement('kbd');
+        if (slot !== 'cta') kbd.className = 'keycap';
+        kbd.textContent = key;
+        return kbd;
+      }));
+      node.hidden = false;
+    } else if (slot === 'cta') {
+      node.hidden = true;
+    }
+  });
+
+  const tip = $('homeTip');
+  if (tip) tip.dataset.shortcut = keys.length ? 'assigned' : 'none';
 }
 
 function bindAutoSaveControls() {
@@ -308,7 +701,10 @@ function bindAutoSaveControls() {
   });
 
   document.querySelectorAll('[data-autosave="debounced"]').forEach((field) => {
-    field.addEventListener('input', scheduleAutoSave);
+    field.addEventListener('input', () => {
+      scheduleAutoSave();
+      renderConnectionState();
+    });
     field.addEventListener('change', () => {
       persistSettings();
     });
@@ -365,14 +761,17 @@ function applySettingsToForm(settings) {
   syncSelectionState({ preferredEndpointMode: endpointMode });
   syncThemePreferenceControl(themePreference);
   syncThemePaletteControl(themePalette);
+  syncDerivedControls();
+  syncRailLanguageControl();
 
   saveState.lastSavedSignature = createSettingsSignature(collectSettings());
+  renderConnectionState();
   renderEndpointPreview();
 }
 
 async function loadSettings() {
   const keys = SETTINGS_KEYS.concat([PROFILES_INDEX_KEY, ACTIVE_PROFILE_ID_KEY]);
-  const items = await storageGet(keys);
+  const [items] = await Promise.all([storageGet(keys), loadConnectionCheck()]);
 
   profileState.index = normalizeProfilesIndex(items?.[PROFILES_INDEX_KEY]);
   profileState.activeId = String(items?.[ACTIVE_PROFILE_ID_KEY] || '').trim();
@@ -382,12 +781,44 @@ async function loadSettings() {
     await updateProfilesStorage(profileState.index, '');
   }
 
+  viewState.settingsLoaded = true;
   renderProfileSelector();
   applySettingsToForm(items);
   setStatus(idleStatusText());
   setStatusDetails('');
 
   await loadCachedModelOptions(collectSettings());
+}
+
+// Keep the active profile in step with other windows; a stale id here would
+// make the next autosave write into the previously active profile's slot.
+function handleExternalProfileChange(changes) {
+  if (!viewState.settingsLoaded) return;
+  const indexChange = changes?.[PROFILES_INDEX_KEY];
+  const activeChange = changes?.[ACTIVE_PROFILE_ID_KEY];
+  if (!indexChange && !activeChange) return;
+
+  if (indexChange) profileState.index = normalizeProfilesIndex(indexChange.newValue);
+  if (activeChange) profileState.activeId = String(activeChange.newValue || '').trim();
+  renderProfileSelector();
+  renderConnectionState();
+}
+
+function handleExternalSettingsChange(changes) {
+  if (!viewState.settingsLoaded) return;
+  const changedKeys = SETTINGS_KEYS.filter((key) => Object.prototype.hasOwnProperty.call(changes || {}, key));
+  if (!changedKeys.length) return;
+
+  // Our own autosave echoes back values the form already holds.
+  const current = collectSettings();
+  const external = changedKeys.some((key) => JSON.stringify(changes[key].newValue ?? null) !== JSON.stringify(current[key] ?? null));
+  // A debounced edit on this page is about to save; let it win.
+  if (!external || saveState.timer) return;
+
+  storageGet(SETTINGS_KEYS).then((items) => {
+    applySettingsToForm(items);
+    loadCachedModelOptions(collectSettings());
+  }).catch(() => {});
 }
 
 function handleSave(event) {
@@ -398,6 +829,11 @@ function handleSave(event) {
   });
 }
 
+function rejectTest(message) {
+  setStatus(message, 'error');
+  setConnectResult(message, 'error');
+}
+
 async function handleTestConnection() {
   await persistSettings({
     skipSuccessStatus: true,
@@ -406,27 +842,30 @@ async function handleTestConnection() {
 
   const settings = collectSettings();
   if (!settings.apiKey) {
-    setStatus(I18n.get('popup_need_api_key'), 'error');
+    rejectTest(I18n.get('popup_need_api_key'));
     return;
   }
 
   if (settings.aiBaseURL && !validateBaseURL(settings.aiBaseURL)) {
-    setStatus(baseUrlInvalidMessage(), 'error');
+    rejectTest(baseUrlInvalidMessage());
     return;
   }
 
   const credentialValidation = getProviderCredentialValidation(settings);
   if (!credentialValidation.valid) {
-    setStatus(credentialValidation.message, 'error');
+    rejectTest(credentialValidation.message);
     return;
   }
 
   const button = $('testBtn');
+  viewState.testing = true;
   button.disabled = true;
   button.textContent = I18n.get('popup_testing');
   setStatus(I18n.get('popup_testing_connection'));
+  setConnectResult(I18n.get('popup_testing_connection'), 'pending');
 
   const response = await runtimeSendMessage({ action: 'testConnection', settings });
+  viewState.testing = false;
   button.disabled = false;
   button.textContent = I18n.get('popup_test_btn');
 
@@ -442,27 +881,25 @@ async function handleTestConnection() {
       extras.push(diag.autoBaseUrlAppliedV1 ? I18n.get('popup_auto_v1_added') : I18n.get('popup_auto_v1_removed'));
     }
 
-    setStatus(I18n.get('popup_connected', [model, extras.length ? I18n.get('popup_extras_joined', [extras.join('，')]) : '']), 'success');
+    const message = I18n.get('popup_connected', [model, extras.length ? I18n.get('popup_extras_joined', [extras.join('，')]) : '']);
+    setStatus(message, 'success');
     setStatusDetails('');
+    // The signature ignores a trailing /v1, so a background auto-fix of the
+    // base URL keeps this result valid.
+    await saveConnectionCheck(settings, true, { model });
+    setConnectResult(message, 'success');
+    renderConnectionState();
 
     // Best-effort: refresh model list after a successful connection test.
     refreshModelOptions({ reason: 'after_test' }).catch(() => {});
     return;
   }
 
-  setStatus(getRuntimeErrorMessage(response.error), 'error');
+  const errorMessage = getRuntimeErrorMessage(response.error);
+  setStatus(errorMessage, 'error');
   setStatusDetails(buildErrorDetailsText(response.error, response.diagnostics));
-}
-
-async function openHistory() {
-  setStatus(I18n.get('popup_opening_history'));
-  const response = await runtimeSendMessage({ action: 'triggerHistory' });
-  if (response.success) {
-    setStatus(I18n.get('popup_history_opened'), 'success');
-    return;
-  }
-  setStatus(getRuntimeErrorMessage(response.error) || I18n.get('popup_history_open_failed'), 'error');
-  setStatusDetails('');
+  await saveConnectionCheck(settings, false, { message: errorMessage });
+  renderConnectionState();
 }
 
 // ---- Controller wiring (popup/* modules) ---------------------------------
@@ -565,13 +1002,43 @@ const entrypointsViewController = YilanPopupEntrypointsView.createEntrypointsVie
   setStatusDetails,
   setBadge,
   getRuntimeErrorMessage,
-  formatDateTime
+  formatDateTime,
+  onStatus: renderShortcutKeys
 });
 const {
   renderEntrypointStatus,
   loadEntrypointStatus,
   openShortcutSettings
 } = entrypointsViewController;
+
+const homeController = YilanPopupHome.createHomeController({
+  $,
+  i18n: I18n,
+  uiLabels: UiLabels,
+  domain: Domain,
+  runtimeSendMessage,
+  getRuntimeErrorMessage,
+  queryTargetTab: async () => {
+    // `?surface=popup&targetTab=<id>` (pinned surfaces only) lets tests and
+    // screenshots render the home view for a specific tab.
+    const pinnedTabId = Number(new URLSearchParams(window.location.search).get('targetTab'));
+    if (Surface.pinned && Number.isInteger(pinnedTabId) && pinnedTabId > 0) {
+      return chrome.tabs.get(pinnedTabId);
+    }
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    return tab || null;
+  },
+  isFileSchemeAllowed: () => new Promise((resolve) => chrome.extension.isAllowedFileSchemeAccess(resolve)),
+  findRecordForUrl: (url) => (RecordStore?.findReusableRecordByUrl ? RecordStore.findReusableRecordByUrl(url) : Promise.resolve(null)),
+  getHomeContext,
+  activateTab,
+  openFullSettings,
+  closeWindow: () => {
+    if (!Surface.isPopup || Surface.pinned) return false;
+    window.close();
+    return true;
+  }
+});
 
 window.addEventListener('DOMContentLoaded', () => {
   renderPresetOptions();
@@ -580,22 +1047,20 @@ window.addEventListener('DOMContentLoaded', () => {
   bindSelectionListeners();
   bindProfileControls();
   bindModelControls();
+  bindRailControls();
+  bindDerivedControls();
+  homeController.bindControls();
+  homeController.render();
 
-  // Keep the form in sync when background logic auto-fixes settings (e.g. toggling `/v1` on testConnection).
+  // Keep the form in sync with writes from elsewhere: background auto-fixes
+  // (e.g. toggling `/v1` on testConnection), the options tab, or another
+  // popup. Autosave writes the whole form, so a stale copy here would
+  // otherwise overwrite those changes on the next save or on close.
   if (typeof chrome !== 'undefined' && chrome.storage?.onChanged && typeof chrome.storage.onChanged.addListener === 'function') {
     chrome.storage.onChanged.addListener((changes, areaName) => {
       if (areaName !== 'sync') return;
-
-      const baseUrlChange = changes?.aiBaseURL;
-      if (baseUrlChange && typeof baseUrlChange.newValue !== 'undefined') {
-        const baseUrlField = $('baseURL');
-        if (baseUrlField && document.activeElement !== baseUrlField) {
-          baseUrlField.value = String(baseUrlChange.newValue || '');
-          saveState.lastSavedSignature = createSettingsSignature(collectSettings());
-          syncSelectionState({ preferredEndpointMode: $('endpointMode').value });
-          loadCachedModelOptions(collectSettings());
-        }
-      }
+      handleExternalProfileChange(changes);
+      handleExternalSettingsChange(changes);
     });
   }
 
@@ -613,10 +1078,12 @@ window.addEventListener('DOMContentLoaded', () => {
   loadEntrypointStatus({ silent: true }).catch((error) => {
     setStatus(String(error?.message || error || I18n.get('popup_entrypoint_check_failed')), 'error');
   });
+  if (Surface.isPopup) {
+    homeController.load().catch(() => {});
+  }
 
   $('settingsForm').addEventListener('submit', handleSave);
   $('testBtn').addEventListener('click', handleTestConnection);
-  $('historyBtn').addEventListener('click', openHistory);
 
   // Toggle API key visibility; the i18n binding attributes are swapped too so
   // a later locale switch re-applies the correct label for the current state.
@@ -649,6 +1116,10 @@ window.addEventListener('DOMContentLoaded', () => {
   // setting changes; repaint live copy that is not covered by data-i18n.
   document.addEventListener('yilan-locale-changed', () => {
     renderEndpointPreview();
+    renderConnectionState();
+    homeController.render();
+    syncRailLanguageControl();
+    window.requestAnimationFrame(positionTabGlider);
     const testButton = $('testBtn');
     if (testButton && testButton.disabled) return;
     setStatus(idleStatusText());
@@ -662,4 +1133,8 @@ document.addEventListener('visibilitychange', () => {
   }
 });
 
-window.addEventListener('pagehide', flushPendingChanges);
+window.addEventListener('pagehide', () => {
+  flushPendingChanges();
+  // Refresh the resume window with the tab the popup is closed on.
+  if (Surface.isPopup && viewState.activeTab) storeActiveTab(viewState.activeTab);
+});

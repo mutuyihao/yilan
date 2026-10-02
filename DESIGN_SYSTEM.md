@@ -1,6 +1,6 @@
 # Yilan Design System
 
-Last updated: 2026-05-05
+Last updated: 2026-10-02
 
 Yilan uses a light-first editorial UI with a warm cream canvas, charcoal ink, restrained teal accent, and serif display typography for Chinese reading contexts.
 
@@ -41,7 +41,7 @@ Reusable button, card, badge, focus, selection, and scrollbar primitives live in
 
 ## Surface Rules
 
-Popup is a fixed 420px settings panel with a persistent hero header, tab rail, scrollable tab body, auto-save note, and footer status bar.
+Popup is a fixed 452px panel with a 68px brand rail of labelled tabs. It opens on the "此页" home view (current-page card, saved-summary preview, one brand-gradient primary action, quick option chips, connection and history rows) and must fit Chrome's 600px popup height without scrolling; settings tabs scroll, with a sticky footer status that the home view only shows for warnings and errors. The connection status card is a calm surface card whose dot and label follow the truthful state (setup needed / unverified / verified / failed); the brand gradient is reserved for primary actions. The same document is the full-tab options page (`:root[data-surface='tab']`): a 248px labelled sidebar and a centered 760px settings column, without the home view.
 
 Sidebar is injected at 420px wide and prioritizes a readable source card, compact trust policy, segmented mode control, and spacious summary panel.
 

@@ -14,6 +14,15 @@
   "popup_tab_groups_aria": {
     "message": "设置分组"
   },
+  "popup_brand_name": {
+    "message": "一览"
+  },
+  "popup_brand_settings": {
+    "message": "设置"
+  },
+  "popup_tab_home": {
+    "message": "此页"
+  },
   "popup_tab_connection": {
     "message": "连接"
   },
@@ -21,7 +30,176 @@
     "message": "偏好"
   },
   "popup_tab_entrypoints": {
-    "message": "入口"
+    "message": "快捷入口"
+  },
+  "popup_rail_home": {
+    "message": "此页"
+  },
+  "popup_rail_connection": {
+    "message": "连接"
+  },
+  "popup_rail_preferences": {
+    "message": "偏好"
+  },
+  "popup_rail_entrypoints": {
+    "message": "快捷"
+  },
+  "popup_panel_connection_desc": {
+    "message": "选择服务商、填入 API Key，测试通过后就能开始总结。"
+  },
+  "popup_panel_preferences_desc": {
+    "message": "输出语言、外观与隐私，全部自动保存、即时生效。"
+  },
+  "popup_panel_entrypoints_desc": {
+    "message": "右键菜单、快捷键和弹窗按钮的触发行为与运行状态。"
+  },
+  "popup_hero_model_empty": {
+    "message": "未填写模型"
+  },
+  "popup_conn_state_incomplete": {
+    "message": "待完成配置"
+  },
+  "popup_conn_state_unverified": {
+    "message": "未验证 · 建议测试一次"
+  },
+  "popup_conn_state_verified": {
+    "message": "已验证 · $time$",
+    "placeholders": {
+      "time": {
+        "content": "$1"
+      }
+    }
+  },
+  "popup_conn_state_failed": {
+    "message": "上次测试失败"
+  },
+  "popup_rail_language_title": {
+    "message": "界面语言：点击在 跟随浏览器 / 中文 / English 之间切换"
+  },
+  "popup_open_full_settings": {
+    "message": "在完整页面中打开设置"
+  },
+  "popup_home_eyebrow": {
+    "message": "当前页面"
+  },
+  "popup_home_loading_page": {
+    "message": "正在读取当前页面…"
+  },
+  "popup_home_untitled": {
+    "message": "未命名页面"
+  },
+  "popup_home_protected_title": {
+    "message": "受保护的浏览器页面"
+  },
+  "popup_home_kind_youtube": {
+    "message": "YouTube 视频"
+  },
+  "popup_home_kind_bilibili": {
+    "message": "B 站视频"
+  },
+  "popup_home_kind_file": {
+    "message": "本地文件"
+  },
+  "popup_home_unsupported_browser": {
+    "message": "这是浏览器内置页面，一览无法读取。打开任意网页或视频页即可总结。"
+  },
+  "popup_home_unsupported_store": {
+    "message": "扩展商店页面受浏览器保护，无法总结。"
+  },
+  "popup_home_unsupported_file": {
+    "message": "读取本地文件需要在扩展详情页开启“允许访问文件网址”。"
+  },
+  "popup_home_unsupported_unknown": {
+    "message": "没有识别到当前页面。"
+  },
+  "popup_home_history_meta": {
+    "message": "已有摘要 · $time$ · $mode$",
+    "placeholders": {
+      "time": {
+        "content": "$1"
+      },
+      "mode": {
+        "content": "$2"
+      }
+    }
+  },
+  "popup_home_summarize": {
+    "message": "总结此页"
+  },
+  "popup_home_open_summary": {
+    "message": "打开已有摘要"
+  },
+  "popup_home_open_sidebar": {
+    "message": "在侧栏中打开"
+  },
+  "popup_home_opening": {
+    "message": "正在打开侧栏…"
+  },
+  "popup_home_opened": {
+    "message": "已在页面中打开侧栏。"
+  },
+  "popup_home_error_no_tab": {
+    "message": "没有找到当前标签页。"
+  },
+  "popup_home_error_inject": {
+    "message": "浏览器不允许读取这个页面，换一个普通网页再试。"
+  },
+  "popup_home_error_message": {
+    "message": "页面暂时没有响应，刷新页面后再试一次。"
+  },
+  "popup_home_error_generic": {
+    "message": "无法在当前页面启动总结。"
+  },
+  "popup_home_quick_aria": {
+    "message": "总结选项"
+  },
+  "popup_home_chip_simple": {
+    "message": "简短"
+  },
+  "popup_home_chip_simple_title": {
+    "message": "默认使用更省 token 的简短总结（与“快捷入口”中的设置同步）"
+  },
+  "popup_home_chip_private": {
+    "message": "无痕"
+  },
+  "popup_home_chip_private_title": {
+    "message": "不写入本地历史；页面内容仍会发送给模型"
+  },
+  "popup_home_history_desc": {
+    "message": "在页面侧栏中查看、搜索和收藏"
+  },
+  "popup_home_tip_prefix": {
+    "message": "在任意网页按"
+  },
+  "popup_home_tip_suffix": {
+    "message": "或用右键菜单，也能直接总结。"
+  },
+  "popup_home_tip_menu_only": {
+    "message": "也可以在网页上右键，选择“用一览总结此页”。"
+  },
+  "popup_home_setup_title": {
+    "message": "先连接一个模型"
+  },
+  "popup_home_setup_desc": {
+    "message": "一览使用你自己的 API Key，页面内容只会发送给你选择的服务商。"
+  },
+  "popup_home_setup_step_provider": {
+    "message": "选择服务商"
+  },
+  "popup_home_setup_step_key": {
+    "message": "填入 API Key"
+  },
+  "popup_home_setup_step_model": {
+    "message": "确认模型"
+  },
+  "popup_home_setup_btn": {
+    "message": "开始设置"
+  },
+  "popup_home_setup_tab_btn": {
+    "message": "在完整页面中设置"
+  },
+  "popup_home_setup_tab_hint": {
+    "message": "去服务商后台复制 Key 时弹窗会自动关闭，完整页面不会。"
   },
   "popup_autosave_note": {
     "message": "设置变更后会自动保存。文本输入会在停顿后保存，离开输入框时也会立即保存。"
@@ -32,23 +210,11 @@
   "popup_label_provider": {
     "message": "服务商"
   },
-  "popup_card_behaviors": {
-    "message": "产品行为"
-  },
   "popup_label_system_prompt": {
     "message": "额外系统要求"
   },
   "popup_system_prompt_placeholder": {
     "message": "可选，这里的内容会追加到摘要提示词之前。"
-  },
-  "popup_toggle_auto_translate_title": {
-    "message": "自动翻译输出"
-  },
-  "popup_toggle_auto_translate_desc": {
-    "message": "根据默认语言自动切换摘要输出语言。"
-  },
-  "popup_label_default_language": {
-    "message": "默认输出语言"
   },
   "popup_label_chunk_concurrency": {
     "message": "分段并发数"
@@ -70,6 +236,24 @@
   },
   "popup_card_appearance": {
     "message": "界面外观"
+  },
+  "popup_card_output": {
+    "message": "摘要输出"
+  },
+  "popup_label_output_language": {
+    "message": "摘要语言"
+  },
+  "popup_output_language_auto": {
+    "message": "自动（随界面语言）"
+  },
+  "popup_output_language_hint": {
+    "message": "选择具体语言后，无论原文是什么语言，摘要都会用它输出。"
+  },
+  "popup_card_advanced": {
+    "message": "高级"
+  },
+  "popup_card_advanced_desc": {
+    "message": "提示词与长文并发"
   },
   "popup_label_theme_preference": {
     "message": "明暗模式"
@@ -135,37 +319,37 @@
     "message": "控制长截图分享功能，分享卡会附带来源链接。"
   },
   "popup_card_quick_actions": {
-    "message": "快捷操作"
+    "message": "触发方式"
   },
   "popup_quick_hint_prefix": {
-    "message": "右键菜单“用一览总结此页”或快捷键"
+    "message": "右键菜单“用一览总结此页”、弹窗里的“总结此页”或快捷键"
   },
   "popup_quick_hint_suffix": {
-    "message": "可直接打开侧栏。"
+    "message": "都会打开侧栏，下面的设置对它们都生效。"
   },
   "popup_toggle_autostart_title": {
-    "message": "入口自动生成摘要"
+    "message": "打开后自动开始总结"
   },
   "popup_toggle_autostart_desc": {
-    "message": "开启后，右键菜单或 Alt + S 会直接开始生成；关闭后只打开侧栏。"
+    "message": "关闭后只打开侧栏，由你手动点击开始。"
   },
   "popup_toggle_simple_title": {
-    "message": "入口默认简短总结"
+    "message": "默认简短总结"
   },
   "popup_toggle_simple_desc": {
-    "message": "入口触发时默认使用更省 token 的简短模式。"
+    "message": "使用更省 token 的简短模式；侧栏里仍可随时切换。"
   },
   "popup_toggle_reuse_title": {
-    "message": "优先显示本页历史摘要"
+    "message": "优先显示本页已有摘要"
   },
   "popup_toggle_reuse_desc": {
     "message": "如果当前页面已有已完成摘要，先直接展示最近一条记录，不自动重跑；仍可手动点击“重新生成”更新。"
   },
   "popup_history_btn": {
-    "message": "打开历史记录"
+    "message": "历史记录"
   },
   "popup_card_entrypoints": {
-    "message": "入口与快捷键"
+    "message": "运行状态"
   },
   "popup_context_menu_title": {
     "message": "右键菜单"
@@ -1561,6 +1745,9 @@
   },
   "bg_history_open_failed": {
     "message": "打开历史记录失败。"
+  },
+  "bg_summary_trigger_failed": {
+    "message": "无法在当前页面启动总结。"
   },
   "bg_entrypoint_status_failed": {
     "message": "获取入口状态失败。"

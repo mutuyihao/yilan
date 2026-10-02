@@ -1,6 +1,6 @@
 # Chrome Web Store Listing（商店列表文案与提交素材）
 
-Last updated: 2026-09-13
+Last updated: 2026-10-02
 
 说明：商店条目名称与简短介绍自 1.5.0 起经 `_locales/*/messages.json` 的 `extName` / `extDescription` 随包下发（中文面向 zh 商店、英文面向 en 商店），改文案即改包；CWS 后台的「简短描述」和「详细描述」可随时更新，零代码。所有字段长度已按 CWS 限制核验（名称 ≤45 字符，简短描述/manifest 描述 ≤132 字符）。
 
@@ -128,10 +128,11 @@ For long reads, video learning, research, and knowledge management.
 
 Paste-ready Chrome Web Store update text:
 
-1.5.1 fixes profile switching: activating a saved profile no longer overwrites the previously active profile's saved settings — switching only applies the target profile to the live configuration. It also carries everything since 1.5.0: full interface internationalization (browser-following Chinese/English across every surface), a configurable chunk concurrency setting for long-article summaries, an API key visibility toggle, and a hardened streaming network layer. Since the 1.0.0 store version, Yilan also added YouTube and Bilibili video summaries, subtitle export, a reader document navigation panel, redesigned provider setup, MiMo route/key validation improvements, broader diagnostics, and updated release gates.
+1.6.0 adds a current-page home in the toolbar popup, saved-summary reuse, first-run setup guidance, a full-tab settings surface, truthful connection verification, quick summary options, and cross-window settings synchronization. It also carries everything since 1.0.0: internationalization, YouTube and Bilibili summaries, reader and history tools, provider setup, diagnostics, and hardened network handling.
 
 Full user-visible changes since the 1.0.0 store version:
 
+- 1.6.0: Added the current-page popup home, saved-summary reuse, full-tab settings, truthful connection status, quick summary options, and synchronization fixes for settings and profile changes made in another window.
 - 1.5.1: Fixed switching between saved profiles so the previously active profile's settings are no longer overwritten by the newly activated profile; switching profiles now only applies the target profile's settings to the live configuration.
 - 1.5.0: Localized every surface (extension name, popup, sidebar, reader, prompts) into Chinese/English with a user-selectable interface language, added a chunk concurrency setting (1-4) for long articles, added an API key show/hide toggle, hardened streaming retries/timeouts and rate-limit handling, consolidated popup styles into a single stylesheet, and simplified the connection tab around a provider → API Key → model flow.
 - 1.4.1: Added a popup setting for default compact sidebar mode, preserved standard sidebar mode as the full information layout, and improved theme-linked colors for compact controls, summary scrollbars, standalone reader backgrounds, and footer status text.

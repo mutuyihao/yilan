@@ -57,6 +57,9 @@
     // chrome.storage.local cache keys
     MODELS_CACHE_STORAGE_KEY: 'yilanModelsCacheV1',
     AUTO_ENDPOINT_CACHE_STORAGE_KEY: 'yilanAutoEndpointModeCacheV1',
+    // Last popup connection test: { signature, ok, testedAt, model, message }.
+    // The signature is a hash of the connection fields, never the raw key.
+    CONNECTION_CHECK_STORAGE_KEY: 'yilanConnectionCheckV1',
 
     // Reader session storage (chrome.storage.local)
     READER_SESSION_PREFIX: 'readerSession:',

@@ -50,6 +50,11 @@ class FakeObjectStore {
           }
         }
         return undefined;
+      }),
+      getAll: (value) => asyncRequest(() => {
+        return Array.from(this.items.values())
+          .filter((item) => item?.[indexConfig.keyPath] === value)
+          .map(clone);
       })
     };
   }

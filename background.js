@@ -70,8 +70,10 @@ function createErrorResponse(error, fallbackMessage, additionalFields = {}) {
 
 const createTab = ChromeApi.createTab;
 
+// Resolves to { success, reason } so the popup can explain failures
+// (e.g. browser-internal pages that refuse script injection).
 async function safeInjectAndRun(tab, action) {
-  if (!tab?.id) return;
+  if (!tab?.id) return { success: false, reason: 'no_tab' };
 
   try {
     await chrome.tabs.sendMessage(tab.id, { action: 'ping' });
@@ -83,15 +85,27 @@ async function safeInjectAndRun(tab, action) {
       });
     } catch (error) {
       console.error('[Yilan] Failed to inject content script.', error);
-      return;
+      return { success: false, reason: 'inject_failed' };
     }
   }
 
   try {
     await chrome.tabs.sendMessage(tab.id, { action });
+    return { success: true };
   } catch (error) {
     console.error('[Yilan] Failed to trigger content action.', error);
+    return { success: false, reason: 'message_failed' };
   }
+}
+
+// The popup passes the tab it rendered so the action lands on that page even
+// if focus moved; other callers fall back to the active tab.
+async function resolveTargetTab(tabId) {
+  if (Number.isInteger(tabId)) {
+    return chrome.tabs.get(tabId);
+  }
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  return tab || null;
 }
 
 Entrypoints.bindEntrypoints({
@@ -969,12 +983,21 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return false;
   }
 
+  if (message.action === 'triggerSummary') {
+    // Same content action as the context menu and Alt+S, so the entrypoint
+    // auto-start, short-mode, and history-reuse settings apply unchanged.
+    resolveTargetTab(message.tabId).then(async (tab) => {
+      sendResponse(await safeInjectAndRun(tab, 'extractAndSummarize'));
+    }).catch((error) => {
+      console.error('[Yilan] Failed to trigger summary.', error);
+      sendResponse(createErrorResponse(error, bgText('bg_summary_trigger_failed', '无法在当前页面启动总结。')));
+    });
+    return true;
+  }
+
   if (message.action === 'triggerHistory') {
-    chrome.tabs.query({ active: true, currentWindow: true }).then(async ([tab]) => {
-      if (tab) {
-        await safeInjectAndRun(tab, 'showHistory');
-      }
-      sendResponse({ success: true });
+    resolveTargetTab(message.tabId).then(async (tab) => {
+      sendResponse(await safeInjectAndRun(tab, 'showHistory'));
     }).catch((error) => {
       console.error('[Yilan] Failed to show history.', error);
       sendResponse(createErrorResponse(error, bgText('bg_history_open_failed', '打开历史记录失败。')));

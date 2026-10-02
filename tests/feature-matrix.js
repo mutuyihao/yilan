@@ -46,6 +46,7 @@ module.exports = [
   { id: 'export.share_card', label: 'Share card image export' },
   { id: 'ui.sidebar_contract', label: 'Sidebar DOM contract' },
   { id: 'ui.popup_contract', label: 'Popup DOM contract' },
+  { id: 'ui.popup_home', label: 'Popup home: current page, saved summary, summarize action, connection status' },
   { id: 'ui.reader_contract', label: 'Reader DOM contract' },
   { id: 'quality.syntax', label: 'First-party JavaScript syntax' },
   { id: 'quality.release_version_sync', label: 'Release version consistency across package, manifest, and shared fallback' },

@@ -23,6 +23,12 @@ export interface CancelRunMessage {
 
 export interface TriggerHistoryMessage {
   action: 'triggerHistory';
+  tabId?: number;
+}
+
+export interface TriggerSummaryMessage {
+  action: 'triggerSummary';
+  tabId?: number;
 }
 
 export interface GetEntrypointStatusMessage {
@@ -43,6 +49,7 @@ export type RuntimeMessage =
   | RunPromptMessage
   | CancelRunMessage
   | TriggerHistoryMessage
+  | TriggerSummaryMessage
   | GetEntrypointStatusMessage
   | OpenShortcutSettingsMessage
   | OpenReaderTabMessage;

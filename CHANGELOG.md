@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.6.0 - 2026-10-02
+
+- Turned the toolbar popup from a settings form into a "此页" (This page) home: it shows the current tab's title, favicon, and page kind, previews the saved summary when the page was summarized before, and offers one primary action that opens the sidebar through the same path as the context menu and `Alt + S` (so auto-start, short-mode, and history-reuse settings apply). The button label says what will happen ("总结此页" / "打开已有摘要" / "在侧栏中打开"), shows the user's actual shortcut binding, and closes the popup once the sidebar is open. Browser-internal pages, extension stores, and local files without file access explain why they cannot be summarized instead of failing silently.
+- Added a first-run setup card on the home view (provider → API key → model) with a "set up in a full tab" path, since popups close when the user switches away to copy an API key.
+- Registered `popup.html` as the extension options page (`options_ui`, opens in a tab): the same document renders a wide settings layout there, so the toolbar right-click "Options" entry now works. `popup/surface.js` resolves the surface before first paint.
+- Made the connection status truthful: the last connection test is stored locally with a hash of the connection fields (never the raw key), and the status reads "待完成配置 / 未验证 / 已验证 · 3 分钟前 / 上次测试失败" instead of claiming "ready" as soon as fields were filled. Test results and key/base-URL validation now appear next to their controls, not only in the footer.
+- Merged "自动翻译输出" and "默认输出语言" into one "摘要语言" choice (Auto or a fixed language) with a mirrored quick select on the home view; added "简短" / "无痕" quick chips that toggle the same settings. The stored `autoTranslate` / `defaultLanguage` keys are unchanged.
+- Rail tabs now show text labels; "入口" is renamed "快捷入口"; the system prompt and chunk concurrency moved into a collapsed "高级" section; profiles moved below the model connection.
+- Fixed an open popup or settings tab writing its stale form back over settings saved elsewhere (another popup, the options tab, or a background auto-fix) when it autosaved or closed.
+- Added `triggerSummary` (and an optional `tabId` for `triggerHistory`) to the background runtime messages, and `db.findReusableRecordByUrl()` to look up a page's summary through the `normalizedUrl` index without loading the whole history.
+- Added unit coverage for the home helpers and controller and the URL-indexed record lookup, plus Playwright specs for the home summarize/reuse flow, restricted pages, quick options, the stored connection status, and cross-window settings sync. `npm run screenshots:popup` now captures the popup at its real toolbar size.
+
 ## 1.5.1 - 2026-09-13
 
 - Fixed switching between saved profiles overwriting the previously active profile: activating profile B ran the settings persist while the active profile id still pointed at A, so B's freshly applied settings were written into A's storage slot. `persistSettings` now accepts `skipProfileSync`, and profile activation uses it so switching only writes the main settings keys while profile slots and the index are updated by the activation flow itself.

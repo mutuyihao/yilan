@@ -98,6 +98,19 @@ async function openHistorySidebar(harness, page) {
   return await waitForSidebarFrame(page);
 }
 
+async function findTabId(serviceWorker, url) {
+  return await serviceWorker.evaluate(async (target) => {
+    const tabs = await chrome.tabs.query({});
+    return tabs.find((tab) => tab.url === target)?.id || null;
+  }, url);
+}
+
+async function readSyncSettings(serviceWorker, keys) {
+  return await serviceWorker.evaluate((list) => new Promise((resolve) => {
+    chrome.storage.sync.get(list, resolve);
+  }), keys);
+}
+
 test.describe('Yilan extension E2E', () => {
   let server;
 
@@ -326,6 +339,194 @@ test.describe('Yilan extension E2E', () => {
     } finally {
       await harness.close();
       await compatServer.close();
+    }
+  });
+
+  test('popup home shows the current page and summarizes it through the entrypoint path', async () => {
+    const harness = await launchExtensionContext();
+    try {
+      await resetExtensionState(harness.serviceWorker);
+      await setSyncSettings(harness.serviceWorker, buildDefaultSettings(server.origin, {
+        entrypointAutoStart: true,
+        entrypointReuseHistory: true,
+        privacyMode: false
+      }));
+
+      const page = harness.context.pages()[0] || await harness.context.newPage();
+      await page.goto(server.origin + '/article-basic');
+      const tabId = await findTabId(harness.serviceWorker, server.origin + '/article-basic');
+
+      // A real toolbar popup cannot be driven by Playwright; pin the popup
+      // surface and point it at the article tab instead.
+      const popupPage = await openExtensionPage(harness.context, harness.extensionId, `popup.html?surface=popup&targetTab=${tabId}`);
+      await expect(popupPage.locator('#panel-home')).toBeVisible();
+      await expect(popupPage.locator('#homePageTitle')).toHaveText('Playwright Basic Article');
+      await expect(popupPage.locator('#homeHistory')).toBeHidden();
+      await expect(popupPage.locator('#homeSummarizeLabel')).toHaveText('总结此页');
+
+      server.clearRequests();
+      await popupPage.locator('#homeSummarizeBtn').click();
+      // The confirmation arrives after the content script injected the sidebar.
+      await expect(popupPage.locator('#homeFeedback')).toContainText('已在页面中打开侧栏');
+      let sidebar = await waitForSidebarFrame(page);
+      await expect(sidebar.locator('#summaryRoot')).toContainText('这是模拟摘要');
+      await expect.poll(async () => await countStoredRecords(sidebar)).toBe(1);
+      expect(server.getRequests().length).toBeGreaterThan(0);
+
+      // Reopened, the popup finds that summary and offers it instead of a new run.
+      await popupPage.reload();
+      await expect(popupPage.locator('#homeHistory')).toBeVisible();
+      await expect(popupPage.locator('#homeHistorySnippet')).toContainText('这是模拟摘要');
+      await expect(popupPage.locator('#homeSummarizeLabel')).toHaveText('打开已有摘要');
+
+      server.clearRequests();
+      await popupPage.locator('#homeSummarizeBtn').click();
+      await expect(popupPage.locator('#homeFeedback')).toContainText('已在页面中打开侧栏');
+      sidebar = await waitForSidebarFrame(page);
+      await expect(sidebar.locator('#statusText')).toContainText('已加载当前页面的历史摘要');
+      expect(server.getRequests()).toHaveLength(0);
+    } finally {
+      await harness.close();
+    }
+  });
+
+  test('popup home explains browser pages it cannot read', async () => {
+    const harness = await launchExtensionContext();
+    try {
+      await resetExtensionState(harness.serviceWorker);
+      await setSyncSettings(harness.serviceWorker, buildDefaultSettings(server.origin));
+
+      // Without a target tab the popup page itself is the active tab: an
+      // extension page whose URL the extension cannot see or script.
+      const popupPage = await openExtensionPage(harness.context, harness.extensionId, 'popup.html?surface=popup');
+      await expect(popupPage.locator('#homePageCard')).toHaveAttribute('data-state', 'unsupported');
+      await expect(popupPage.locator('#homePageNote')).toContainText('浏览器内置页面');
+      await expect(popupPage.locator('#homeSummarizeBtn')).toBeDisabled();
+      await expect(popupPage.locator('#historyBtn')).toBeDisabled();
+    } finally {
+      await harness.close();
+    }
+  });
+
+  test('popup home quick options and the full settings stay one setting', async () => {
+    const harness = await launchExtensionContext();
+    try {
+      await resetExtensionState(harness.serviceWorker);
+      await setSyncSettings(harness.serviceWorker, buildDefaultSettings(server.origin, {
+        autoTranslate: true,
+        defaultLanguage: 'zh',
+        entrypointSimpleMode: false
+      }));
+
+      const popupPage = await openExtensionPage(harness.context, harness.extensionId, 'popup.html?surface=popup');
+      await expect(popupPage.locator('#quickOutputLanguage')).toHaveValue('zh');
+      await expect(popupPage.locator('#quickSimpleMode')).toHaveAttribute('aria-pressed', 'false');
+
+      await popupPage.locator('#quickSimpleMode').click();
+      await expect(popupPage.locator('#quickSimpleMode')).toHaveAttribute('aria-pressed', 'true');
+      await popupPage.selectOption('#quickOutputLanguage', 'en');
+      await expect.poll(() => readSyncSettings(harness.serviceWorker, ['entrypointSimpleMode', 'autoTranslate', 'defaultLanguage']))
+        .toEqual({ entrypointSimpleMode: true, autoTranslate: true, defaultLanguage: 'en' });
+
+      await popupPage.click('.tab[data-tab="preferences"]');
+      await expect(popupPage.locator('#outputLanguage')).toHaveValue('en');
+      // "Auto" turns translation off but keeps the remembered language.
+      await popupPage.selectOption('#outputLanguage', 'auto');
+      await expect.poll(() => readSyncSettings(harness.serviceWorker, ['autoTranslate', 'defaultLanguage']))
+        .toEqual({ autoTranslate: false, defaultLanguage: 'en' });
+      await expect(popupPage.locator('#quickOutputLanguage')).toHaveValue('auto');
+
+      await popupPage.click('.tab[data-tab="entrypoints"]');
+      await expect(popupPage.locator('#entrypointSimpleMode')).toBeChecked();
+    } finally {
+      await harness.close();
+    }
+  });
+
+  test('popup remembers a connection test only for the settings it tested', async () => {
+    const harness = await launchExtensionContext();
+    try {
+      await resetExtensionState(harness.serviceWorker);
+      await setSyncSettings(harness.serviceWorker, buildDefaultSettings(server.origin));
+
+      // Opened as a tab (like the options page), popup.html is settings-only.
+      const popupPage = await openExtensionPage(harness.context, harness.extensionId, 'popup.html');
+      await expect(popupPage.locator('html')).toHaveAttribute('data-surface', 'tab');
+      await expect(popupPage.locator('#tab-home')).toBeHidden();
+      await expect(popupPage.locator('#panel-connection')).toBeVisible();
+      await expect(popupPage.locator('#connectHero')).toHaveAttribute('data-state', 'unverified');
+
+      await popupPage.locator('#testBtn').click();
+      await expect(popupPage.locator('#connectHero')).toHaveAttribute('data-state', 'verified');
+      await expect(popupPage.locator('#connectResult')).toContainText('连接成功');
+
+      await popupPage.reload();
+      await expect(popupPage.locator('#connectHero')).toHaveAttribute('data-state', 'verified');
+      await expect(popupPage.locator('#connectStateText')).toContainText('已验证');
+
+      await popupPage.fill('#modelName', 'another-model');
+      await expect(popupPage.locator('#connectHero')).toHaveAttribute('data-state', 'unverified');
+      await expect(popupPage.locator('#connectResult')).toBeHidden();
+    } finally {
+      await harness.close();
+    }
+  });
+
+  test('an open settings page adopts changes saved elsewhere instead of writing its stale copy back', async () => {
+    const harness = await launchExtensionContext();
+    try {
+      await resetExtensionState(harness.serviceWorker);
+      await setSyncSettings(harness.serviceWorker, buildDefaultSettings(server.origin, {
+        modelName: 'first-model',
+        themePalette: 'jade'
+      }));
+
+      const popupPage = await openExtensionPage(harness.context, harness.extensionId, 'popup.html');
+      await expect(popupPage.locator('#modelName')).toHaveValue('first-model');
+
+      // e.g. the options tab saving while a popup is open; the palette change
+      // is applied live, which used to leave this form dirty with a stale model.
+      await setSyncSettings(harness.serviceWorker, { modelName: 'saved-elsewhere', themePalette: 'slate' });
+      await expect(popupPage.locator('#modelName')).toHaveValue('saved-elsewhere');
+
+      await popupPage.close();
+      await new Promise((resolve) => setTimeout(resolve, 600));
+      const stored = await readSyncSettings(harness.serviceWorker, ['modelName', 'themePalette']);
+      expect(stored).toEqual({ modelName: 'saved-elsewhere', themePalette: 'slate' });
+    } finally {
+      await harness.close();
+    }
+  });
+
+  test('an open settings page follows a profile switch made in another window', async () => {
+    const harness = await launchExtensionContext();
+    try {
+      await resetExtensionState(harness.serviceWorker);
+      const settings = buildDefaultSettings(server.origin, { modelName: 'personal-model' });
+      await setSyncSettings(harness.serviceWorker, settings);
+
+      const popupPage = await openExtensionPage(harness.context, harness.extensionId, 'popup.html');
+      await expect(popupPage.locator('#profileSelect')).toHaveValue('');
+
+      // Another window activates the "Work" profile.
+      const workSettings = Object.assign({}, settings, { modelName: 'work-model' });
+      await setSyncSettings(harness.serviceWorker, Object.assign({}, workSettings, {
+        yilanProfilesIndexV1: [{ id: 'prof_work', name: 'Work', providerPreset: 'custom', aiProvider: 'openai' }],
+        yilanActiveProfileIdV1: 'prof_work',
+        'yilanProfileV1:prof_work': workSettings
+      }));
+      await expect(popupPage.locator('#profileSelect')).toHaveValue('prof_work');
+      await expect(popupPage.locator('#modelName')).toHaveValue('work-model');
+
+      // Edits here now land in the Work profile, not in a stale unbound state.
+      await popupPage.fill('#modelName', 'work-model-2');
+      await popupPage.locator('#modelName').blur();
+      await expect.poll(async () => {
+        const stored = await readSyncSettings(harness.serviceWorker, ['yilanProfileV1:prof_work']);
+        return stored['yilanProfileV1:prof_work']?.modelName;
+      }).toBe('work-model-2');
+    } finally {
+      await harness.close();
     }
   });
 

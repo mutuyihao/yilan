@@ -1,6 +1,6 @@
 # Yilan
 
-Last updated: 2026-06-08
+Last updated: 2026-10-02
 
 Language: English | [中文](README.md)
 
@@ -53,7 +53,7 @@ The current version is no longer just a summarizer. It is a local-first web read
 
 ### 2. Configure a model
 
-1. Click the extension icon to open the settings page.
+1. Click the extension icon. On first run the popup shows a three-step setup; choose "Set up in a full tab" (or right-click the icon and pick Options) so the settings stay open while you copy your API key from the provider console.
 2. (Optional) Create a `Profile` to save multiple connection configs and quickly switch between them.
 3. In the `Connection` tab, choose a provider preset, Provider, and Endpoint Mode.
 4. Enter your `API Key`, and override `Base URL` or `Model` if needed.
@@ -72,7 +72,7 @@ Notes:
 ### 3. Use the extension
 
 1. Open any web page.
-2. Right-click the page and choose the Yilan summary action, or press `Alt + S`.
+2. Click the extension icon and press "Summarize this page" on the popup's "This page" view, right-click the page and choose the Yilan summary action, or press `Alt + S`. If the page was summarized before, the popup previews that summary and the button becomes "Open saved summary".
 3. When the sidebar opens, it checks the entry configuration first. If history reuse is enabled and a completed result exists for the current page, the latest result is shown immediately. Otherwise, generation starts automatically, or the sidebar waits for manual action depending on your settings.
 4. Use the sidebar to read the summary, generate action items / glossary / Q&A cards, export YouTube or Bilibili subtitles when available, and manage history or favorites. If `Default compact sidebar mode` is enabled in settings, the sidebar opens with a larger summary reading area.
 5. For focused reading, click the reader button at the top to open the result in a dedicated new tab.

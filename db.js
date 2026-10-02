@@ -534,6 +534,16 @@
     return findBestReusableRecordForArticle(items, article);
   }
 
+  // Popup lookup by page URL: reads only the records indexed under that URL
+  // instead of the whole history (records carry full article snapshots).
+  async function findReusableRecordByUrl(url) {
+    const normalizedUrl = Domain.normalizeUrl(url);
+    if (!normalizedUrl) return null;
+    const { store } = await getStore('readonly');
+    const items = await toPromise(store.index('normalizedUrl').getAll(normalizedUrl));
+    return findBestReusableRecordForArticle(items, { normalizedUrl, sourceUrl: url });
+  }
+
   async function toggleFavorite(recordId) {
     const existing = await getRecordById(recordId);
     if (!existing) return null;
@@ -582,6 +592,7 @@
     getAll,
     searchRecords,
     findReusableRecordForArticle,
+    findReusableRecordByUrl,
     getRecordById,
     toggleFavorite,
     updateRecord,

@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "__MSG_extName__",
   "description": "__MSG_extDescription__",
-  "version": "1.5.1",
+  "version": "1.6.0",
   "default_locale": "zh_CN",
   "icons": {
     "16": "icon/icon16.png",
@@ -21,6 +21,10 @@
   "host_permissions": ["<all_urls>"],
   "background": {
     "service_worker": "background.js"
+  },
+  "options_ui": {
+    "page": "popup.html",
+    "open_in_tab": true
   },
   "action": {
     "default_popup": "popup.html",

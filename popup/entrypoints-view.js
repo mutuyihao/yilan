@@ -8,10 +8,12 @@
     const setBadge = deps.setBadge;
     const getRuntimeErrorMessage = deps.getRuntimeErrorMessage;
     const formatDateTime = deps.formatDateTime;
+    const onStatus = typeof deps.onStatus === 'function' ? deps.onStatus : () => {};
 
   function renderEntrypointStatus(entrypoints) {
     const contextMenu = entrypoints?.contextMenu || {};
     const shortcut = entrypoints?.shortcut || {};
+    onStatus(entrypoints);
 
     const contextMenuReady = contextMenu.status === 'ready';
     $('contextMenuDesc').textContent = contextMenuReady

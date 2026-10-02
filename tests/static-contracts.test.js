@@ -443,6 +443,8 @@ test('popup DOM, tabs, autosave, provider settings, connection test, and entrypo
   });
 
   assertInOrder(extractScriptSources(html), [
+    'popup/surface.js',
+    'shared/theme.js',
     'shared/ui-format.js',
     'shared/i18n.js',
     'shared/ui-labels.js',
@@ -450,15 +452,20 @@ test('popup DOM, tabs, autosave, provider settings, connection test, and entrypo
     'shared/trust-policy.js',
     'shared/provider-catalog.generated.js',
     'shared/provider-presets.js',
+    'shared/domain.js',
+    'db.js',
     'popup/theme-controls.js',
     'popup/profiles.js',
     'popup/provider-selection.js',
     'popup/models.js',
     'popup/entrypoints-view.js',
+    'popup/home.js',
     'popup.js'
   ]);
+  // The surface (popup vs options tab) must resolve in <head>, before first paint.
+  assert.ok(html.indexOf('popup/surface.js') < html.indexOf('</head>'), 'popup/surface.js must load in <head>');
 
-  ['connection', 'preferences', 'entrypoints'].forEach((tab) => {
+  ['home', 'connection', 'preferences', 'entrypoints'].forEach((tab) => {
     assert.ok(html.includes('data-tab="' + tab + '"'));
     assert.ok(html.includes('data-tab-panel="' + tab + '"'));
   });
@@ -469,7 +476,14 @@ test('popup DOM, tabs, autosave, provider settings, connection test, and entrypo
   assert.ok(js.includes('function scheduleAutoSave()'));
   assert.ok(js.includes('function flushPendingChanges()'));
   assert.ok(js.includes("action: 'testConnection'"));
-  assert.ok(js.includes("action: 'triggerHistory'"));
+  assert.ok(js.includes('CONNECTION_CHECK_STORAGE_KEY'), 'popup.js must persist the last connection test');
+  ['outputLanguage', 'quickOutputLanguage', 'defaultLanguage', 'autoTranslate', 'quickSimpleMode', 'quickPrivacyMode'].forEach((id) => {
+    assert.ok(ids.has(id), 'popup.html missing output/quick control: ' + id);
+  });
+
+  const manifest = readJson('manifest.json');
+  assert.strictEqual(manifest.options_ui?.page, 'popup.html', 'popup.html doubles as the full-tab options page');
+  assert.strictEqual(manifest.options_ui?.open_in_tab, true);
 
   // popup/* controller modules own their slices of the settings UI.
   const themeControlsJs = readText('popup/theme-controls.js');
@@ -477,12 +491,15 @@ test('popup DOM, tabs, autosave, provider settings, connection test, and entrypo
   const providerSelectionJs = readText('popup/provider-selection.js');
   const modelsJs = readText('popup/models.js');
   const entrypointsViewJs = readText('popup/entrypoints-view.js');
+  const homeJs = readText('popup/home.js');
+  const surfaceJs = readText('popup/surface.js');
   [
     ['popup/theme-controls.js', 'createThemeControlsController', 'global.YilanPopupThemeControls = api'],
     ['popup/profiles.js', 'createProfilesController', 'global.YilanPopupProfiles = api'],
     ['popup/provider-selection.js', 'createProviderSelectionController', 'global.YilanPopupProviderSelection = api'],
     ['popup/models.js', 'createModelsController', 'global.YilanPopupModels = api'],
-    ['popup/entrypoints-view.js', 'createEntrypointsViewController', 'global.YilanPopupEntrypointsView = api']
+    ['popup/entrypoints-view.js', 'createEntrypointsViewController', 'global.YilanPopupEntrypointsView = api'],
+    ['popup/home.js', 'createHomeController', 'global.YilanPopupHome = api']
   ].forEach(([file, factory, globalName]) => {
     const source = readText(file);
     assert.ok(source.includes('function ' + factory + '('), file + ' missing ' + factory);
@@ -491,6 +508,10 @@ test('popup DOM, tabs, autosave, provider settings, connection test, and entrypo
   });
   assert.ok(entrypointsViewJs.includes("action: 'getEntrypointStatus'"));
   assert.ok(entrypointsViewJs.includes("action: 'openShortcutSettings'"));
+  assert.ok(homeJs.includes("action: 'triggerSummary'"));
+  assert.ok(homeJs.includes("action: 'triggerHistory'"));
+  assert.ok(surfaceJs.includes("getViews?.({ type: 'popup' })"), 'surface detection must use the popup view registry');
+  assert.ok(surfaceJs.includes('global.YilanPopupSurface = '));
   assert.ok(providerSelectionJs.includes('ProviderPresets.listPresets()'));
   assert.ok(providerSelectionJs.includes('ProviderPresets.getProviderRoutes('));
   assert.ok(modelsJs.includes("action: 'listModels'"));
@@ -498,7 +519,7 @@ test('popup DOM, tabs, autosave, provider settings, connection test, and entrypo
   assert.ok(themeControlsJs.includes('syncThemePreferenceControl'));
 
   // Every $('id') referenced from popup core or popup/* modules must exist in popup.html.
-  [js, themeControlsJs, profilesJs, providerSelectionJs, modelsJs, entrypointsViewJs].forEach((source, index) => {
+  [js, themeControlsJs, profilesJs, providerSelectionJs, modelsJs, entrypointsViewJs, homeJs].forEach((source, index) => {
     assertAllIdsExist('popup.html module#' + index, extractQuotedCalls(source, /\$\('([^']+)'\)/g), ids);
   });
 
@@ -570,6 +591,8 @@ test('background service worker exposes entrypoints, run actions, cancellation, 
   assert.ok(js.includes("message.action === 'runPrompt'"));
   assert.ok(js.includes("message.action === 'cancelRun'"));
   assert.ok(js.includes("message.action === 'triggerHistory'"));
+  assert.ok(js.includes("message.action === 'triggerSummary'"));
+  assert.ok(js.includes("safeInjectAndRun(tab, 'extractAndSummarize')"), 'popup summary must reuse the entrypoint content action');
   assert.ok(js.includes("message.action === 'getEntrypointStatus'"));
   assert.ok(js.includes("message.action === 'openReaderTab'"));
   assert.ok(js.includes('const ReaderSessions = self.YilanReaderSessions'));

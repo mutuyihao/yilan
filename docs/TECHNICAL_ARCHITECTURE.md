@@ -1,6 +1,6 @@
 # 技术架构
 
-Last updated: 2026-09-12
+Last updated: 2026-10-02
 
 这份文档描述当前仓库已经落地并仍然有效的运行时边界、数据模型，以及支撑重构的工程验证边界。TypeScript、构建链和 React 迁移属于规划草案，见 [TS + React 迁移评估与执行计划](TS_REACT_MIGRATION.md)。
 
@@ -172,9 +172,16 @@ flowchart TB
 
 ### `popup.html / popup.js / popup/*`
 
+同一份 `popup.html` 渲染两种界面（surface）：
+
+- 工具栏弹窗（`popup`）：默认打开 `此页`，展示当前标签页、是否已有可复用摘要和“总结此页”主按钮；`连接`、`偏好`、`快捷入口` 三个设置标签在左侧导航。
+- 完整标签页（`tab`）：Manifest `options_ui` 指向 `popup.html`（`open_in_tab: true`），只显示三个设置标签，宽屏双栏布局。
+- `popup/surface.js` 在 `<head>` 中通过 `chrome.extension.getViews({ type: 'popup' })` 同步判定界面并写入 `:root[data-surface]`，样式在首帧前切换；`?surface=popup|tab` 可显式固定（测试、截图用，`popup` 界面下还可配合 `targetTab=<tabId>` 指定目标标签页）。
+
 职责：
 
-- 渲染设置页三个标签：`连接`、`偏好`、`入口`
+- 渲染 `此页` 与三个设置标签：`连接`、`偏好`、`快捷入口`
+- `此页` 的“总结此页”发送 `triggerSummary`（与右键菜单、`Alt + S` 走同一个 `extractAndSummarize` 内容动作，入口设置同样生效），历史按钮发送带 `tabId` 的 `triggerHistory`
 - 管理“配置方案”（多套连接配置的保存与切换）
 - 自动保存设置
 - 测试连接
@@ -193,6 +200,10 @@ flowchart TB
 - `popup/provider-selection.js`：Provider、route、endpoint mode 联动和提示。
 - `popup/models.js`：模型列表缓存读取、刷新和 datalist 渲染。
 - `popup/entrypoints-view.js`：右键菜单/快捷键状态展示；popup 初次打开走只读检查，用户主动刷新才执行入口修复。
+- `popup/surface.js`：弹窗 / 完整标签页界面判定，必须在 `<head>` 中加载。
+- `popup/home.js`：`此页` 控制器与纯函数（URL 分类、相对时间、连接指纹与状态）；通过 `db.findReusableRecordByUrl()` 按 `normalizedUrl` 索引只读取当前页的记录，不加载整个历史。
+- 连接测试结果写入 `chrome.storage.local` 的 `yilanConnectionCheckV1`（`{ signature, ok, testedAt, model, message }`）；`signature` 是连接字段的哈希（忽略结尾 `/v1`，不含 Key 明文），设置变化后状态自动回到“未验证”。
+- 其它界面或后台写入设置时（`chrome.storage.onChanged`），表单会重新应用存储中的值，避免自动保存把旧表单写回覆盖；本页有待保存的输入时以本页为准。
 
 自动保存策略：
 
